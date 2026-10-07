@@ -1,0 +1,13 @@
+{
+  "name": "finance-79venture",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Finance web app for 79 Ventures (finance.79venture.com)",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
