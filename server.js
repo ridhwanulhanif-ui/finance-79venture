@@ -6,6 +6,66 @@ const path = require("node:path");
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
 
+// The consolidation workbook, fetched server-side because Google sends no CORS headers.
+// Override with CONSOL_FILE_ID in Railway Variables. The file must be shared "anyone with the link".
+const FILE_ID = process.env.CONSOL_FILE_ID || "1mx6JMUwsWpLx_4BT2vTy71bYGmIlXqCT";
+const CACHE_MS = 60_000;
+let cache = null;
+
+// Fixed ID from the environment, never from the request, so the request cannot steer the fetch.
+async function fetchWorkbook() {
+  if (!/^[A-Za-z0-9_-]{10,100}$/.test(FILE_ID)) throw new Error("bad_id");
+  const r = await fetch(`https://drive.google.com/uc?export=download&id=${FILE_ID}`, {
+    redirect: "follow",
+    signal: AbortSignal.timeout(20_000),
+  });
+  if (!r.ok) throw new Error("upstream_" + r.status);
+  const buf = Buffer.from(await r.arrayBuffer());
+  // A workbook is a ZIP ("PK"). Anything else is Google's sign-in or scan-warning page,
+  // which means the file is not shared publicly.
+  if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) throw new Error("not_shared");
+  const cd = r.headers.get("content-disposition") || "";
+  const m = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(cd);
+  let title = "";
+  try {
+    title = m ? decodeURIComponent(m[1]).replace(/[^\x20-\x7e]/g, "").trim() : "";
+  } catch {
+    title = "";
+  }
+  return { buf, title };
+}
+
+async function serveWorkbook(res) {
+  if (cache && Date.now() - cache.at < CACHE_MS) {
+    res.writeHead(200, cache.headers);
+    res.end(cache.buf);
+    return;
+  }
+  try {
+    const { buf, title } = await fetchWorkbook();
+    const headers = {
+      "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      "Content-Length": buf.length,
+      "Cache-Control": "no-store",
+      "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow",
+      "X-Consol-Title": encodeURIComponent(title),
+      "X-Consol-Fetched": new Date().toISOString(),
+    };
+    cache = { buf, headers, at: Date.now() };
+    res.writeHead(200, headers);
+    res.end(buf);
+  } catch (err) {
+    const code = err && err.message === "not_shared" ? "not_shared" : "upstream";
+    console.error("workbook fetch failed:", (err && err.message) || err);
+    res.writeHead(code === "not_shared" ? 403 : 502, {
+      "Content-Type": "application/json; charset=utf-8",
+      "Cache-Control": "no-store",
+    });
+    res.end(JSON.stringify({ error: code }));
+  }
+}
+
 const TYPES = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -33,6 +93,17 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (urlPath === "/api/consol.xlsx") {
+    serveWorkbook(res);
+    return;
+  }
+
+  if (urlPath === "/robots.txt") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("User-agent: *\nDisallow: /\n");
+    return;
+  }
+
   if (urlPath.endsWith("/")) urlPath += "index.html";
 
   // Resolve inside PUBLIC_DIR only; reject anything that escapes it.
@@ -51,6 +122,7 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, {
       "Content-Type": TYPES[path.extname(filePath)] || "application/octet-stream",
       "X-Content-Type-Options": "nosniff",
+      "X-Robots-Tag": "noindex, nofollow",
     });
     res.end(data);
   });

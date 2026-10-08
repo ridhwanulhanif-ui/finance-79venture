@@ -18,12 +18,19 @@ one applies depends on where the page is running:
 
 | Running on | Data source |
 |---|---|
-| `finance.79venture.com` (this repo, on Railway) | **Open Excel file…** — the user picks the `.xlsx`, which is read in the browser only |
+| `finance.79venture.com` (this repo, on Railway) | `/api/consol.xlsx` — `server.js` fetches the workbook from Drive, with **Open Excel file…** as fallback |
 | Apps Script web app (`apps-script/`) | Google Drive, via the signed-in user's own access |
 
-Railway serves static files and holds no Google credentials, so the hosted site cannot reach Drive. That is deliberate:
-**the hosted site has no login**, so anything it could fetch by itself would be readable by anyone who finds the URL.
-Use the Apps Script deployment for automatic pulls — it sits behind a Google sign-in restricted to the `79ventures.biz` domain.
+Google sends no CORS headers, so the browser cannot fetch the workbook itself; `server.js` fetches it and passes the bytes
+through, cached for a minute. The file ID is `CONSOL_FILE_ID` in Railway Variables, defaulting to the consolidation workbook.
+The ID comes only from the environment, never from the request.
+
+**This path needs the workbook shared as "Anyone with the link – Viewer", and the site has no login.** So both the workbook
+and the figures on the page are readable by anyone who has the URL. Until a login is added, treat this deployment as public.
+If the endpoint returns `not_shared`, the page says so and falls back to **Open Excel file…**.
+
+The Apps Script version avoids that: it reads Drive as the signed-in user, behind a Google sign-in restricted to the
+`79ventures.biz` domain, with the file staying private.
 
 The default workbook is `02.10.2026_Consol+Mgmt Fee_2026.xlsx` (Drive ID in `DEF` in `public/index.html`), with tabs
 `3. Latest 79V P&L-Mthly`, `3.1 79V BS`, `4. Latest Arabina PNL-Mthly`, `4.1 Arabina BS`. Change these under **Data source**
