@@ -210,7 +210,8 @@ table.cs td.num{min-width:70px}
       <div class="actions">
         <label class="hint" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="auto"> Auto refresh every <select id="autoMin" style="font:inherit;padding:1px 4px"><option value="1">1 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="15">15 min</option></select></label>
         <button id="csv" hidden>Download CSV</button>
-        <button id="dlx" hidden>Download Excel</button>
+        <button id="dlall" hidden>Download Analysis</button>
+        <button id="dlx" hidden>Download Source</button>
         <button id="openFile" hidden>Open Excel file…</button>
         <input type="file" id="fileIn" accept=".xlsx,.xls" hidden>
         <button class="primary" id="refresh">Refresh data</button>
@@ -2314,7 +2315,7 @@ function render(){
   const m=state.meta||{};
   $('status').innerHTML=`<b>${esc(m.title||'Drive file')}</b><br>Updated in Drive: ${m.modifiedTime?dt(Date.parse(m.modifiedTime)):'–'} · Data pulled: ${state.fetchedAt?dt(state.fetchedAt):'–'}`;
   $('status').innerHTML=$('status').innerHTML.replace(' · ','<br>');
-  ['eqbox','controls','legend'].forEach(id=>$(id).hidden=false); $('csv').hidden=false;
+  ['eqbox','controls','legend'].forEach(id=>$(id).hidden=false); $('csv').hidden=false; $('dlall').hidden=false;
   renderEq(); renderTable();
 }
 
@@ -2944,6 +2945,94 @@ function autoSet(){ if(timer){clearInterval(timer);timer=null;} const mins=Math.
 (()=>{ try{ const a=JSON.parse(store.get('consol.auto')||'{}'); $('autoMin').value=String(a.min||1); $('auto').checked=a.on===undefined?true:!!a.on; }catch(e){ $('autoMin').value='1'; } })();
 $('auto').addEventListener('change',autoSet); $('autoMin').addEventListener('change',autoSet); autoSet();
 $('csv').addEventListener('click',async()=>{ if(!state.res) return; if(!downloads){ const url=URL.createObjectURL(new Blob([toCSV()],{type:'text/csv'})); const a=document.createElement('a'); a.href=url; a.download='Consol_'+state.view+'_'+MONTHS[state.from]+'-'+MONTHS[state.to]+'_2026.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); return; } try{ await downloads.save({filename:({v:'PnL_79V_',a:'PnL_Arabina_',be:'Breakeven_',bse:'BS_Consol_Entiti_',bsc:'BS_Consol_',bsv:'BS_79V_',bsa:'BS_Arabina_'}[state.view]||'Consol_PnL_')+MONTHS[state.from]+'-'+MONTHS[state.to]+'_2026.csv',data:new Blob([toCSV()],{type:'text/csv'})}); }catch(e){} });
+
+// ===== Export every view to one workbook, a sheet per view =====
+// The views are computed in the page, not in the source workbook, so this renders each
+// one in turn and reads the rendered tables back out.
+function xlText(td){
+  const f=td.querySelector('input,select,textarea');
+  if(f){
+    if(f.type==='checkbox') return f.checked?'Yes':'No';
+    if(f.tagName==='SELECT') return (f.selectedOptions[0]&&f.selectedOptions[0].textContent)||f.value||'';
+    return f.value||'';
+  }
+  return (td.innerText||'').replace(/\s+/g,' ').trim();
+}
+// "1,234" -> 1234, "(1,234)" -> -1234, so the figures stay computable in Excel.
+function xlValue(s){
+  const t=String(s==null?'':s).replace(/ /g,' ').trim();
+  if(!t) return '';
+  const neg=/^\(.*\)$/.test(t);
+  const n=t.replace(/^\(|\)$/g,'').replace(/,/g,'').replace(/^RM\s*/i,'').trim();
+  if(n!=='' && /^-?\d*\.?\d+$/.test(n)) return neg?-parseFloat(n):parseFloat(n);
+  return t;
+}
+function viewToAoa(title){
+  const aoa=[[title],[MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026'],[]];
+  const tables=$('tablebox').querySelectorAll('table');
+  if(!tables.length){
+    const txt=($('tablebox').innerText||'').trim();
+    (txt?txt.split('\n'):['(nothing to export in this view)']).forEach(l=>aoa.push([l.trim()]));
+    return aoa;
+  }
+  tables.forEach((tb,i)=>{
+    if(i) aoa.push([]);
+    tb.querySelectorAll('tr').forEach(tr=>{
+      const row=[];
+      Array.from(tr.cells).forEach(td=>{
+        row.push(xlValue(xlText(td)));
+        for(let k=1;k<(td.colSpan||1);k++) row.push('');
+      });
+      aoa.push(row);
+    });
+  });
+  return aoa;
+}
+function sheetName(label,used){
+  let n=label.replace(/[\\\/\?\*\[\]:]/g,'-').replace(/\s+/g,' ').trim().slice(0,31)||'Sheet';
+  let base=n, i=2;
+  while(used.has(n)){ const suf=' ('+i+')'; n=base.slice(0,31-suf.length)+suf; i++; }
+  used.add(n); return n;
+}
+async function exportAllViews(){
+  if(!state.res){ setMsg('Load the data first.','err'); return; }
+  const b=$('dlall'), label=b.textContent; b.disabled=true;
+  const prevView=state.view, used=new Set(), wb=XLSX.utils.book_new();
+  const views=Array.from($('viewSel').querySelectorAll('option')).map(o=>({v:o.value,t:o.textContent.trim()}));
+  try{
+    const info=[['79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd'],['Source workbook',(state.meta&&state.meta.title)||''],
+      ['Period','Jan–'+MONTHS[state.to]+' 2026'],['Range shown',MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026'],
+      ['Legal fee adjustment',adjOn?'applied':'off'],['CIP capitalisation',cipOn?'applied':'off'],
+      ['Exported',new Date().toLocaleString('en-GB')],[''],['Sheets follow the order of the View list.'],
+      ['Figures are a snapshot of what the page showed; assumptions you typed are saved per browser.']];
+    XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(info),sheetName('About this export',used));
+    for(const V of views){
+      state.view=V.v; $('viewSel').value=V.v;
+      document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===V.v)));
+      b.textContent='Exporting '+(used.size)+'/'+views.length+'…';
+      let aoa;
+      try{ renderEq(); renderTable(); await new Promise(r=>setTimeout(r,80)); aoa=viewToAoa(V.t); }
+      catch(e){ aoa=[['This view could not be exported'],[String((e&&e.message)||e)]]; }
+      const ws=XLSX.utils.aoa_to_sheet(aoa);
+      const wide=aoa.reduce((m,r)=>Math.max(m,r.length),0);
+      ws['!cols']=[{wch:46},...Array.from({length:Math.max(0,wide-1)},()=>({wch:14}))];
+      XLSX.utils.book_append_sheet(wb,ws,sheetName(V.t,used));
+    }
+    const out=XLSX.write(wb,{bookType:'xlsx',type:'array'});
+    const name='Analysis_79V_Arabina_'+MONTHS[state.from]+'-'+MONTHS[state.to]+'_2026.xlsx';
+    const blob=new Blob([out],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+    if(downloads){ try{ await downloads.save({filename:name,data:blob}); }catch(e){} }
+    else{ const url=URL.createObjectURL(blob), a=document.createElement('a');
+      a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); }
+  }catch(e){ setMsg('Could not build the workbook: '+esc((e&&e.message)||String(e)),'err'); }
+  finally{
+    state.view=prevView; $('viewSel').value=prevView;
+    document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===prevView)));
+    try{ renderEq(); renderTable(); }catch(e){}
+    b.disabled=false; b.textContent=label;
+  }
+}
+$('dlall').addEventListener('click',exportAllViews);
 
 // Download the source workbook itself (web mode: the copy server.js pulls from Drive).
 $('dlx').addEventListener('click',async()=>{
