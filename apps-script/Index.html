@@ -210,6 +210,7 @@ table.cs td.num{min-width:70px}
       <div class="actions">
         <label class="hint" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="auto"> Auto refresh every <select id="autoMin" style="font:inherit;padding:1px 4px"><option value="1">1 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="15">15 min</option></select></label>
         <button id="csv" hidden>Download CSV</button>
+        <button id="dlx" hidden>Download Excel</button>
         <button id="openFile" hidden>Open Excel file…</button>
         <input type="file" id="fileIn" accept=".xlsx,.xls" hidden>
         <button class="primary" id="refresh">Refresh data</button>
@@ -2313,7 +2314,7 @@ function render(){
   const m=state.meta||{};
   $('status').innerHTML=`<b>${esc(m.title||'Drive file')}</b><br>Updated in Drive: ${m.modifiedTime?dt(Date.parse(m.modifiedTime)):'–'} · Data pulled: ${state.fetchedAt?dt(state.fetchedAt):'–'}`;
   $('status').innerHTML=$('status').innerHTML.replace(' · ','<br>');
-  ['eqbox','controls','legend'].forEach(id=>$(id).hidden=false); $('csv').hidden=!downloads;
+  ['eqbox','controls','legend'].forEach(id=>$(id).hidden=false); $('csv').hidden=false;
   renderEq(); renderTable();
 }
 
@@ -2807,10 +2808,10 @@ function renderBE(){
 
 function renderTable(){
   if(state.view==='mg'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderMG(); }
-  if(state.view==='be'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; if(state.res) $('csv').hidden=!downloads; $('tablebox').style.maxHeight='none'; return renderBE(); }
+  if(state.view==='be'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; if(state.res) $('csv').hidden=false; $('tablebox').style.maxHeight='none'; return renderBE(); }
   const isTax=state.view==='tax';
   $('rangeCtl').style.display=isTax?'none':'contents';
-  $('legend').hidden=isTax||!state.res; if(state.res) $('csv').hidden=isTax||!downloads;
+  $('legend').hidden=isTax||!state.res; if(state.res) $('csv').hidden=isTax;
   $('tablebox').style.maxHeight=isTax?'none':'';
   if(isTax) return renderTax();
   if(state.view.startsWith('bs')){ $('legend').hidden=true; return renderBS(state.view.slice(2)); }
@@ -2944,6 +2945,20 @@ function autoSet(){ if(timer){clearInterval(timer);timer=null;} const mins=Math.
 $('auto').addEventListener('change',autoSet); $('autoMin').addEventListener('change',autoSet); autoSet();
 $('csv').addEventListener('click',async()=>{ if(!state.res) return; if(!downloads){ const url=URL.createObjectURL(new Blob([toCSV()],{type:'text/csv'})); const a=document.createElement('a'); a.href=url; a.download='Consol_'+state.view+'_'+MONTHS[state.from]+'-'+MONTHS[state.to]+'_2026.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000); return; } try{ await downloads.save({filename:({v:'PnL_79V_',a:'PnL_Arabina_',be:'Breakeven_',bse:'BS_Consol_Entiti_',bsc:'BS_Consol_',bsv:'BS_79V_',bsa:'BS_Arabina_'}[state.view]||'Consol_PnL_')+MONTHS[state.from]+'-'+MONTHS[state.to]+'_2026.csv',data:new Blob([toCSV()],{type:'text/csv'})}); }catch(e){} });
 
+// Download the source workbook itself (web mode: the copy server.js pulls from Drive).
+$('dlx').addEventListener('click',async()=>{
+  const b=$('dlx'), label=b.textContent; b.disabled=true; b.textContent='Downloading…';
+  try{
+    const r=await fetch('/api/consol.xlsx',{cache:'no-store'});
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    let name=''; try{ name=decodeURIComponent(r.headers.get('X-Consol-Title')||''); }catch(e){}
+    const url=URL.createObjectURL(await r.blob()), a=document.createElement('a');
+    a.href=url; a.download=name||'consolidation.xlsx'; document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(()=>URL.revokeObjectURL(url),2000);
+  }catch(e){ setMsg('Could not download the workbook: '+esc((e&&e.message)||String(e)),'err'); }
+  finally{ b.disabled=false; b.textContent=label; }
+});
+
 // boot: show last saved data instantly, then fetch fresh
 try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid===fileIdFrom(cfg.fid)||last.fid==='local')&&last.res){ state.res0=last.res; state.res=adjView(last.res); state.meta=last.meta; state.fetchedAt=last.fetchedAt; state.stale=true; initRange(); render(); } }catch(e){}
 (async()=>{
@@ -2956,12 +2971,12 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
     // Served by server.js? Then the workbook comes from Drive through /api/consol.xlsx.
     let served=false;
     try{ served=(await fetch('/health',{cache:'no-store'})).ok; }catch(e){}
-    if(served){ MODE='web'; autoSet(); refresh(false); return; }
+    if(served){ MODE='web'; $('dlx').hidden=false; autoSet(); refresh(false); return; }
     $('auto').checked=false; if(timer){ clearInterval(timer); timer=null; }
     if(!state.res) $('tablebox').innerHTML='<div class="empty">Choose the consolidation Excel file (.xlsx) with <b>Open Excel file…</b>. The file is read in this browser only. (Forecast import, benchmark and bank statement scan need claude.ai or the Apps Script version.)</div>';
     return; }
   const [m,d]=await Promise.all([C.use('mcp').catch(()=>null),C.use('downloads').catch(()=>null)]);
-  mcp=m; downloads=d; if(state.res) $('csv').hidden=!downloads;
+  mcp=m; downloads=d; if(state.res) $('csv').hidden=false;
   if(!mcp){ if(!state.res) $('tablebox').innerHTML='<div class="empty">Connectors are not available in this view. Open the artifact on claude.ai.</div>'; else addMsg('Connectors are not available in this view; showing last saved data.',''); return; }
   refresh(false);
 })();
