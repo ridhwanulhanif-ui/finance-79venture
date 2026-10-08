@@ -4,3 +4,10 @@ node_modules/
 !.env.example
 .DS_Store
 npm-debug.log*
+
+# This repo is public. Accounting workbooks and bank statements never belong in it.
+*.xlsx
+*.xls
+*.pdf
+*.csv
+data/
