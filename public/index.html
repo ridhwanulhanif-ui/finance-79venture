@@ -649,7 +649,9 @@ function renderEqBS(elId,noteId){
     L.push([names[k],v,a,Math.round((v+a)*100)/100,{ind:1,sub:{v:Math.abs(v)<0.005?gone(k):'',a:own(k)}}]); });
   const on=j>=XFER.from;
   L.push(['Total inventory',sv.inv,sa.inv,Math.round((sv.inv+sa.inv)*100)/100,
-    {tot:1,sub:{v:on?'RM'+fmt0(XFER_INV)+' transferred to Arabina':'',
+    // Spell out the inter-co balance: it is larger than this line because it carries goods in
+    // transit too, which is exactly what made the old label read as more than the total above it.
+    {tot:1,sub:{v:on?'RM'+fmt0(XFER_INV)+' transferred to Arabina<br>+ RM'+fmt0(XFER.amt.__git)+' goods in transit = RM'+fmt0(XFER_INV+XFER.amt.__git)+' inter-co balance':'',
                 a:on?'incl. RM'+fmt0(XFER_INV)+' from 79V · RM'+fmt0(XFER_OWN)+' own':''}}]);
   let h=`<div class="h">As at ${MONTHS[j]} 2026</div><div class="h v" style="text-align:right">79V</div><div class="h a" style="text-align:right">+ Arabina</div><div class="h" style="text-align:right">− Elim. inter-co</div><div class="h c" style="text-align:right">= Consol</div>`;
   L.forEach(([lab,v,a,c,o],i)=>{ const cls=(i===L.length-1?' last':'')+(o&&o.ind?' ind':'')+(o&&o.tot?' tt':'');
