@@ -3556,42 +3556,6 @@ function homeLoansHTML(){
   h+=`<tr><td colspan="${ms.length+2}"><span class="note">Interest in the P&amp;L for these months: ${ms.map(j=>MONTHS[j]+' RM'+fmt0(int[j]||0)).join(' · ')}. It is part of the instalments above, not on top of them.${B.a&&!L.some(x=>x.e==='a')?' Arabina has no loans.':''}</span></td></tr>`;
   return h+'</table></div></div>';
 }
-// Homepage: where the operating costs go. Built from the workbook's own group totals, with the
-// directors' share pulled out of statutory contributions, training and refreshment so it reads as
-// one figure; anything left unclassified is shown as "Other", so the categories always add up to
-// Total for Expenses.
-function homeOpexHTML(){
-  const rows=state.res.rows, Z=()=>0;
-  const byK=k=>{ const r=rows.find(x=>x.k===k); return r?sumR(r.val.c):0; };
-  const byL=re=>rows.filter(x=>x.t==='D'&&x.s==='EXP'&&re.test(x.l)).reduce((t,x)=>t+sumR(x.val.c),0);
-  const inc=byK('INC'), tot=byK('EXP');
-  const dirStat=byL(/\((directors)\)$/i)-byL(/^professional development \(directors\)$/i), dirDev=byL(/^professional development \(directors\)$/i), dirMeet=byL(/^director meeting expenses$/i);
-  const cp=byL(/^corporate taxation \(cp204\)$/i);
-  const C=[
-    ['Staff salaries &amp; costs','salary, allowances, staff EPF/SOCSO, training, benefits',byK('STF')+byK('STA')-dirStat+byK('TRN')-dirDev+byK('EB')+byK('REF')-dirMeet],
-    ['Directors','allowance, benefits, EPF/SOCSO, development, meetings',byK('DIR')+byK('DB')+dirStat+dirDev+dirMeet,'dir'],
-    ['Sales commission','',byK('COM')],
-    ['Premises &amp; operations','rental, utilities, vehicles, travel',byK('OFF')+byK('GO')+byK('TRV')],
-    ['Admin, professional &amp; compliance','admin, consultants, audit, secretarial, software, bank charges',byK('ADM')+byK('CMP')-cp+byK('PRO')+byK('MEM')+byK('IT')+byK('BNK')],
-    ['Marketing','',byK('MKT')]];
-  const fin=byK('FC'), zak=byK('ZAK');
-  const opex=tot-fin-cp-zak, other=opex-C.reduce((t,c)=>t+c[2],0);
-  if(Math.abs(other)>0.5) C.push(['Other','not in a group above',other]);
-  const pc=(x,y)=>Math.abs(y)>0.5?(x/y*100).toFixed(1)+'%':'–';
-  const per=state.from===state.to?MONTHS[state.from]+' 2026':MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026';
-  const d=hlCfg.dirr||{g:8,b:12}, dp=inc?C[1][2]/inc*100:0;
-  const dz=dp>d.b?['bad','above the '+d.b+'% danger line']:dp>d.g?['warn','between the '+d.g+'% healthy and '+d.b+'% danger lines']:['okr','within the '+d.g+'% healthy line'];
-  let h=`<div class="tcard" style="margin-bottom:22px"><h2>Operating costs · ${per}</h2><div class="hint">Consolidated, inter-co management fee eliminated · % of group revenue RM${fmt0(inc)}</div>
-    <table class="tc" style="margin-top:8px"><tr class="sub"><td>Category</td><td class="r">RM</td><td class="r">% revenue</td><td class="r wide">% of costs</td></tr>`;
-  C.forEach(([l,n,v,k])=>{ h+=`<tr${k==='dir'?` class="${dz[0]==='okr'?'':dz[0]==='bad'?'warn':''}"`:''}><td>${l}${n?`<span class="note">${n}</span>`:''}${k==='dir'?`<span class="note">${pc(v,inc)} of revenue is ${dz[1]} (Margin vs Benchmark)</span>`:''}</td><td class="r">${fmt0(v)}</td><td class="r">${pc(v,inc)}</td><td class="r wide">${pc(v,opex)}</td></tr>`; });
-  h+=`<tr class="big"><td>Operating costs</td><td class="r">${fmt0(opex)}</td><td class="r">${pc(opex,inc)}</td><td class="r wide">100%</td></tr>
-    <tr><td colspan="4"><span class="note">Not counted above: loan &amp; HP interest RM${fmt0(fin)} · CP204 booked RM${fmt0(cp)}${Math.abs(zak)>0.5?' · zakat RM'+fmt0(zak):''}. Each 1% of revenue saved is about RM${fmt0(inc/100)} of profit.</span></td></tr>`;
-  // Accounts that are often one-off or avoidable, listed only when they carry a balance.
-  const W=[['Penalty &amp; charges',/^penalty & charges$/i],['Loan consultation fee',/^loan consultation fee$/i],['Recruitment',/^recruitment expenses$/i],['Staff settlement',/^staff settlement$/i],['Vehicle repair &amp; maintenance',/^vehicle repair & maintenance$/i]]
-    .map(([l,re])=>[l,byL(re)]).filter(x=>Math.abs(x[1])>0.5);
-  if(W.length) h+=`<tr><td colspan="4"><span class="note"><b>Worth a look</b> (one-off or avoidable): ${W.map(([l,v])=>l+' RM'+fmt0(v)).join(' · ')}</span></td></tr>`;
-  return h+'</table></div>';
-}
 // Homepage: the two tax dates the board needs to see coming, from the same figures as Tax & CP204.
 function homeTaxHTML(){
   const R=x=>'RM'+fmt0(x), D=a=>a.length>1?a[0]+' and '+a[a.length-1]:a[0];
@@ -3624,7 +3588,7 @@ function renderTable(){
     $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true;
     $('tablebox').style.maxHeight='none';
     $('tablebox').innerHTML=state.res
-      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ let x=''; try{ x+=homeLoansHTML(); }catch(e){} try{ x+=homeOpexHTML(); }catch(e){} return '<div class="taxwrap" style="padding-bottom:0">'+x+'</div>'; })()+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
+      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ let x=''; try{ x+=homeLoansHTML(); }catch(e){} return '<div class="taxwrap" style="padding-bottom:0">'+x+'</div>'; })()+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
       : '<div class="empty">Press Refresh data to load the workbook.</div>';
     return;
   }
