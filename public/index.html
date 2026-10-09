@@ -263,6 +263,9 @@ table.cs td.num{min-width:70px}
   <div class="controls" id="controls" hidden>
     <label class="viewpick">View
       <select id="viewSel" aria-label="Select view">
+        <optgroup label="Overview">
+          <option value="home">Homepage</option>
+        </optgroup>
         <optgroup label="Profit &amp; Loss">
           <option value="ent">Consol by entity</option>
           <option value="con">Consol only</option>
@@ -299,7 +302,8 @@ table.cs td.num{min-width:70px}
       </select>
     </label>
     <div class="seg" role="group" aria-label="View" hidden>
-      <button data-view="ent" aria-pressed="true">Consol by entity</button>
+      <button data-view="home" aria-pressed="true">Homepage</button>
+      <button data-view="ent" aria-pressed="false">Consol by entity</button>
       <button data-view="con" aria-pressed="false">Consol only</button>
       <button data-view="v" aria-pressed="false">P&amp;L 79V</button>
       <button data-view="a" aria-pressed="false">P&amp;L Arabina</button>
@@ -2512,7 +2516,7 @@ const SERVER='Google Drive';
 const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
 const $=id=>document.getElementById(id);
 let cfg=(()=>{try{return Object.assign({},DEF,JSON.parse(store.get('consol.cfg')||'{}'))}catch(e){return {...DEF}}})();
-let state={res:null, view:'ent', from:0, to:11, meta:null, fetchedAt:null, stale:false};
+let state={res:null, view:'home', from:0, to:11, meta:null, fetchedAt:null, stale:false};
 let mcp=null, downloads=null, busy=false, timer=null;
 
 function fileIdFrom(s){ s=String(s||'').trim(); const m=s.match(/\/d\/([A-Za-z0-9_-]{20,})/)||s.match(/[?&]id=([A-Za-z0-9_-]{20,})/); return m?m[1]:s; }
@@ -3336,6 +3340,16 @@ function renderBE(){
 }
 
 function renderTable(){
+  // The two summary bands render above the table on every view, so the homepage is simply those
+  // bands with no detail underneath: the position and the period's result, nothing to scroll past.
+  if(state.view==='home'){
+    $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true;
+    $('tablebox').style.maxHeight='none';
+    $('tablebox').innerHTML=state.res
+      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'
+      : '<div class="empty">Press Refresh data to load the workbook.</div>';
+    return;
+  }
   if(state.view==='mg'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight=''; return renderMG(); }
   if(state.view==='be'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; if(state.res) $('csv').hidden=false; $('tablebox').style.maxHeight=''; return renderBE(); }
   const isTax=state.view==='tax';
@@ -3456,7 +3470,7 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   renderEq(); renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
+(()=>{ const sv=store.get('consol.view'); if(['home','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
