@@ -3747,7 +3747,7 @@ function flowData(){
   const pti=state.res.rows.find(x=>/^profit to investors$/i.test(x.l)); if(pti) out.investors=pti.val.c.map(v=>v||0);
   return out;
 }
-// The board's own targets: the % of sales in column Q of the forecast sheet (tab Forecast2), read
+// The 2026 budget prepared last year: the % of sales in column Q of the forecast sheet (tab Forecast2), read
 // once and kept in this browser; the same figures Margin vs Internal Benchmark compares against.
 let bodTgtTried=false, bodTgtErr='';
 async function bodTargets(){
@@ -3831,7 +3831,7 @@ function renderBOD(){
     const oin=add(F.capital,F.financing,G.oi), oout=add(F.capex,F.principal,F.investors,F.dividends);
     const free=G.sales.map((_,j)=>G.nrm[j]+oin[j]-oout[j]);
     const n=js.length, pct=a=>I?(S(a)/I*100).toFixed(1)+'%':'–';
-    // Each margin line carries the board's target (forecast sheet) and the healthy line (Margin vs
+    // Each margin line carries the 2026 budget (forecast sheet) and the healthy line (Margin vs
     // Internal Benchmark thresholds, editable there), and is rated against the healthy line.
     const BMV=bmSt.vals||{}, TG={'Cost of Sales':['cost of sales','i_cos',0],'Gross Retail Margin':['gross retail margin','i_grm',1],'Operating Expenditure':['operating expenditure','i_opex',0],
       'Admin':['admin','i_admin',0],'Operation / supply chain':['operation','i_op',0],'People':['people','i_ppl',0],'Marketing':['marketing','i_mkt',0],'Finance':['finance','i_fin',0],'Director':['director','dirr',0],'Net Retail Margin':['net retail margin','i_nrm',1]};
@@ -3840,7 +3840,7 @@ function renderBOD(){
       const vs=b!=null&&act!=null?((g[2]?act>=b*100:act<=b*100)?'okr':'warn'):'';
       return `<td class="r wide${vs?' '+vs:''}" style="${vs==='warn'?'color:var(--bad)':vs==='okr'?'color:var(--ok)':''}">${b!=null?(b*100).toFixed(1)+'%':'–'}</td><td class="r wide">${th?(g[2]?'≥ ':'≤ ')+th.g+'%':''}</td><td style="white-space:nowrap">${chip(z)}</td>`; };
     const row=(l,a,o)=>{ o=o||{}; return `<tr class="${o.cls||''}"><td style="padding-left:${4+(o.lvl||0)*14}px">${l}${o.n?`<span class="note">${o.n}</span>`:''}</td><td class="r">${fmt0(S(a))}</td><td class="r">${o.nop?'':pct(a)}</td>${tcell(l,a)}<td class="r wide">${fmt0(S(a)/n)}</td></tr>`; };
-    let t=`<div style="overflow-x:auto"><table class="tc" style="margin-top:6px"><tr class="sub"><td>RM, ${per}</td><td class="r">Total</td><td class="r">% sales</td><td class="r wide">BOD target</td><td class="r wide">Healthy</td><td>Status</td><td class="r wide">Per month</td></tr>`;
+    let t=`<div style="overflow-x:auto"><table class="tc" style="margin-top:6px"><tr class="sub"><td>RM, ${per}</td><td class="r">Total</td><td class="r">% sales</td><td class="r wide">Budget 2026</td><td class="r wide">Healthy</td><td>Status</td><td class="r wide">Per month</td></tr>`;
     t+=row('Sales',G.sales,{cls:'sub',nop:1})+row('Cost of Sales',G.cos,{cls:'sub',n:'materials, logistics, site costs'})+row('Gross Retail Margin',G.grm,{cls:'big'});
     t+=row('Operating Expenditure',G.opex,{cls:'sub'});
     G.C.forEach(([l,nn,a])=>{ t+=row(l,a,{lvl:1,n:nn}); });
@@ -3849,7 +3849,7 @@ function renderBOD(){
     t+=row('Other Outflow',oout,{cls:'sub'})+row('CAPEX',F.capex,{lvl:1,n:'vehicles, equipment, warehouse, showroom'})+row('Loan repayments',F.principal,{lvl:1,n:'principal only; the interest is in Finance'})+row('Pay to investors',F.investors,{lvl:1})+row('Dividends',F.dividends,{lvl:1});
     t+=row('Free Retail Flow',free,{cls:'big'})+'</table></div>';
     h+=sec(3,'Line by line, as in the forecast sheet',`${t}<p class="bods">Same layout as the board's forecast sheet, with actual figures: direct labour and commission are in People. Other Inflow and Outflow are cash movements read off the balance sheets${js.includes(0)?', so January shows none (there is no December balance to compare it with)':''}. Depreciation is left out because it is not cash.</p>
-      <p class="bods"><b>BOD target</b> = % of sales the board set in the forecast sheet (tab ${esc(bmSt.tab)}, column ${esc(bmSt.col)})${bmSt.vals?'; green where actual is on or better than target, red where worse':(bodTgtErr?': could not be read ('+esc(bodTgtErr)+')':': loading')}. <b>Healthy</b> = the healthy line in Margin vs Internal Benchmark, where it can be changed; Status rates the actual against it.</p>`); }
+      <p class="bods"><b>Budget 2026</b> = % of sales in the 2026 budget prepared last year (forecast workbook, tab ${esc(bmSt.tab)}, column ${esc(bmSt.col)})${bmSt.vals?'; green where actual is on or better than budget, red where worse':(bodTgtErr?': could not be read ('+esc(bodTgtErr)+')':': loading')}. <b>Healthy</b> = the healthy line in Margin vs Internal Benchmark, where it can be changed; Status rates the actual against it.</p>`); }
   // 4
   const Wn=[];
   const gpT=hlCfg.gpm||{g:40,b:30}, gm=I?(I-S(cos))/I*100:0, gz=bodZone(gm,gpT,true);
