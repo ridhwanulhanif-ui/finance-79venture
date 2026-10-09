@@ -1446,7 +1446,7 @@ async function bkList(q){ const r=await mcp.callTool(SERVER,'search_files',{quer
 // The finance team keeps a closing balance per bank per month in each company's cashflow
 // workbook, on a "Bank Balance" tab. That is a faster source than OCR-ing statement PDFs,
 // so it fills the statement column where no PDF has been read.
-const BK_CF=[{e:'v',fid:'1dKPtOBivf9x_kf-XxSOuD_K20F3L_YHq',name:'REVISE 2026 CASHFLOW 79 VENTURES'},
+const BK_CF=[{e:'v',fid:'1HG-szfIeeKbhgg7k7KD1_9i2UEDLOzPulsDibEXrSUQ',name:'REVISE 2026 CASHFLOW 79 VENTURES'},
              {e:'a',fid:'1wWDiW5UHSnYx3IeK8US23uBK0cMYq3uXgwckgTzS_Hg',name:'CASHFLOW 2026 ARABINA ECO TINY HOMES'}];
 const BK_CF_ROW=/^(beginning balance|bank balance|cash in|cash out|own transfer|ending balance|net)$/i;
 // Each bank's block repeats the month names across the top; the closing balance is on the
