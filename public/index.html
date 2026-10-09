@@ -575,7 +575,15 @@ function renderEqBS(elId,noteId){
   let h=`<div class="h">As at ${MONTHS[j]} 2026</div><div class="h v" style="text-align:right">79V</div><div class="h a" style="text-align:right">+ Arabina</div><div class="h" style="text-align:right">− Elim. inter-co</div><div class="h c" style="text-align:right">= Consol</div>`;
   L.forEach(([lab,v,a,c],i)=>{ const cls=i===L.length-1?' last':''; h+=`<div class="lab${cls}">${lab}</div><div class="n e-v${cls}">${fmt0(v)}</div><div class="n e-a${cls}">${fmt0(a)}</div><div class="n${cls}" style="color:var(--muted)">${fmt0(v+a-c)}</div><div class="n c${cls}">${fmt0(c)}</div>`; });
   $(EL).innerHTML=h;
-  const d=B.c.sum.icD[j]; $(NOTE).textContent='Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '+(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
+  // Anyone reading these four figures will eventually ask which rows they came from, so the
+  // note names the workbook, the tabs and the exact row label behind each line.
+  const d=B.c.sum.icD[j], wbk=(state.meta&&state.meta.title)||'the consolidation workbook';
+  $(NOTE).innerHTML='<b>Where these come from:</b> '+esc(wbk)+' \u2014 tab <b>'+esc(cfg.bv||DEF.bv)+'</b> for 79V and <b>'+esc(cfg.ba||DEF.ba)+'</b> for Arabina, column <b>'+MONTHS[j]+' 2026</b>. '
+    +'Total Assets = the <i>Total for Assets</i> row. Total Liabilities = <i>Total for Liabilities and Shareholder\u2019s Equity</i> less <i>Total for Shareholders\u2019 Equity</i>, so it covers current and non-current liabilities together. '
+    +'Equity = <i>Total for Shareholders\u2019 Equity</i>. Cash at Bank = <i>Total for Cash at Bank</i>. '
+    +'The <b>Consol</b> column is calculated here as 79V + Arabina \u2212 inter-co elimination; it is not a row in the workbook. '
+    +'Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '
+    +(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
 }
 // ===== Audit-style statements =====
 // The divider between the account names and the figures can be dragged, because how much
