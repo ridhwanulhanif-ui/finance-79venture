@@ -2649,7 +2649,11 @@ function renderEq(){
     const EB={v:ebitData('v'),a:ebitData('a')}; const ebit={v:sumR(EB.v.ebit),a:sumR(EB.a.ebit)}; ebit.c=ebit.v+ebit.a;
     L=[['Revenue',inc],['Gross Profit',gp],['EBIT',ebit],['Profit before tax',pbt],
        [eqTax==='books'?'Tax (CP204 booked)':'Estimated tax',tax,{v:sub('v'),a:sub('a'),c:Math.abs(pbt.c)>0.5?((-tax.c)/pbt.c*100).toFixed(1)+'%':'',lab:eqTax==='books'?'instalments booked in the period':'effective rate from Tax & CP204'}],
-       ['Profit after tax',pat]];
+       ['Profit after tax',pat],
+       // The books' own bottom line, kept in view beside the estimate: this is the figure that
+       // carries into the balance sheet and that the P&L vs BS check reconciles against, whereas
+       // profit after tax above is this dashboard applying an effective rate.
+       ['Net Earnings (per books)',ne,{lab:'as booked, after CP204 charged as an expense'}]];
   } else L=[['Revenue',inc],['Gross Profit',gp],['Net Earnings',ne]];
   const per=state.from===state.to?MONTHS[state.from]+' 2026':MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026';
   let h=`<div class="h">${per}</div><div class="h v" style="text-align:right">79V</div><div class="h a" style="text-align:right">+ Arabina</div><div class="h" style="text-align:right">− Elim. inter-co</div><div class="h c" style="text-align:right">= Consol</div>`;
@@ -2661,7 +2665,7 @@ function renderEq(){
   const sel=`<label style="display:inline-flex;gap:6px;align-items:center;margin-right:10px;font-weight:600;color:var(--ink)">Tax <select id="eqTaxSel" style="font:inherit;padding:3px 6px">
     <option value="etr"${eqTax==='etr'?' selected':''}>Estimated tax (effective rate)</option><option value="books"${eqTax==='books'?' selected':''}>CP204 booked</option><option value="none"${eqTax==='none'?' selected':''}>Hide (Net Earnings per books)</option></select></label>`;
   const note=T?(eqTax==='books'?'Profit before tax = Net Earnings + CP204 booked as an expense. Tax = CP204 instalments booked in the period; this is cash instalments, not the final tax charge.':
-     'Profit before tax = Net Earnings + CP204 booked as an expense. Estimated tax = PBT for the period × effective rate of the YA2026 estimate in Tax & CP204 (estimated tax ÷ full-year PBT'+(T.v.full!=null?`; 79V full-year tax RM${fmt0(T.v.full)}`:'')+(T.a.full!=null?`, Arabina RM${fmt0(T.a.full)}`:'')+'). Tax is per entity, no inter-co elimination.'):
+     'Profit before tax = Net Earnings + CP204 booked as an expense. Estimated tax = PBT for the period × effective rate of the YA2026 estimate in Tax & CP204 (estimated tax ÷ full-year PBT'+(T.v.full!=null?`; 79V full-year tax RM${fmt0(T.v.full)}`:'')+(T.a.full!=null?`, Arabina RM${fmt0(T.a.full)}`:'')+'). Tax is per entity, no inter-co elimination. Net Earnings (per books) is the P&L bottom line as booked \u2014 it already carries CP204 as an expense, and it is the figure that appears as Net Income in the balance sheet.'):
      'Inter-co elim. = Management Fee between 79V and Arabina. It offsets between the two, so consolidated Net Earnings = 79V + Arabina.';
   $('eqnote').innerHTML=sel+esc(note)+' Amounts in RM.';
   $('eqTaxSel').addEventListener('change',ev=>{ eqTax=ev.target.value; store.set('consol.eqTax',eqTax); renderEq(); renderTable(); });
