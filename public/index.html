@@ -81,6 +81,8 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .eq .ind{font-weight:400;color:var(--muted)} .eq .lab.ind{padding-left:30px}
 .eq .ind.n{font-size:14px} .eq .tt{border-top:1px solid var(--rule)} .eq .lab.tt,.eq .tt.n{font-weight:700}
 .eqnote{font-size:12px;color:var(--muted);margin:0 0 18px}
+.eqnote details>summary{cursor:pointer;font-weight:600;color:var(--ink);width:max-content;max-width:100%}
+.eqnote details[open]>summary{margin-bottom:4px}
 
 .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:8px 0 12px}
 .seg{display:inline-flex;border:1px solid var(--ink);border-radius:6px;overflow:hidden}
@@ -281,10 +283,10 @@ table.cs td.num{min-width:70px}
 
   <section aria-label="Period summary" id="eqbox" hidden>
     <div class="eq" id="eq"></div>
-    <p class="eqnote" id="eqnote"></p>
+    <div class="eqnote" id="eqnote"></div>
     <div id="eqbsbox" hidden>
       <div class="eq" id="eqbs"></div>
-      <p class="eqnote" id="eqbsnote"></p>
+      <div class="eqnote" id="eqbsnote"></div>
     </div>
   </section>
 
@@ -779,14 +781,18 @@ function renderEqBS(elId,noteId){
   // Anyone reading these four figures will eventually ask which rows they came from, so the
   // note names the workbook, the tabs and the exact row label behind each line.
   const d=B.c.sum.icD[j], wbk=(state.meta&&state.meta.title)||'the consolidation workbook';
-  $(NOTE).innerHTML='<b>Where these come from:</b> '+esc(wbk)+' \u2014 tab <b>'+esc(cfg.bv||DEF.bv)+'</b> for 79V and <b>'+esc(cfg.ba||DEF.ba)+'</b> for Arabina, column <b>'+MONTHS[j]+' 2026</b>. '
+  $(NOTE).innerHTML='<details'+(eqNoteOpen?' open':'')+'><summary>Where these come from</summary>'+esc(wbk)+' \u2014 tab <b>'+esc(cfg.bv||DEF.bv)+'</b> for 79V and <b>'+esc(cfg.ba||DEF.ba)+'</b> for Arabina, column <b>'+MONTHS[j]+' 2026</b>. '
     +'Total Assets = the <i>Total for Assets</i> row. Total Liabilities = <i>Total for Liabilities and Shareholder\u2019s Equity</i> less <i>Total for Shareholders\u2019 Equity</i>, so it covers current and non-current liabilities together. '
     +'Equity = <i>Total for Shareholders\u2019 Equity</i>. Cash at Bank = <i>Total for Cash at Bank</i>. '
     +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. The indented lines break that total down account by account; the same account is spelled differently in the two companies (<i>Inventory Hardware-Danial</i> against <i>Inventory Hardware - Danial</i>), so they are matched on a normalised name and added together. <i>RM\u2026 transferred 30 Sep 2026</i> is what 79V actually handed over on each account, taken from the transfer journals in QuickBooks (JE 19615, and JE 19628 for goods in transit). These are fixed figures for that date, not live: the balance sheets cannot produce them, because the transfer fell on the month end itself, so the September column already shows the position after it. They total RM236,323.71, which is the inter-co balance below. <i>Arabina\u2019s own</i> is what Arabina held before receiving anything, from its own ledger: hardware Danial bought through September and the PO29A container Arabina ordered direct. The other four accounts were opened for the transfer and started empty. The figure under the total is the inter-co <i>\u2026 - Inventory Transfer</i> account \u2014 the value billed from 79V to Arabina. It is a balance, not a journal, so it does not fall as the stock is used, and it does fall if the two companies settle in cash; the balance sheets carry no transaction detail, so it cannot be split by inventory account. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
     +'The <b>Consol</b> column is calculated here as 79V + Arabina \u2212 inter-co elimination; it is not a row in the workbook. '
     +'Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets), and 79V\u2019s investment in Arabina against the share capital Arabina issued to 79V: both companies still carry them in their own books, they cancel only when the two are combined. '
-    +(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
+    +(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.</details>';
+  // Collapsed by default: it is long, and most readers only need it when checking a figure.
+  // Remembered across months and views so it does not fold shut each time the band redraws.
+  $(NOTE).querySelector('details').addEventListener('toggle',e=>{ eqNoteOpen=e.target.open; });
 }
+let eqNoteOpen=false;
 // ===== Audit-style statements =====
 // The divider between the account names and the figures can be dragged, because how much
 // room the names need depends on the statement and on who is reading it.
