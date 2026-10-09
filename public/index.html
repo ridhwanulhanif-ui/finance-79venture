@@ -3566,34 +3566,81 @@ function renderHomeKpi(){
   el.innerHTML=h;
   el.querySelectorAll('[data-hkgo]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value=b.dataset.hkgo; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
 }
-// Homepage: the margin forecast the board works from (Forecast2), against the actual months so far,
-// in the forecast's own categories and on its basis (direct labour under People, not cost of sales).
-function homeFcHTML(){
-  const head='<div class="tcard" style="margin-bottom:22px"><h2>Margin forecast vs actual</h2>';
-  if(!bmSt.mon){
-    if(!bmTried&&(mcp||MODE==='web')){ bmTried=true; setTimeout(()=>bmLoad(true),0); }
-    return head+`<p class="hint" style="margin:8px 0">${bmErr?'Could not load tab <b>'+esc(bmSt.tab)+'</b> of the forecast workbook: '+esc(bmErr):'Loading tab <b>'+esc(bmSt.tab)+'</b> of the forecast workbook…'}</p>${bmErr?'<button id="hfcLoad">Try again</button>':''}</div>`;
-  }
-  const A=bmActual(); if(!A) return '';
-  const M=A.M, js=[]; for(let j=state.from;j<=Math.min(state.to,M);j++) js.push(j);
+// Homepage: the retail-margin layout the board knows from the forecast sheet (Sales, Cost of Sales,
+// Gross Retail Margin, then Admin, Operation, People, Marketing, Finance, Director, Net Retail
+// Margin), filled from the books month by month. On that sheet's basis direct labour and
+// commission sit in People, not in cost of sales. Whatever no category claims is shown as "Other",
+// so Net Retail Margin always equals gross profit less total expenses in the books.
+function homeMarginHTML(){
+  const rows=state.res.rows, Z=()=>new Array(12).fill(0);
+  const K=k=>{ const r=rows.find(x=>x.k===k); return r?r.val.c.map(x=>x||0):Z(); };
+  const Lb=re=>rows.filter(x=>x.t==='D'&&x.s==='EXP'&&re.test(x.l)).reduce((t,x)=>t.map((v,j)=>v+(x.val.c[j]||0)),Z());
+  const add=(...a)=>Z().map((_,j)=>a.reduce((t,x)=>t+x[j],0)), neg=x=>x.map(v=>-v);
+  const M=lastActualMonth(), js=[]; for(let j=state.from;j<=Math.min(state.to,M);j++) js.push(j);
   if(!js.length) return '';
-  const IL={}; A.L.forEach(([l,a,kind])=>IL[l]={a,kind});
-  const sum=(a,J)=>J.reduce((t,j)=>t+(a[j]||0),0), F=l=>bmSt.mon[bmNorm(l)]||null;
-  const fS=F('Sales'), fsum=fS?sum(fS,js):0, asum=sum(A.sales,js), fy=fS?sum(fS,[...Array(12).keys()]):0;
-  const pc=(x,y)=>Math.abs(y)>0.5?(x/y*100).toFixed(1)+'%':'–';
-  const R=[['Sales',A.sales,'margin',0],['Cost of Sales',null,'cost',0],['Gross Retail Margin',null,'margin',0],['Operating Expenditure',null,'cost',0],
-    ['Admin',null,'cost',1],['Operation',null,'cost',1],['People',null,'cost',1],['Marketing',null,'cost',1],['Finance',null,'cost',1],['Director',null,'cost',1],['Net Retail Margin',null,'margin',0]];
+  const dirStat=Lb(/\((directors)\)$/i), dirDev=Lb(/^professional development \(directors\)$/i), dirMeet=Lb(/^director meeting expenses$/i);
+  const dirStatOnly=add(dirStat,neg(dirDev));
+  const sales=K('INC'), lab=K('LAB'), cos=add(K('COS'),neg(lab)), grm=add(sales,neg(cos));
+  const C=[
+    ['Admin','office, rental &amp; utilities, subscriptions, IT, consultants',add(K('ADM'),K('OFF'),K('MEM'),K('IT'),K('PRO'))],
+    ['Operation','vehicles, road tax, showroom &amp; hostel upkeep, travel',add(K('GO'),K('TRV'))],
+    ['People','direct labour, staff salaries &amp; EPF/SOCSO, commission, training, benefits',add(lab,K('STF'),K('STA'),neg(dirStatOnly),K('TRN'),neg(dirDev),K('EB'),K('REF'),neg(dirMeet),K('COM'))],
+    ['Marketing','',K('MKT')],
+    ['Finance','audit, secretarial, CP204, bank charges, loan interest',add(K('CMP'),K('BNK'),K('FC'),K('ZAK'))],
+    ['Director','allowance, benefits, EPF/SOCSO, development, meetings',add(K('DIR'),K('DB'),dirStatOnly,dirDev,dirMeet)]];
+  // Direct labour comes out of cost of sales into People, so it is the one category not in Total for Expenses.
+  const exp=K('EXP'), other=add(exp,lab,neg(add(...C.map(c=>c[2]))));
+  if(js.some(j=>Math.abs(other[j])>0.5)) C.push(['Other','not in a category above',other]);
+  const opex=add(...C.map(c=>c[2])), nrm=add(grm,neg(opex));
+  const oi=K('OI'), ox=K('OX'), ne=K('NE');
+  const S=a=>js.reduce((t,j)=>t+a[j],0), ts=S(sales), pc=x=>Math.abs(ts)>0.5?(x/ts*100).toFixed(1)+'%':'–';
+  const cell=(a,j)=>`<td class="r">${fmt0(a[j])}</td>`;
+  const line=(l,a,o)=>{ o=o||{}; return `<tr class="${o.cls||''}"><td style="padding-left:${4+(o.lvl||0)*14}px;min-width:150px">${l}${o.n?`<span class="note">${o.n}</span>`:''}</td>${js.map(j=>cell(a,j)).join('')}<td class="r"><b>${fmt0(S(a))}</b></td><td class="r">${o.nop?'':pc(S(a))}</td></tr>`; };
   const per=MONTHS[js[0]]+(js.length>1?'–'+MONTHS[js[js.length-1]]:'')+' 2026';
-  let h=head+`<div class="hint">${per}, consolidated (inter-co eliminated) · forecast from tab <b>${esc(bmSt.tab)}</b>${bmSt.title?' of '+esc(bmSt.title):''} · forecast basis: direct labour sits in People, not Cost of Sales</div>
-    <table class="tc" style="margin-top:8px"><tr class="sub"><td></td><td class="r wide">Forecast</td><td class="r wide">Actual</td><td class="r">Variance</td><td class="r">Fcst %</td><td class="r">Actual %</td><td class="r wide">FY 2026 fcst</td></tr>`;
-  R.forEach(([l,ser,kind,lvl])=>{ const a=ser||(IL[l]&&IL[l].a), f=F(l); if(!a&&!f) return;
-    const av=a?sum(a,js):0, fv=f?sum(f,js):0, d=av-fv, good=kind==='margin'?d>=0:d<=0, top=lvl===0&&l!=='Sales';
-    const cls=(l==='Gross Retail Margin'||l==='Net Retail Margin')?'big':top?'sub':'';
-    h+=`<tr class="${cls}"><td style="padding-left:${4+lvl*14}px">${l}</td><td class="r wide">${f?fmt0(fv):'–'}</td><td class="r wide">${fmt0(av)}</td>
-      <td class="r" style="color:var(--${Math.abs(d)<0.5?'muted':good?'ok':'bad'})">${f?(d>0?'+':'')+fmt0(d):'–'}</td>
-      <td class="r">${l==='Sales'?'':f?pc(fv,fsum):'–'}</td><td class="r">${l==='Sales'?'':pc(av,asum)}</td><td class="r wide">${f?fmt0(sum(f,[...Array(12).keys()])):'–'}${l!=='Sales'&&f&&fy?`<span class="note">${pc(sum(f,[...Array(12).keys()]),fy)}</span>`:''}</td></tr>`; });
-  h+=`<tr><td colspan="7"><span class="note">Variance: green is better than forecast (more sales or margin, less cost), red is worse. Actual is mapped to the forecast categories the same way as Forecast and Margin vs Benchmark. Loaded ${dt(bmSt.at)}.</span></td></tr></table></div>`;
-  return h;
+  let h=`<div class="tcard" style="margin-bottom:22px"><h2>Retail margin · ${per}</h2><div class="hint">From the books, consolidated (inter-co eliminated), in the layout of the forecast sheet. Direct labour and commission are in People, as on that sheet, so Cost of Sales here is materials, logistics and site costs.</div>
+    <div style="overflow-x:auto;margin-top:8px"><table class="tc" style="min-width:${260+js.length*86}px"><tr class="sub"><td>RM</td>${js.map(j=>`<td class="r">${MONTHS[j]}</td>`).join('')}<td class="r">Total</td><td class="r">% sales</td></tr>`;
+  h+=line('Sales',sales,{cls:'sub',nop:1});
+  h+=line('Cost of Sales',cos,{cls:'sub'});
+  h+=line('Gross Retail Margin',grm,{cls:'big'});
+  h+=line('Operating Expenditure',opex,{cls:'sub'});
+  C.forEach(([l,n,a])=>{ h+=line(l,a,{lvl:1,n}); });
+  h+=line('Net Retail Margin',nrm,{cls:'big'});
+  h+=line('Other income',oi,{lvl:1});
+  h+=line('Depreciation &amp; profit to investors',neg(ox),{lvl:1});
+  h+=line('Net Earnings (per books)',ne,{cls:'sub'});
+  return h+'</table></div></div>';
+}
+// Homepage: what the loans cost each month, read off the balance sheet. Each loan's gross balance
+// (the account less its unexpired "Interest Payable") falls by the instalment paid, so the fall
+// month on month is the repayment; a balance that rises is a new drawdown, not a payment.
+function homeLoansHTML(){
+  const B=state.res.bs; if(!B) return '';
+  const last=bsLastMonth(); if(last==null) return '';
+  const ms=[]; for(let j=Math.max(1,last-2);j<=last;j++) ms.push(j);
+  const L=[];
+  for(const e of ['v','a']){ const D=B[e]; if(!D) continue; const R=D.rows;
+    let s=R.findIndex(r=>/^non-current liabilities$/i.test(r.l)), t=R.findIndex(r=>/^total for non-current liabilities$/i.test(r.l));
+    if(s<0||t<0) continue;
+    for(let i=s+1;i<t;i++){ const m=/^Total for (.+)$/i.exec(R[i].l); if(!m) continue;
+      const st=R.slice(s+1,i).map((r,k)=>[r,k+s+1]).filter(([r])=>r.l.trim().toLowerCase()===m[1].trim().toLowerCase()).pop();
+      const from=st?st[1]:i; const gross=new Array(12).fill(0);
+      for(let k=from;k<i;k++){ const r=R[k]; if(/interest payable/i.test(r.l)) continue; r.vals.forEach((v,j)=>{ gross[j]+=v||0; }); }
+      L.push({e,l:m[1],gross}); } }
+  if(!L.length) return '';
+  const pay=(g,j)=>{ const d=g[j-1]-g[j]; return d>0.5?d:0; };
+  const rows=state.res.rows;
+  const K=k=>{ const r=rows.find(x=>x.k===k); return r?r.val.c:new Array(12).fill(0); };
+  const pti=rows.find(x=>/^profit to investors$/i.test(x.l)), int=K('FC');
+  let h=`<div class="tcard" style="margin-bottom:22px"><h2>Loan repayments per month</h2><div class="hint">From the balance sheets: the fall in each loan's balance, interest included, is the instalment paid that month. Check irregular months against the lender's statement.</div>
+    <div style="overflow-x:auto;margin-top:8px"><table class="tc"><tr class="sub"><td>RM</td>${ms.map(j=>`<td class="r">${MONTHS[j]}</td>`).join('')}<td class="r">Balance ${MONTHS[last]}</td></tr>`;
+  const tot=ms.map(()=>0); let tb=0;
+  L.forEach(x=>{ const p=ms.map(j=>pay(x.gross,j)); p.forEach((v,i)=>tot[i]+=v); tb+=x.gross[last];
+    const irr=p.length>1&&Math.max(...p)-Math.min(...p)>1;
+    h+=`<tr><td>${esc(x.l)}<span class="note">${x.e==='v'?'79V':'Arabina'}${irr?' · amount varies month to month':''}</span></td>${p.map(v=>`<td class="r">${v?fmt0(v):'–'}</td>`).join('')}<td class="r">${fmt0(x.gross[last])}</td></tr>`; });
+  h+=`<tr class="big"><td>Total instalments</td>${tot.map(v=>`<td class="r">${fmt0(v)}</td>`).join('')}<td class="r">${fmt0(tb)}</td></tr>`;
+  if(pti) h+=`<tr><td>Profit paid to investors<span class="note">P&amp;L; investor financing balances themselves are not being repaid</span></td>${ms.map(j=>`<td class="r">${fmt0(pti.val.c[j]||0)}</td>`).join('')}<td></td></tr>`;
+  h+=`<tr><td colspan="${ms.length+2}"><span class="note">Interest in the P&amp;L for these months: ${ms.map(j=>MONTHS[j]+' RM'+fmt0(int[j]||0)).join(' · ')}. It is part of the instalments above, not on top of them.${B.a&&!L.some(x=>x.e==='a')?' Arabina has no loans.':''}</span></td></tr>`;
+  return h+'</table></div></div>';
 }
 // Homepage: where the operating costs go. Built from the workbook's own group totals, with the
 // directors' share pulled out of statutory contributions, training and refreshment so it reads as
@@ -3665,9 +3712,8 @@ function renderTable(){
     $('tablebox').style.maxHeight='none';
     if(state.res) try{ renderHomeKpi(); }catch(e){ $('homekpi').innerHTML=''; }
     $('tablebox').innerHTML=state.res
-      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ let x=''; try{ x+=homeFcHTML(); }catch(e){} try{ x+=homeOpexHTML(); }catch(e){} return '<div class="taxwrap" style="padding-bottom:0">'+x+'</div>'; })()+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
+      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ let x=''; try{ x+=homeMarginHTML(); }catch(e){} try{ x+=homeLoansHTML(); }catch(e){} try{ x+=homeOpexHTML(); }catch(e){} return '<div class="taxwrap" style="padding-bottom:0">'+x+'</div>'; })()+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
       : '<div class="empty">Press Refresh data to load the workbook.</div>';
-    const hb=$('hfcLoad'); if(hb) hb.addEventListener('click',()=>{ bmErr=''; bmLoad(false); });
     return;
   }
   if(state.view==='mg'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight=''; return renderMG(); }
