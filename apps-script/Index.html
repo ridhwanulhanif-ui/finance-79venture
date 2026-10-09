@@ -2848,8 +2848,13 @@ function renderTax(){
 // Two methods from the JAWHAR manual. Working capital is the one for a Sdn Bhd that classifies
 // current and non-current; growth capital is for entities that do not. Before adjustments
 // the accounting identity makes them equal, so the page shows both and marks which is in use.
-const ZAKDEF={v:{method:'mk',less:0,add:0,own:100,rate:2.5,nisab:''},a:{method:'mk',less:0,add:0,own:100,rate:2.5,nisab:''}};
-let zakCfg=(()=>{try{const o=JSON.parse(store.get('consol.zakat')||'{}');return {v:{...ZAKDEF.v,...(o.v||{})},a:{...ZAKDEF.a,...(o.a||{})}};}catch(e){return JSON.parse(JSON.stringify(ZAKDEF));}})();
+// Nisab as MAINS lists it for Negeri Sembilan: 2025 (1447H). Their series runs
+// 2023 22,669.53 → 2024 26,844.82 → 2025 33,880.36, so replace this when 1448H is published.
+const ZAK_NISAB='33880.36', ZAK_NISAB_SRC='MAINS, Negeri Sembilan, 2025 (1447H)';
+const ZAKDEF={v:{method:'mk',less:0,add:0,own:100,rate:2.5,nisab:ZAK_NISAB},a:{method:'mk',less:0,add:0,own:100,rate:2.5,nisab:ZAK_NISAB}};
+let zakCfg=(()=>{try{const o=JSON.parse(store.get('consol.zakat')||'{}');return {ver:o.ver||1,v:{...ZAKDEF.v,...(o.v||{})},a:{...ZAKDEF.a,...(o.a||{})}};}catch(e){return {ver:1,...JSON.parse(JSON.stringify(ZAKDEF))};}})();
+// Browsers that used the view before it had a default carry a blank nisab; fill it once.
+if((zakCfg.ver||1)<2){ ['v','a'].forEach(e=>{ if(zakCfg[e].nisab===''||zakCfg[e].nisab==null) zakCfg[e].nisab=ZAK_NISAB; }); zakCfg.ver=2; store.set('consol.zakat',JSON.stringify(zakCfg)); }
 function zakCalc(e){
   const B=state.res&&state.res.bs, j=bsLastMonth();
   if(!B||!B[e]||j==null) return null;
@@ -2922,7 +2927,7 @@ function renderZak(){
     h+=zakRow(e,'own','Muslim ownership (%)','number','100','State formulas apply zakat to the Muslim-owned share.');
     h+=zakRow(e,'rate','Rate (%)','number','2.5','2.5% is the rate in the Malaysian state formulas.');
     h+=zakRow(e,'nisab','Nisab (RM)','number','value of 85g gold',
-      'Zakat is due only once the base reaches nisab, the value of 85g gold. It moves with the gold price, and your state zakat authority publishes the current figure — take it from them rather than working it out. This page tests the base <i>after</i> the Muslim ownership share is applied; check that is the order your authority uses, because it only changes the answer when that share is small. Leave blank to skip the check.');
+      `Zakat is due only once the base reaches nisab, the value of 85g gold. The figure here is ${ZAK_NISAB_SRC}; it moves with the gold price, so replace it when MAINS publishes the next one. This page tests the base <i>after</i> the Muslim ownership share is applied; check that is the order your authority uses, because it only changes the answer when that share is small. Leave blank to skip the check.`);
     h+='</div>';
     h+=`<h3>Computation</h3><table class="tc">
       <tr><td>Current assets</td><td class="r">${fmt(z.ca)}</td></tr>
