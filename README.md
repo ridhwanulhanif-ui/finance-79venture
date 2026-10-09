@@ -1,6 +1,6 @@
 # finance-79venture
 
-Finance web app for 79 Ventures, served at `finance.79venture.com`.
+Finance web app for 79 Ventures, served from Railway. The live address is under the service's Settings → Networking in Railway.
 
 The page is the P&L / balance sheet / forecast / budget / tax dashboard for 79 Ventures Sdn Bhd and Arabina Eco Tiny Homes
 Sdn Bhd. It is one self-contained file with no build step.
@@ -18,7 +18,7 @@ one applies depends on where the page is running:
 
 | Running on | Data source |
 |---|---|
-| `finance.79venture.com` (this repo, on Railway) | `/api/consol.xlsx` — `server.js` fetches the workbook from Drive, with **Open Excel file…** as fallback |
+| Railway (this repo) | `/api/consol.xlsx` — `server.js` fetches the workbook from Drive, with **Open Excel file…** as fallback |
 | Apps Script web app (`apps-script/`) | Google Drive, via the signed-in user's own access |
 
 Google sends no CORS headers, so the browser cannot fetch the workbook itself; `server.js` fetches it and passes the bytes

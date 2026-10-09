@@ -2,7 +2,7 @@
   "name": "finance-79venture",
   "version": "0.1.0",
   "private": true,
-  "description": "Finance web app for 79 Ventures (finance.79venture.com)",
+  "description": "Finance web app for 79 Ventures, served from Railway",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
