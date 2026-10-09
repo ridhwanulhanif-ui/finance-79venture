@@ -233,6 +233,7 @@ table.cs td.num{min-width:70px}
     <h1>P&amp;L &amp; Balance Sheet 2026: Consolidated &amp; individual<small>79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd</small></h1>
     <div>
       <div class="status" id="status">No data yet</div>
+      <div class="status hint" id="build" hidden></div>
       <div class="actions">
         <label class="hint" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="auto"> Auto refresh every <select id="autoMin" style="font:inherit;padding:1px 4px"><option value="1">1 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="15">15 min</option></select></label>
         <button id="csv" hidden>Download CSV</button>
@@ -3505,9 +3506,17 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
     $('openFile').addEventListener('click',()=>$('fileIn').click());
     $('fileIn').addEventListener('change',()=>{ localFile=$('fileIn').files[0]||null; if(localFile){ MODE='local'; refresh(false); } });
     // Served by server.js? Then the workbook comes from Drive through /api/consol.xlsx.
-    let served=false;
-    try{ served=(await fetch('/health',{cache:'no-store'})).ok; }catch(e){}
-    if(served){ MODE='web'; $('dlx').hidden=false; autoSet(); refresh(false); return; }
+    let served=false, health=null;
+    try{ const r=await fetch('/health',{cache:'no-store'}); served=r.ok; if(r.ok) health=await r.json().catch(()=>null); }catch(e){}
+    if(served){
+      // After a deploy the page can look unchanged for two very different reasons: the deploy has
+      // not landed, or the browser is showing a cached copy. Naming the build separates them.
+      if(health&&health.commit){
+        $('build').textContent='Build '+health.commit+(health.startedAt?' · deployed '+dt(Date.parse(health.startedAt)):'');
+        $('build').hidden=false;
+      }
+      MODE='web'; $('dlx').hidden=false; autoSet(); refresh(false); return;
+    }
     $('auto').checked=false; if(timer){ clearInterval(timer); timer=null; }
     if(!state.res) $('tablebox').innerHTML='<div class="empty">Choose the consolidation Excel file (.xlsx) with <b>Open Excel file…</b>. The file is read in this browser only. (Forecast import, benchmark and bank statement scan need claude.ai or the Apps Script version.)</div>';
     return; }

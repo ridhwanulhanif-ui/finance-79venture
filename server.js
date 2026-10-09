@@ -8,6 +8,8 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 
 // The consolidation workbook, fetched server-side because Google sends no CORS headers.
 // Override with CONSOL_FILE_ID in Railway Variables. The file must be shared "anyone with the link".
+const COMMIT = (process.env.RAILWAY_GIT_COMMIT_SHA || process.env.SOURCE_COMMIT || "").slice(0, 7);
+const STARTED_AT = new Date().toISOString();
 const FILE_ID = process.env.CONSOL_FILE_ID || "1mx6JMUwsWpLx_4BT2vTy71bYGmIlXqCT";
 const CACHE_MS = 60_000;
 let cache = null;
@@ -89,7 +91,9 @@ const server = http.createServer((req, res) => {
 
   if (urlPath === "/health") {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8" });
-    res.end(JSON.stringify({ ok: true }));
+    // Which build is live is otherwise invisible: a page that looks unchanged after a deploy could
+    // be a stale deploy or a cached file, and there is no way to tell them apart from the browser.
+    res.end(JSON.stringify({ ok: true, commit: COMMIT, startedAt: STARTED_AT }));
     return;
   }
 
