@@ -2912,8 +2912,11 @@ function renderZak(){
     if(!z){ h+='<div class="hint">No balance sheet for this period.</div></div>'; continue; }
     h+=`<div class="hint">Business zakat · as at ${asAt(z.j)} · RM</div>`;
     h+='<h3>Basis</h3><div class="inp">';
-    h+=zakRow(e,'method','Method','select',[['mk','Working capital method'],['mb','Growth capital method']],
-      'The working capital method (Modal Kerja on the forms) is the JAWHAR method for a Sdn Bhd that classifies current and non-current. Growth capital (Modal Berkembang) is for entities that do not, such as Islamic banks and takaful.');
+    // The note states the method actually selected, worked through with this company's figures.
+    const mnote = c.method==='mb'
+      ? `<b>Growth capital</b> (Modal Berkembang on the forms): equity ${fmt(z.eq)} + non-current liabilities ${fmt(z.ncl)} − non-current assets ${fmt(z.nca)} = <b>${fmt(z.mb)}</b>. JAWHAR assigns this method to entities that do not classify current and non-current, such as Islamic banks and takaful. This company is a Sdn Bhd and does classify them, so working capital is the method for it.`
+      : `<b>Working capital</b> (Modal Kerja on the forms): current assets ${fmt(z.ca)} − current liabilities ${fmt(z.cl)} = <b>${fmt(z.mk)}</b>. This is the JAWHAR method for a Sdn Bhd, which classifies current and non-current.`;
+    h+=zakRow(e,'method','Method','select',[['mk','Working capital method'],['mb','Growth capital method']],mnote);
     h+=zakRow(e,'less','Less: assets not subject to zakat (RM)','number','0','Bad debts, non-productive or non-halal assets, anything not held for trade.');
     h+=zakRow(e,'add','Add: adjustments (RM)','number','0','Items the state authority requires to be added back.');
     h+=zakRow(e,'own','Muslim ownership (%)','number','100','State formulas apply zakat to the Muslim-owned share.');
@@ -2923,9 +2926,9 @@ function renderZak(){
     h+=`<h3>Computation</h3><table class="tc">
       <tr><td>Current assets</td><td class="r">${fmt(z.ca)}</td></tr>
       <tr><td>Less: current liabilities</td><td class="r">(${fmt(z.cl)})</td></tr>
-      <tr class="sub"><td>Working capital basis${c.method==='mk'?'':' <span class="note">not in use</span>'}</td><td class="r">${fmt(z.mk)}</td></tr>
+      <tr class="sub"><td>Working capital basis<span class="note">${c.method==='mk'?'in use':'not in use'}</span></td><td class="r">${fmt(z.mk)}</td></tr>
       <tr><td>Equity ${fmt(z.eq)} + non-current liabilities ${fmt(z.ncl)} − non-current assets ${fmt(z.nca)}</td><td class="r"></td></tr>
-      <tr class="sub"><td>Growth capital basis${c.method==='mb'?'':' <span class="note">not in use</span>'}</td><td class="r">${fmt(z.mb)}</td></tr>
+      <tr class="sub"><td>Growth capital basis<span class="note">${c.method==='mb'?'in use':'not in use'}</span></td><td class="r">${fmt(z.mb)}</td></tr>
       <tr><td>Less: assets not subject to zakat</td><td class="r">${z.less?'('+fmt(z.less)+')':'–'}</td></tr>
       <tr><td>Add: adjustments</td><td class="r">${z.add?fmt(z.add):'–'}</td></tr>
       <tr class="sub"><td>Adjusted base</td><td class="r">${fmt(z.base)}</td></tr>
