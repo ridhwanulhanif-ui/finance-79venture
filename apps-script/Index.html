@@ -2571,7 +2571,8 @@ function ebitData(e){ // monthly EBITDA / depreciation / EBIT / interest income 
   return {ebitda,dep,ebit,ii,fin,pbt};
 }
 function renderEq(){
-  if(['aud','ic','adj','cip','nic','fc','bank','bud','bm','fin','zk'].includes(state.view)){ $('eqbox').hidden=true; return; }
+  // The summary stays on every view: the period's result and the position behind it are
+  // context for whatever is being looked at, not a feature of the P&L views alone.
   $('eqbox').hidden=!state.res;
   // A balance sheet view already shows these in the main box; everywhere else they
   // ride along underneath, so assets, liabilities and equity are never more than a glance away.
