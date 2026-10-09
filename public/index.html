@@ -63,6 +63,25 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .eq .ind{font-weight:400;color:var(--muted)} .eq .lab.ind{padding-left:30px}
 .eq .ind.n{font-size:14px} .eq .tt{border-top:1px solid var(--rule)} .eq .lab.tt,.eq .tt.n{font-weight:700}
 .eqnote{font-size:12px;color:var(--muted);margin:0 0 18px}
+/* BOD Summary: three series colours stepped separately for each theme (validated for colour vision) */
+.bod{--s1:#2a78d6;--s2:#eb6834;--s3:#1baf7a;display:grid;gap:16px}
+@media (prefers-color-scheme:dark){ :root:not([data-theme="light"]) .bod{--s1:#3987e5;--s2:#d95926;--s3:#199e70} }
+:root[data-theme="dark"] .bod{--s1:#3987e5;--s2:#d95926;--s3:#199e70}
+.bod{grid-template-columns:minmax(0,1fr)}
+.bodsec{max-width:900px;min-width:0}
+.bodq{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin-bottom:6px}
+.bodh{font-size:18px;line-height:1.45;margin:0 0 6px;color:var(--ink)}
+.bods{font-size:13.5px;color:var(--muted);margin:4px 0 0}
+.bodbar1{display:flex;gap:2px;height:22px;margin-top:12px}
+.bodbar1>div:first-child{border-radius:4px 0 0 4px}.bodbar1>div:last-child{border-radius:0 4px 4px 0}
+.bodleg{display:flex;flex-wrap:wrap;gap:6px 18px;margin-top:8px;font-size:13px}
+.bodleg i{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;vertical-align:-1px}
+.bodl{margin:6px 0 0;padding-left:0;list-style:none;font-size:15px;line-height:1.5}
+.bodl li{padding:6px 0;border-bottom:1px solid var(--rule2)}.bodl li:last-child{border-bottom:0}
+.bodl.num{list-style:decimal;padding-left:22px}
+.bodl .st-g,.bods .st-g{color:var(--ok)}.bodl .st-w,.bods .st-w{color:var(--warn)}.bodl .st-b,.bods .st-b{color:var(--bad)}
+.bodbar:hover path{opacity:.8}
+
 .eqnote details>summary{cursor:pointer;font-weight:600;color:var(--ink);width:max-content;max-width:100%}
 .eqnote details[open]>summary{margin-bottom:4px}
 
@@ -277,6 +296,7 @@ table.cs td.num{min-width:70px}
       <select id="viewSel" aria-label="Select view">
         <optgroup label="Overview">
           <option value="home">Homepage</option>
+          <option value="bod">BOD Summary</option>
         </optgroup>
         <optgroup label="Profit &amp; Loss">
           <option value="ent">Consol by entity</option>
@@ -315,6 +335,7 @@ table.cs td.num{min-width:70px}
     </label>
     <div class="seg" role="group" aria-label="View" hidden>
       <button data-view="home" aria-pressed="true">Homepage</button>
+      <button data-view="bod" aria-pressed="false">BOD Summary</button>
       <button data-view="ent" aria-pressed="false">Consol by entity</button>
       <button data-view="con" aria-pressed="false">Consol only</button>
       <button data-view="v" aria-pressed="false">P&amp;L 79V</button>
@@ -2834,7 +2855,8 @@ function ebitData(e){ // monthly EBITDA / depreciation / EBIT / interest income 
 function renderEq(){
   // The summary stays on every view: the period's result and the position behind it are
   // context for whatever is being looked at, not a feature of the P&L views alone.
-  $('eqbox').hidden=!state.res;
+  // The board page answers its own questions; the dense bands would sit on top of them.
+  $('eqbox').hidden=!state.res||state.view==='bod';
   // A balance sheet view already shows these in the main box; everywhere else they
   // ride along underneath, so assets, liabilities and equity are never more than a glance away.
   const onBS=!!(state.view&&state.view.startsWith('bs'));
@@ -3532,10 +3554,9 @@ function homeMarginHTML(all){
 // Homepage: what the loans cost each month, read off the balance sheet. Each loan's gross balance
 // (the account less its unexpired "Interest Payable") falls by the instalment paid, so the fall
 // month on month is the repayment; a balance that rises is a new drawdown, not a payment.
-function homeLoansHTML(){
-  const B=state.res.bs; if(!B) return '';
-  const last=bsLastMonth(); if(last==null) return '';
-  const ms=[]; for(let j=Math.max(1,last-2);j<=last;j++) ms.push(j);
+function loansData(){
+  const B=state.res.bs; if(!B) return null;
+  const last=bsLastMonth(); if(last==null) return null;
   const L=[];
   for(const e of ['v','a']){ const D=B[e]; if(!D) continue; const R=D.rows;
     let s=R.findIndex(r=>/^non-current liabilities$/i.test(r.l)), t=R.findIndex(r=>/^total for non-current liabilities$/i.test(r.l));
@@ -3545,8 +3566,13 @@ function homeLoansHTML(){
       const from=st?st[1]:i; const gross=new Array(12).fill(0);
       for(let k=from;k<i;k++){ const r=R[k]; if(/interest payable/i.test(r.l)) continue; r.vals.forEach((v,j)=>{ gross[j]+=v||0; }); }
       L.push({e,l:m[1],gross}); } }
-  if(!L.length) return '';
   const pay=(g,j)=>{ const d=g[j-1]-g[j]; return d>0.5?d:0; };
+  return {B,last,L,pay};
+}
+function homeLoansHTML(){
+  const LD=loansData(); if(!LD||!LD.L.length) return '';
+  const {B,last,L,pay}=LD;
+  const ms=[]; for(let j=Math.max(1,last-2);j<=last;j++) ms.push(j);
   const rows=state.res.rows;
   const K=k=>{ const r=rows.find(x=>x.k===k); return r?r.val.c:new Array(12).fill(0); };
   const pti=rows.find(x=>/^profit to investors$/i.test(x.l)), int=K('FC');
@@ -3565,8 +3591,8 @@ function homeLoansHTML(){
 // directors' share pulled out of statutory contributions, training and refreshment so it reads as
 // one figure; anything left unclassified is shown as "Other", so the categories always add up to
 // Total for Expenses.
-function homeOpexHTML(){
-  const rows=state.res.rows, Z=()=>0;
+function opexCats(){
+  const rows=state.res.rows;
   const byK=k=>{ const r=rows.find(x=>x.k===k); return r?sumR(r.val.c):0; };
   const byL=re=>rows.filter(x=>x.t==='D'&&x.s==='EXP'&&re.test(x.l)).reduce((t,x)=>t+sumR(x.val.c),0);
   const inc=byK('INC'), tot=byK('EXP');
@@ -3582,6 +3608,10 @@ function homeOpexHTML(){
   const fin=byK('FC'), zak=byK('ZAK');
   const opex=tot-fin-cp-zak, other=opex-C.reduce((t,c)=>t+c[2],0);
   if(Math.abs(other)>0.5) C.push(['Other','not in a group above',other]);
+  return {inc,tot,C,fin,cp,zak,opex,byL};
+}
+function homeOpexHTML(){
+  const {inc,C,fin,cp,zak,opex,byL}=opexCats();
   const pc=(x,y)=>Math.abs(y)>0.5?(x/y*100).toFixed(1)+'%':'–';
   const per=state.from===state.to?MONTHS[state.from]+' 2026':MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026';
   const d=hlCfg.dirr||{g:8,b:12}, dp=inc?C[1][2]/inc*100:0;
@@ -3596,6 +3626,92 @@ function homeOpexHTML(){
     .map(([l,re])=>[l,byL(re)]).filter(x=>Math.abs(x[1])>0.5);
   if(W.length) h+=`<tr><td colspan="4"><span class="note"><b>Worth a look</b> (one-off or avoidable): ${W.map(([l,v])=>l+' RM'+fmt0(v)).join(' · ')}</span></td></tr>`;
   return h+'</table></div>';
+}
+// ===== BOD Summary =====
+// One page for the board: five questions, each answered with one sentence and one figure, from the
+// same calculations as the homepage cards and Tax & CP204, so the page never tells a different story.
+const fmtM=x=>{ const a=Math.abs(x), s=x<0?'−':''; return a>=1e6?s+'RM'+(a/1e6).toFixed(2)+'M':a>=1e4?s+'RM'+Math.round(a/1e3)+'k':a>=1e3?s+'RM'+(a/1e3).toFixed(1)+'k':s+'RM'+Math.round(a); };
+function bodZone(v,t,hi){ if(v==null||!isFinite(v)) return null; return hi?(v>=t.g?'g':v>=t.b?'w':'b'):(v<=t.g?'g':v<=t.b?'w':'b'); }
+const BOD_ST={g:['●','Healthy','st-g'],w:['▲','Watch','st-w'],b:['■','Act now','st-b']};
+function bodChart(js,ne){
+  // Monthly net earnings: one series, profit up and loss down from a zero line, months on one axis.
+  const W=640,H=226,pl=8,pr=8,pt=22,pb=42, vals=js.map(j=>ne[j]);
+  const mx=Math.max(0,...vals), mn=Math.min(0,...vals), span=(mx-mn)||1;
+  const y=v=>pt+(mx-v)/span*(H-pt-pb), bw=(W-pl-pr)/js.length, w=Math.max(6,Math.min(44,bw-10));
+  const hiJ=js.reduce((a,j)=>ne[j]>ne[a]?j:a,js[0]), loJ=js.reduce((a,j)=>ne[j]<ne[a]?j:a,js[0]), lastJ=js[js.length-1];
+  let g=`<line x1="${pl}" x2="${W-pr}" y1="${y(0)}" y2="${y(0)}" stroke="var(--rule)" stroke-width="1"/>`;
+  js.forEach((j,i)=>{ const v=ne[j], x=pl+i*bw+(bw-w)/2, y0=y(0), y1=y(v), top=Math.min(y0,y1), h=Math.max(1,Math.abs(y1-y0));
+    const pos=v>=0, r=Math.min(4,h/2,w/2);
+    // Rounded at the data end only, square on the zero line.
+    const d=pos?`M${x},${top+h}V${top+r}Q${x},${top} ${x+r},${top}H${x+w-r}Q${x+w},${top} ${x+w},${top+r}V${top+h}Z`
+               :`M${x},${top}V${top+h-r}Q${x},${top+h} ${x+r},${top+h}H${x+w-r}Q${x+w},${top+h} ${x+w},${top+h-r}V${top}Z`;
+    g+=`<g class="bodbar"><title>${MONTHS[j]} 2026: ${pos?'profit':'loss'} RM${fmt0(Math.abs(v))}</title><rect x="${pl+i*bw}" y="${pt-18}" width="${bw}" height="${H-pt-pb+18}" fill="transparent"/><path d="${d}" fill="${pos?'var(--s1)':'var(--bad)'}"/></g>`;
+    if(j===hiJ||j===loJ||j===lastJ) g+=`<text x="${x+w/2}" y="${pos?top-5:top+h+12}" text-anchor="middle" font-size="11" fill="var(--ink)">${fmtM(v).replace('RM','')}</text>`;
+    g+=`<text x="${x+w/2}" y="${H-8}" text-anchor="middle" font-size="11" fill="var(--muted)">${MONTHS[j]}</text>`; });
+  return `<div style="overflow-x:auto"><svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Net earnings by month" style="max-width:${W}px;min-width:460px;display:block;margin-top:10px">${g}</svg></div>
+    <div class="hint" style="margin-top:2px"><span style="color:var(--s1)">■</span> profit month · <span style="color:var(--bad)">■</span> loss month · hover a bar for the amount</div>`;
+}
+function renderBOD(){
+  if(!state.res){ $('tablebox').innerHTML='<div class="empty">Press Refresh data to load the workbook.</div>'; return; }
+  const rows=state.res.rows, Z=()=>new Array(12).fill(0), M=lastActualMonth();
+  const K=k=>{ const r=rows.find(x=>x.k===k); return r?r.val.c.map(x=>x||0):Z(); };
+  const js=[]; for(let j=state.from;j<=Math.min(state.to,M);j++) js.push(j);
+  if(!js.length){ $('tablebox').innerHTML='<div class="empty">No actual months in the period picked.</div>'; return; }
+  const S=a=>js.reduce((t,j)=>t+a[j],0);
+  const inc=K('INC'), cos=K('COS'), ne=K('NE'), I=S(inc), N=S(ne), nm=I?N/I*100:0;
+  const per=MONTHS[js[0]]+(js.length>1?'–'+MONTHS[js[js.length-1]]:'')+' 2026';
+  const chip=z=>z?`<span class="${BOD_ST[z][2]}" style="font-weight:700;white-space:nowrap">${BOD_ST[z][0]} ${BOD_ST[z][1]}</span>`:'';
+  const sec=(n,q,body)=>`<section class="tcard bodsec"><div class="bodq">${n} · ${q}</div>${body}</section>`;
+  const npmT=hlCfg.npm||{g:8,b:3}, nz=bodZone(nm,npmT,true);
+  const loss=js.filter(j=>ne[j]<-0.5);
+  let h='<div class="taxwrap bod">';
+  // 1
+  h+=sec(1,'Are we making money?',`<p class="bodh">${per}: revenue <b>${fmtM(I)}</b>, net earnings <b>${fmtM(N)}</b>, which is <b>${nm.toFixed(1)} sen</b> of profit on every RM1 sold.</p>
+    <p class="bods">${chip(nz)} Healthy is ${npmT.g} sen or more; below ${npmT.b} sen needs action.${loss.length?` ${loss.length} month${loss.length>1?'s':''} made a loss: ${loss.map(j=>MONTHS[j]).join(', ')}.`:' Every month made a profit.'}</p>${bodChart(js,ne)}`);
+  // 2
+  const O=opexCats(), cp=S(cos)/I, pp=N/I, op=1-cp-pp, sen=x=>Math.round(x*100), opS=100-sen(cp)-sen(pp);
+  const seg=(v,c,l)=>v>0.0005?`<div style="flex:${v};background:${c}" title="${l}: ${(v*100).toFixed(0)} sen"></div>`:'';
+  const top=O.C.filter(c=>c[0]!=='Other').slice().sort((a,b)=>b[2]-a[2]).slice(0,3);
+  h+=sec(2,'Where does the money go?',`<p class="bodh">Of every <b>RM1</b> of sales: <b>${(cp*100).toFixed(0)} sen</b> pays for materials and project labour, <b>${opS} sen</b> runs the business, and <b>${(pp*100).toFixed(0)} sen</b> is ${pp>=0?'profit':'lost'}.</p>
+    <div class="bodbar1">${seg(cp,'var(--s1)','Cost of sales')}${seg(op,'var(--s2)','Running costs')}${seg(Math.max(0,pp),'var(--s3)','Profit')}</div>
+    <div class="bodleg"><span><i style="background:var(--s1)"></i>Cost of sales ${(cp*100).toFixed(0)} sen</span><span><i style="background:var(--s2)"></i>Running costs ${opS} sen</span><span><i style="background:var(--s3)"></i>Profit ${(pp*100).toFixed(0)} sen</span></div>
+    <p class="bods" style="margin-top:12px">Biggest running costs: ${top.map(c=>`<b>${c[0]}</b> ${fmtM(c[2])} (${(c[2]/I*100).toFixed(0)} sen)`).join(' · ')}.</p>`);
+  // 3
+  const Wn=[];
+  const gpT=hlCfg.gpm||{g:40,b:30}, gm=I?(I-S(cos))/I*100:0, gz=bodZone(gm,gpT,true);
+  const oxT=hlCfg.opex||{g:35,b:45}, om=I?O.tot/I*100:0, oz=bodZone(om,oxT,false);
+  const drT=hlCfg.dirr||{g:8,b:12}, dc=(O.C.find(c=>c[3]==='dir')||[])[2]||0, dm=I?dc/I*100:0, dz=bodZone(dm,drT,false);
+  Wn.push([nz,`Net profit is ${nm.toFixed(1)} sen per RM1 (healthy ${npmT.g}+).`]);
+  Wn.push([gz,`Gross margin is ${gm.toFixed(1)}% (healthy ${gpT.g}%+).`]);
+  Wn.push([oz,`Running costs take ${om.toFixed(1)}% of revenue (healthy ${oxT.g}% or less).`]);
+  Wn.push([dz,`Directors cost ${dm.toFixed(1)}% of revenue, ${fmtM(dc)} (healthy ${drT.g}% or less).`]);
+  for(const e of ['v','a']){ const c=taxCfg[e]; if(c.exempt===true||c.exempt==='true') continue; const P=cp204aPlan(e);
+    if(P&&P.pen0>0) Wn.push(['b',`${e==='v'?'79V':'Arabina'} must revise its CP204 estimate in ${MONTHS[P.m-1]} 2026, or face a penalty of about ${fmtM(P.pen0)}.`]); }
+  if(loss.length) Wn.push(['w',`${loss.length} loss-making month${loss.length>1?'s':''} in the period (${loss.map(j=>MONTHS[j]).join(', ')}).`]);
+  const bad=Wn.filter(x=>x[0]==='b'), watch=Wn.filter(x=>x[0]==='w'), ok=Wn.filter(x=>x[0]==='g');
+  const shown=[...bad,...watch].slice(0,4);
+  h+=sec(3,'What needs attention?',`${shown.length?'<ul class="bodl">'+shown.map(([z,t])=>`<li>${chip(z)} <span>${t}</span></li>`).join('')+'</ul>':'<p class="bodh">Nothing is in the watch or danger zone.</p>'}
+    ${ok.length?`<p class="bods">${chip('g')} ${ok.map(x=>x[1]).join(' ')}</p>`:''}`);
+  // 4
+  let c4='';
+  const LD=loansData();
+  if(LD&&LD.L.length){ const lp=LD.L.reduce((t,x)=>t+LD.pay(x.gross,LD.last),0), lb=LD.L.reduce((t,x)=>t+x.gross[LD.last],0);
+    c4+=`<li><b>${fmtM(lp)}</b> a month on loans and hire purchase (${MONTHS[LD.last]}), ${fmtM(lb)} still owed.</li>`; }
+  const pti=rows.find(x=>/^profit to investors$/i.test(x.l)); if(pti&&Math.abs(pti.val.c[M]||0)>0.5) c4+=`<li><b>${fmtM(pti.val.c[M])}</b> a month profit to investors.</li>`;
+  for(const e of ['v','a']){ const c=taxCfg[e], ex=c.exempt===true||c.exempt==='true', P=ex?null:cp204aPlan(e), n=cp204Next(e), nm2=e==='v'?'79V':'Arabina';
+    if(P&&P.t.cur>0.5) c4+=`<li><b>${fmtM(P.t.cur)}</b> a month CP204 for ${nm2} now${P.pen0>0||P.t.tax>P.t.est?`, rising to <b>${fmtM(P.full.inst)}</b> for ${P.due.join(' and ')} once revised`:''}.</li>`;
+    if(n.cp>0.5) c4+=`<li><b>${fmtM(n.inst)}</b> a month CP204 for ${nm2} in 2027 (${fmtM(n.cp)} for the year)${ex?', if its new-company exemption has ended':''}.</li>`; }
+  h+=sec(4,'What do we have to pay every month?',c4?`<ul class="bodl plain">${c4}</ul>`:'<p class="bods">No loan or tax instalments found.</p>');
+  // 5
+  const Dn=[], now=new Date();
+  for(const e of ['v','a']){ const c=taxCfg[e], ex=c.exempt===true||c.exempt==='true', nm2=e==='v'?'79V':'Arabina';
+    if(!ex){ const P=cp204aPlan(e); if(P&&(P.pen0>0||P.t.tax>P.t.est)) Dn.push(`Approve revising ${nm2}'s CP204 estimate from ${fmtM(P.t.est)} to <b>${fmtM(P.full.rev)}</b> (file 1–${P.last} ${MONTHS[P.m-1]} 2026; instalments of ${fmtM(P.full.inst)} on ${P.due.join(' and ')}).`); }
+    const n=cp204Next(e); if(n.cp>0.5&&now<=new Date(2026,11,2)) Dn.push(`Approve ${nm2}'s CP204 estimate for 2027 of <b>${fmtM(n.cp)}</b> (${fmtM(n.inst)} a month), to be filed by 2 Dec 2026${ex?', if the exemption has ended':''}.`); }
+  if(dz&&dz!=='g') Dn.push(`Review how directors are paid: ${dm.toFixed(1)}% of revenue against a ${drT.g}% healthy line, for example a fixed base with a bonus tied to profit.`);
+  if(nz&&nz!=='g') Dn.push(`Agree actions to lift net profit from ${nm.toFixed(1)} sen towards ${npmT.g} sen per RM1.`);
+  h+=sec(5,'What do we need to decide today?',Dn.length?'<ol class="bodl num">'+Dn.map(t=>`<li>${t}</li>`).join('')+'</ol>':'<p class="bods">No decisions are flagged by the figures.</p>');
+  h+=`<p class="hint" style="margin:4px 2px 0">Consolidated, inter-company eliminated, from the books (${per}). Tax figures are estimates from Tax &amp; CP204; confirm them with the tax agent. The other views hold the detail behind every line.</p></div>`;
+  $('tablebox').innerHTML=h;
 }
 // Homepage: the two tax dates the board needs to see coming, from the same figures as Tax & CP204.
 function homeTaxHTML(){
@@ -3623,6 +3739,7 @@ function homeTaxHTML(){
   return h+'</div></div>';
 }
 function renderTable(){
+  if(state.view==='bod'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderBOD(); }
   // The two summary bands render above the table on every view, so the homepage is simply those
   // bands with no detail underneath: the position and the period's result, nothing to scroll past.
   if(state.view==='home'){
@@ -3753,7 +3870,7 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   renderEq(); renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['home','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
+(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
