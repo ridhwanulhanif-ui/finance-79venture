@@ -282,7 +282,7 @@ table.cs td.num{min-width:70px}
           <option value="be">Breakeven</option>
           <option value="mg">Margin vs Industry</option>
           <option value="tax">Tax &amp; CP204</option>
-          <option value="zk">Zakat Perniagaan</option>
+          <option value="zk">Business Zakat</option>
           <option value="ic">Inter-co Reconciliation</option>
           <option value="nic">P&amp;L vs BS Net Income Check</option>
           <option value="bank">Bank Reconciliation Check</option>
@@ -308,7 +308,7 @@ table.cs td.num{min-width:70px}
       <button data-view="adj" aria-pressed="false">Adj</button>
       <button data-view="cip" aria-pressed="false">CIP</button>
       <button data-view="tax" aria-pressed="false">Tax &amp; CP204</button>
-      <button data-view="zk" aria-pressed="false">Zakat</button>
+      <button data-view="zk" aria-pressed="false">Business Zakat</button>
       <button data-view="sum" aria-pressed="false">Consol Summary</button>
       <button data-view="aud" aria-pressed="false">Individual Statements</button>
       <button data-view="bse" aria-pressed="false">BS Consol by entity</button>
@@ -2845,8 +2845,8 @@ function renderTax(){
 }
 
 // ================= ZAKAT PERNIAGAAN =================
-// Two methods from the JAWHAR manual. Modal Kerja is the one for a Sdn Bhd that classifies
-// current and non-current; Modal Berkembang is for entities that do not. Before adjustments
+// Two methods from the JAWHAR manual. Working capital is the one for a Sdn Bhd that classifies
+// current and non-current; growth capital is for entities that do not. Before adjustments
 // the accounting identity makes them equal, so the page shows both and marks which is in use.
 const ZAKDEF={v:{method:'mk',less:0,add:0,own:100,rate:2.5,nisab:''},a:{method:'mk',less:0,add:0,own:100,rate:2.5,nisab:''}};
 let zakCfg=(()=>{try{const o=JSON.parse(store.get('consol.zakat')||'{}');return {v:{...ZAKDEF.v,...(o.v||{})},a:{...ZAKDEF.a,...(o.a||{})}};}catch(e){return JSON.parse(JSON.stringify(ZAKDEF));}})();
@@ -2884,10 +2884,10 @@ function renderZak(){
     const NAME={v:'79 Ventures Sdn Bhd',a:'Arabina Eco Tiny Homes Sdn Bhd'}[e];
     h+=`<div class="tcard"><h2 class="e-${e}">${NAME}</h2>`;
     if(!z){ h+='<div class="hint">No balance sheet for this period.</div></div>'; continue; }
-    h+=`<div class="hint">Zakat perniagaan · as at ${asAt(z.j)} · RM</div>`;
+    h+=`<div class="hint">Business zakat · as at ${asAt(z.j)} · RM</div>`;
     h+='<h3>Basis</h3><div class="inp">';
-    h+=zakRow(e,'method','Method','select',[['mk','Modal Kerja (working capital)'],['mb','Modal Berkembang (growth capital)']],
-      'Modal Kerja is the JAWHAR method for a Sdn Bhd that classifies current and non-current. Modal Berkembang is for entities that do not, such as Islamic banks and takaful.');
+    h+=zakRow(e,'method','Method','select',[['mk','Working capital method'],['mb','Growth capital method']],
+      'The working capital method (Modal Kerja on the forms) is the JAWHAR method for a Sdn Bhd that classifies current and non-current. Growth capital (Modal Berkembang) is for entities that do not, such as Islamic banks and takaful.');
     h+=zakRow(e,'less','Less: assets not subject to zakat (RM)','number','0','Bad debts, non-productive or non-halal assets, anything not held for trade.');
     h+=zakRow(e,'add','Add: adjustments (RM)','number','0','Items the state authority requires to be added back.');
     h+=zakRow(e,'own','Muslim ownership (%)','number','100','State formulas apply zakat to the Muslim-owned share.');
@@ -2897,9 +2897,9 @@ function renderZak(){
     h+=`<h3>Computation</h3><table class="tc">
       <tr><td>Current assets</td><td class="r">${fmt(z.ca)}</td></tr>
       <tr><td>Less: current liabilities</td><td class="r">(${fmt(z.cl)})</td></tr>
-      <tr class="sub"><td>Modal Kerja${c.method==='mk'?'':' <span class="note">not in use</span>'}</td><td class="r">${fmt(z.mk)}</td></tr>
+      <tr class="sub"><td>Working capital basis${c.method==='mk'?'':' <span class="note">not in use</span>'}</td><td class="r">${fmt(z.mk)}</td></tr>
       <tr><td>Equity ${fmt(z.eq)} + non-current liabilities ${fmt(z.ncl)} − non-current assets ${fmt(z.nca)}</td><td class="r"></td></tr>
-      <tr class="sub"><td>Modal Berkembang${c.method==='mb'?'':' <span class="note">not in use</span>'}</td><td class="r">${fmt(z.mb)}</td></tr>
+      <tr class="sub"><td>Growth capital basis${c.method==='mb'?'':' <span class="note">not in use</span>'}</td><td class="r">${fmt(z.mb)}</td></tr>
       <tr><td>Less: assets not subject to zakat</td><td class="r">${z.less?'('+fmt(z.less)+')':'–'}</td></tr>
       <tr><td>Add: adjustments</td><td class="r">${z.add?fmt(z.add):'–'}</td></tr>
       <tr class="sub"><td>Adjusted base</td><td class="r">${fmt(z.base)}</td></tr>
@@ -2919,7 +2919,7 @@ function renderZak(){
     const sy=$('tablebox').scrollTop; setTimeout(()=>{ renderZak(); $('tablebox').scrollTop=sy; },0); }));
 }
 
-// ================= MARGIN vs INDUSTRI =================
+// ================= MARGIN vs INDUSTRY =================
 const BMDEF={
   prefab:{name:'Cabin / modular home manufacturer (prefab)', gp:[18,27], op:[8,11], net:[5,9],
     note:'For Arabina, Consol, and 79V while it was still selling cabins (Jan–May).'},
