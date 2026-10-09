@@ -97,6 +97,7 @@ td.acct .tag{font-size:10.5px;font-weight:600;color:var(--ar);margin-left:6px}
 tr.newc td.acct .tag{color:var(--newink)}
 td.acct .flag{font-size:10.5px;font-weight:600;margin-left:6px;padding:0 5px;border-radius:3px;background:var(--newink);color:var(--new)}
 td .elim{font-size:10.5px;font-weight:500;opacity:.75}
+.icwhy{white-space:normal;font-size:11px;line-height:1.35;font-weight:400;color:var(--muted);margin-top:3px}
 tr.chk td{font-size:11.5px;color:var(--muted)}
 tr.chk td.bad{color:var(--bad);font-weight:700}
 tr.chk td.good{color:var(--ok)}
@@ -538,7 +539,7 @@ function bsConsol(V,A){
   const R2=x=>x.map(v=>Math.round(v*100)/100);
   const rows=[];
   // L: v, a values; consol = v+a unless ic (eliminated) or explicit c
-  const L=(l,v,a,k,o)=>{ o=o||{}; const c=o.c?o.c:(o.ic?Z():add(v,a)); rows.push({l,k:k||'line',ic:!!o.ic,conOnly:!!o.conOnly,val:{v:R2(v),a:R2(a),c:R2(c)}}); return c; };
+  const L=(l,v,a,k,o)=>{ o=o||{}; const c=o.c?o.c:(o.ic?Z():add(v,a)); rows.push({l,k:k||'line',ic:!!o.ic,icT:o.icT||'',conOnly:!!o.conOnly,val:{v:R2(v),a:R2(a),c:R2(c)}}); return c; };
   const H=(l,k)=>rows.push({l,k:k||'hd'});
   const cashV=g(V,'Total for Cash at Bank'), cashA=g(A,'Total for Cash at Bank');
   const arV=g(V,'Total for Accounts Receivable'), arA=g(A,'Total for Accounts Receivable');
@@ -554,11 +555,11 @@ function bsConsol(V,A){
   H('Assets','sec'); H('Current Assets');
   const cash=L('Cash at Bank',cashV,cashA); const ar=L('Trade and other receivables',arV,arA);
   const inv=L('Inventory & Goods in Transit',invV,invA); const oth=L('Other current assets (deposits, advances, petty cash, prepayments, etc.)',othV,othA);
-  L('Amount due from related company (inter-co)',icRV,icRA,'line',{ic:true});
+  L('Amount due from related company (inter-co)',icRV,icRA,'line',{ic:true,icT:'r'});
   L('Unmatched inter-co difference (receivable − payable)',Z(),Z(),'elim',{conOnly:true,c:icD});
   const ca=L('Total for Current Assets',caV,caA,'tot',{c:add(cash,ar,inv,oth,icD)});
   const lta=L('Long-term assets (net)',sub(ltaV,invS),ltaA);
-  L('Investment in subsidiary (Arabina)',invS,Z(),'line',{ic:true});
+  L('Investment in subsidiary (Arabina)',invS,Z(),'line',{ic:true,icT:'i'});
   L('Unmatched investment difference (investment \u2212 share capital)',Z(),Z(),'elim',{conOnly:true,c:invD});
   const ta=L('Total for Assets',add(caV,ltaV),add(caA,ltaA),'key',{c:add(ca,lta,invD)});
   const apV=g(V,'Total for Accounts Payable'), depV=g(V,'Total for Customer Deposits'), depA=g(A,'Total for Customer Deposit');
@@ -568,14 +569,14 @@ function bsConsol(V,A){
   H("Liabilities and Shareholder's Equity",'sec'); H('Current Liabilities');
   const ap=L('Trade and other payables',apV,Z()); const dep=L('Customer deposits',depV,depA);
   const ocl=L('Other current liabilities (accruals, payroll, statutory, investor loans, etc.)',oclV,oclA);
-  L('Amount due to related company (inter-co)',icPV,icPA,'line',{ic:true});
+  L('Amount due to related company (inter-co)',icPV,icPA,'line',{ic:true,icT:'p'});
   const cl=L('Total for Current Liabilities',clV,clA,'tot',{c:add(ap,dep,ocl)});
   const ncl=L('Non-current liabilities (bank borrowings & financing)',nclV,nclA);
   const tl=L('Total for Liabilities',add(clV,nclV),add(clA,nclA),'tot',{c:add(cl,ncl)});
   H("Shareholders' equity");
   const eqV=g(V,"Total for Shareholders' equity"), eqA=g(A,"Total for Shareholders' equity"), niV=g(V,'Net Income'), niA=g(A,'Net Income');
   L('Share capital, retained earnings & reserves',sub(eqV,niV),sub(sub(eqA,niA),scH));
-  L('Share capital held by 79V (Arabina)',Z(),scH,'line',{ic:true});
+  L('Share capital held by 79V (Arabina)',Z(),scH,'line',{ic:true,icT:'s'});
   L('Net Income: 79 Ventures',niV,Z()); L('Net Income: Arabina',Z(),niA);
   const eq=L("Total for Shareholders' equity",eqV,eqA,'tot',{c:sub(add(eqV,eqA),scH)});
   L("Total for Liabilities and Shareholder's Equity",add(add(clV,nclV),eqV),add(add(clA,nclA),eqA),'key',{c:add(tl,eq)});
@@ -639,7 +640,7 @@ function bsConsolDetail(V,A){
   const icD=Z(), invD=Z();
   M.forEach(n=>{ if(n.kind!=='line') return;
     const v=nz(n.v&&n.v.vals), a=nz(n.a&&n.a.vals), t=(n.v&&n.v.ic)||(n.a&&n.a.ic);
-    n.ic=!!t; n.val={v,a,c:t?Z():v.map((x,j)=>x+a[j])};
+    n.ic=!!t; n.icT=t||''; n.val={v,a,c:t?Z():v.map((x,j)=>x+a[j])};
     if(t==='r'||t==='p') v.forEach((x,j)=>{ icD[j]+=(t==='p'?-1:1)*(x+a[j]); });
     if(t==='i'||t==='s') v.forEach((x,j)=>{ invD[j]+=(t==='s'?-1:1)*(x+a[j]); }); });
   // Receivable and payable are eliminated in full; if they disagree, the gap stays in current assets
@@ -656,7 +657,7 @@ function bsConsolDetail(V,A){
     n.val={v,a,c}; });
   const months=V.months.filter(m=>A.months.includes(m));
   const rowsE=M.map(n=>n.kind==='head'?{l:n.l,k:n.depth===0?'sec':'hd'}
-    :{l:n.l,k:n.kind==='total'?n.k:'line',ic:!!n.ic,conOnly:!!n.conOnly,val:{v:R2(n.val.v),a:R2(n.val.a),c:R2(n.val.c)}});
+    :{l:n.l,k:n.kind==='total'?n.k:'line',ic:!!n.ic,icT:n.icT||'',conOnly:!!n.conOnly,val:{v:R2(n.val.v),a:R2(n.val.a),c:R2(n.val.c)}});
   // Headings carry an empty vals array like the source tabs do, since the inventory-total pass reads every row.
   const rows=rowsE.map(r=>r.val?{l:r.l,k:r.k,ic:r.ic,conOnly:r.conOnly,val:r.val,vals:r.val.c}:{l:r.l,k:r.k,vals:new Array(12).fill(null)});
   return {months,rowsE,rows,icD:R2(icD),invD:R2(invD)};
@@ -2537,6 +2538,12 @@ function renderIC(){
   if(R.mfWrong.length) h+=`<div class="msg err" style="margin:0 18px 18px">Management fee balance direction: 79V records the fee as income, but its balance sheet carries <i>Amount Due To- Arabina (Management Fee)</i> as a payable (${R.mfWrong.map(x=>MONTHS[x.j]+' RM'+fmt(x.v)).join(', ')}). If 79V charges Arabina, this balance should sit as a receivable in 79V and a payable in Arabina.</div>`;
   $('tablebox').innerHTML=h;
 }
+// Why each inter-co line is taken out of the consolidated column, shown under the line itself.
+const IC_WHY={
+  s:'Why elim: 79V paid this for its shares in Arabina, and 79V carries the same amount as “Investment in subsidiary”. A group cannot own shares in itself, so both are removed. Arabina’s own books still show it.',
+  i:'Why elim: what 79V paid for its Arabina shares. Arabina carries the same amount as share capital held by 79V. A group cannot own shares in itself, so both are removed.',
+  r:'Why elim: owed by the other company in the group, which carries the same amount as a payable. Money owed within the group is not owed by anyone outside it, so both sides are removed.',
+  p:'Why elim: owed to the other company in the group, which carries the same amount as a receivable. Money owed within the group is not owed to anyone outside it, so both sides are removed.'};
 function renderBSEnt(){
   const B=state.res.bs; const D=B&&B.c;
   if(!D){ $('tablebox').innerHTML='<div class="empty">'+(B?'BS 79V / BS Arabina tab not found. Check the tab names under “Data source”.':'Press Refresh data to load the balance sheet.')+'</div>'; return; }
@@ -2550,9 +2557,10 @@ function renderBSEnt(){
     const z=ms.every(j=>cols.every(e=>Math.abs(r.val[e][j])<0.005));
     if(hz && z && (r.k==='line'||r.k==='elim') && !(r.ic&&!D.det)) continue;
     const cls=r.k==='key'?'tot key':r.k==='tot'?'tot':'';
-    h+=`<tr class="${cls}"><td class="acct" title="${esc(r.l)}">${esc(r.l)}${(r.ic||r.k==='elim')?'<span class="tag" style="color:var(--muted)">inter-co</span>':''}</td>`;
+    const why=r.ic&&IC_WHY[r.icT];
+    h+=`<tr class="${cls}"><td class="acct" title="${esc(r.l)}">${esc(r.l)}${(r.ic||r.k==='elim')?'<span class="tag" style="color:var(--muted)">inter-co</span>':''}${why?`<div class="icwhy">${why}</div>`:''}</td>`;
     ms.forEach(j=>cols.forEach((e,k)=>{ const x=r.val[e][j]; const blank=r.conOnly&&e!=='c';
-      h+=`<td class="num${k===0?' gstart':''}${e==='c'?' cc':''}${x<-0.004?' neg':''}">${blank?'':(r.ic&&e==='c')?'<span class="elim">elim</span>':fmt(x)}</td>`; }));
+      h+=`<td class="num${k===0?' gstart':''}${e==='c'?' cc':''}${x<-0.004?' neg':''}"${why&&e==='c'?` title="${esc(why)}"`:''}>${blank?'':(r.ic&&e==='c')?'<span class="elim">elim</span>':fmt(x)}</td>`; }));
     h+='</tr>';
   }
   const tv=bsTotals(B.v), tA=bsTotals(B.a);
