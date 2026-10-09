@@ -12,7 +12,7 @@
 :root{
   --paper:#F4F5F1; --card:#FFFFFF; --ink:#1D2420; --muted:#5E6A63; --rule:#D5DBD5; --rule2:#E7EBE6;
   --v79:#3E5C76; --ar:#9A6B24; --cons:#24443A; --consbg:#E3ECE5; --band:#EEF1EC; --gp:#F3E6E0;
-  --new:#FFE45C; --newink:#3A3200; --bad:#B3261E; --ok:#2E6B4A;
+  --new:#FFE45C; --newink:#3A3200; --bad:#B3261E; --ok:#2E6B4A; --warn:#8A5A10;
   --sans:"IBM Plex Sans",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
   --cond:"IBM Plex Sans Condensed","Arial Narrow",var(--sans);
   box-sizing:border-box; padding-top:env(safe-area-inset-top,0px); padding-bottom:env(safe-area-inset-bottom,0px);
@@ -20,11 +20,11 @@
 @media (prefers-color-scheme:dark){ :root:not([data-theme="light"]){
   --paper:#141816; --card:#1B201D; --ink:#E7ECE8; --muted:#9AA8A0; --rule:#334039; --rule2:#26302B;
   --v79:#8FB1CF; --ar:#D9AE6A; --cons:#9FD3B6; --consbg:#1E3128; --band:#1F2622; --gp:#2E2421;
-  --new:#E9CF3A; --newink:#1E1A00; --bad:#F2867E; --ok:#7FD0A2; } }
+  --new:#E9CF3A; --newink:#1E1A00; --bad:#F2867E; --ok:#7FD0A2; --warn:#E3B05C; } }
 :root[data-theme="dark"]{
   --paper:#141816; --card:#1B201D; --ink:#E7ECE8; --muted:#9AA8A0; --rule:#334039; --rule2:#26302B;
   --v79:#8FB1CF; --ar:#D9AE6A; --cons:#9FD3B6; --consbg:#1E3128; --band:#1F2622; --gp:#2E2421;
-  --new:#E9CF3A; --newink:#1E1A00; --bad:#F2867E; --ok:#7FD0A2; }
+  --new:#E9CF3A; --newink:#1E1A00; --bad:#F2867E; --ok:#7FD0A2; --warn:#E3B05C; }
 html{height:100%;scroll-padding-top:env(safe-area-inset-top,0px)}
 *,*::before,*::after{box-sizing:border-box}
 body{margin:0;background:var(--paper);color:var(--ink);font-family:var(--sans);font-size:14px;line-height:1.45}
@@ -60,6 +60,24 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .eq .op{position:relative}
 .eq .last{border-bottom:none}
 .eq .sub{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
+.hk{margin:22px 0 4px}
+.hk .ov{font-size:13.5px;color:var(--muted);margin:0 0 10px}
+.hk .ov b{color:var(--ink)}
+.hk .tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,150px),1fr));gap:10px}
+.hk .tile{background:var(--card);border:1px solid var(--rule);border-radius:8px;padding:12px 14px;min-width:0}
+.hk .tl{font-size:12.5px;font-weight:600;color:var(--muted)}
+.hk .tv{font-size:26px;font-weight:600;color:var(--ink);margin:6px 0 2px;line-height:1.15}
+.hk .ts{font-size:12.5px;font-weight:600}
+.hk .tn{font-size:11.5px;color:var(--muted);margin-top:4px}
+.hk .att{background:var(--card);border:1px solid var(--rule);border-radius:8px;margin-top:12px}
+.hk .att h3{font-family:var(--sans);font-size:13px;letter-spacing:.02em;margin:0;padding:10px 14px;border-bottom:1px solid var(--rule2)}
+.hk .att ul{list-style:none;margin:0;padding:0}
+.hk .att li{display:flex;gap:10px;align-items:baseline;padding:9px 14px;border-bottom:1px solid var(--rule2);font-size:13px}
+.hk .att li:last-child{border-bottom:0}
+.hk .att .tx{flex:1;min-width:0}
+.hk .att button{flex:none;font-size:12px;padding:3px 10px}
+.st-g{color:var(--ok)} .st-w{color:var(--warn)} .st-b{color:var(--bad)}
+
 .eq .ind{font-weight:400;color:var(--muted)} .eq .lab.ind{padding-left:30px}
 .eq .ind.n{font-size:14px} .eq .tt{border-top:1px solid var(--rule)} .eq .lab.tt,.eq .tt.n{font-weight:700}
 .eqnote{font-size:12px;color:var(--muted);margin:0 0 18px}
@@ -132,8 +150,8 @@ details.coa[open] summary{margin-bottom:2px}
 tr.icd td.num.bad{font-weight:700}
 td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .zg{color:var(--ok,#2f7d4f)} .zw{color:#b7791f} .zb{color:var(--bad)}
-.viewpick{display:inline-flex;align-items:center;gap:8px;font-weight:600}
-.viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:300px;cursor:pointer}
+.viewpick{display:inline-flex;align-items:center;gap:8px;font-weight:600;max-width:100%;min-width:0}
+.viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:min(300px,100%);max-width:100%;cursor:pointer}
 .stmt{padding:18px 18px 8px;min-width:0} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
 .stmt .sub2{font-size:12px;color:var(--muted);margin:0 0 10px}
 /* Fixed widths, and the table only as wide as its columns: dragging the divider then moves
@@ -249,6 +267,7 @@ table.cs td.num{min-width:70px}
   </header>
 
   <div id="msgs"></div>
+  <section id="homekpi" class="hk" aria-label="Board overview" hidden></section>
   <div id="checks"></div>
 
   <section aria-label="Period summary" id="eqbox" hidden>
@@ -2090,18 +2109,11 @@ function bmActual(){
     ['Net Retail Margin',nrm,'margin',0]];
   return {R,M,sales,L};
 }
-function renderBM(){
-  const A=bmActual(); if(!A){ $('tablebox').innerHTML='<div class="empty">Press Refresh data to load the P&amp;L.</div>'; return; }
-  const H=hlData(); const {M,sales,L}=A; const ms=[]; for(let j=0;j<=M;j++) ms.push(j);
-  const sum=(a,js)=>js.reduce((s,j)=>s+a[j],0); const pct=(a,js)=>{ const sv=sum(sales,js); return sv?sum(a,js)/sv:null; };
-  const fyJ=[...Array(12).keys()]; const bm=bmSt.vals||{}; const fp=x=>x==null?'':(x*100).toFixed(1)+'%';
-  const HL={}; (H?H.rows:[]).forEach(r=>{ if(r.k) HL[r.k]=r; });
-  const IL={}; L.forEach(([lab,a,kind,lvl])=>IL[lab]={lab,a,kind,lvl});
-  const IK={'Gross Retail Margin':'i_grm','Net Retail Margin':'i_nrm','Operating Expenditure':'i_opex','Cost of Sales':'i_cos','Admin':'i_admin','Operation':'i_op','People':'i_ppl','Marketing':'i_mkt','Finance':'i_fin'};
-  const inS='font:inherit;padding:2px 4px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink);text-align:right;width:52px';
-  const Z={g:['● Healthy','zg'],w:['▲ Watch','zw'],b:['■ Danger','zb']};
-  // one row = optional internal-benchmark line + optional health KPI
-  const ROWS=[
+// Margin vs Benchmark's rows and how each is rated, shared with the homepage so the two can
+// never count or rate differently.
+const BM_IK={'Gross Retail Margin':'i_grm','Net Retail Margin':'i_nrm','Operating Expenditure':'i_opex','Cost of Sales':'i_cos','Admin':'i_admin','Operation':'i_op','People':'i_ppl','Marketing':'i_mkt','Finance':'i_fin'};
+// one row = optional internal-benchmark line + optional health KPI
+const BM_ROWS=[
     ['Margins'],
     {il:'Gross Retail Margin',note:'Workbook basis: direct labour in People'},{hk:'gpm'},
     {il:'Net Retail Margin',note:'Workbook basis'},{hk:'opm'},{hk:'npm'},
@@ -2115,16 +2127,43 @@ function renderBM(){
     {hk:'ppl'},{hk:'stf'},{hk:'dirp'},{hk:'pgp'},
     ['Business health'],
     {hk:'loss'},{hk:'be'},{hk:'dscr'},{hk:'cash'}];
+function bmCtx(){
+  const A=bmActual(); if(!A) return null;
+  const H=hlData(); const {M,sales,L}=A; const ms=[]; for(let j=0;j<=M;j++) ms.push(j);
+  const sum=(a,js)=>js.reduce((s,j)=>s+a[j],0); const pct=(a,js)=>{ const sv=sum(sales,js); return sv?sum(a,js)/sv:null; };
+  const HL={}; (H?H.rows:[]).forEach(r=>{ if(r.k) HL[r.k]=r; });
+  const IL={}; L.forEach(([lab,a,kind,lvl])=>IL[lab]={lab,a,kind,lvl});
+  return {A,H,M,sales,L,ms,sum,pct,HL,IL,IK:BM_IK,bm:bmSt.vals||{}};
+}
+// The KPI a row is rated on, or null when the row is not shown at all.
+function bmResolve(R,c){
+  const I=R.il?c.IL[R.il]:null; let K=R.hk?c.HL[R.hk]:null; if(!I&&!K) return null;
+  if(I&&!K&&c.IK[R.il]){ const a=c.pct(I.a,c.ms); K={k:c.IK[R.il],v:a==null?null:a*100,hi:I.kind==='margin',u:'%',ind:null,own:true}; }
+  const label=K&&!I?K.l:esc(R.il);
+  const lvl=I?I.lvl:1;
+  if(I&&!K&&lvl>0&&c.bm[bmNorm(R.il)]==null&&Math.abs(c.sum(I.a,c.ms))<0.5) return null;
+  return {I,K,label,lvl};
+}
+function bmHealth(){
+  const C=bmCtx(); if(!C) return null;
+  const items=[], zc={g:0,w:0,b:0};
+  BM_ROWS.forEach(R=>{ if(Array.isArray(R)) return; const X=bmResolve(R,C); if(!X||!X.K) return;
+    const z=hlZone(X.K); if(z) zc[z]++; items.push({label:X.label,K:X.K,z}); });
+  return {M:C.M,items,zc};
+}
+function renderBM(){
+  const C=bmCtx(); if(!C){ $('tablebox').innerHTML='<div class="empty">Press Refresh data to load the P&amp;L.</div>'; return; }
+  const {A,H,M,sales,L,ms,sum,pct,HL,IL,IK,bm}=C;
+  const fyJ=[...Array(12).keys()]; const fp=x=>x==null?'':(x*100).toFixed(1)+'%';
+  const inS='font:inherit;padding:2px 4px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink);text-align:right;width:52px';
+  const Z={g:['● Healthy','zg'],w:['▲ Watch','zw'],b:['■ Danger','zb']};
+  const ROWS=BM_ROWS;
   let nI=0,nIbad=0,zc={g:0,w:0,b:0};
   let rows='';
   ROWS.forEach(R=>{
     if(Array.isArray(R)){ rows+=`<tr class="hd sec"><td class="acct">${R[0]}</td><td colspan="${9+ms.length}"></td></tr>`; return; }
-    const I=R.il?IL[R.il]:null; let K=R.hk?HL[R.hk]:null; if(!I&&!K) return;
-    if(I&&!K&&IK[R.il]){ const a=pct(I.a,ms); K={k:IK[R.il],v:a==null?null:a*100,hi:I.kind==='margin',u:'%',ind:null,own:true}; }
-    const label=K&&!I?K.l:esc(R.il);
-    const KH=K&&!K.own;
-    const lvl=I?I.lvl:1;
-    if(I&&!K&&lvl>0&&bm[bmNorm(R.il)]==null&&Math.abs(sum(I.a,ms))<0.5) return;
+    const X=bmResolve(R,C); if(!X) return;
+    const {I,K,label,lvl}=X; const KH=K&&!K.own;
     // actual
     let actTxt, act=null;
     if(I){ act=pct(I.a,ms); actTxt=fp(act); }
@@ -3347,12 +3386,54 @@ function renderBE(){
   $('tablebox').querySelectorAll('[data-be]').forEach(b=>b.addEventListener('click',()=>{ beEnt=b.dataset.be; store.set('consol.beEnt',beEnt); renderBE(); }));
 }
 
+// ===== Homepage: board overview =====
+// The summary bands are levels; a board decides on direction and risk. These tiles and the list
+// reuse the figures and thresholds already computed for Margin vs Benchmark and Financing
+// Readiness, so the homepage can never tell a different story from those views.
+const HK_ST={g:['●','Healthy','st-g'],w:['▲','Watch','st-w'],b:['■','Danger','st-b']};
+function hkFmt(r){ if(r.v==null) return '–'; if(!isFinite(r.v)) return 'no profit';
+  return r.u==='×'?r.v.toFixed(2)+'×':r.u===' mth'?r.v.toFixed(r.k==='loss'?0:1)+' mth':r.u==='%'?r.v.toFixed(1)+'%':'RM'+fmt0(r.v); }
+function hkLim(r,t){ if(!t) return ''; const f=x=>r.u==='%'?x+'%':r.u==='×'?x+'×':r.u===' mth'?x+' mth':'RM'+fmt0(x);
+  return r.hi?`healthy ≥ ${f(t.g)} · danger below ${f(t.b)}`:`healthy ≤ ${f(t.g)} · danger above ${f(t.b)}`; }
+function renderHomeKpi(){
+  const el=$('homekpi'); let B=null, R=null;
+  try{ B=bmHealth(); }catch(e){} try{ R=frData(); }catch(e){}
+  if(!B){ el.innerHTML=''; return; }
+  const hk=k=>{ const x=B.items.find(i=>i.K.k===k); return x&&x.K; }, fr=k=>R&&R.rows.find(r=>r.k===k);
+  // Gross margin as the books state it, so the tile reads the same as the summary directly below.
+  // (Margin vs Benchmark also carries a workbook-basis gross margin, which classifies costs differently.)
+  const inc=sumR(rowBy('INC').val.c), gp=sumR(rowBy('GP').val.c);
+  const gpm=inc?{k:'gpm',v:gp/inc*100,u:'%',hi:true}:null;
+  const tiles=[[gpm,hlZone,hlCfg,'Gross margin'],[hk('npm'),hlZone,hlCfg,'Net margin before tax'],[hk('cash'),hlZone,hlCfg,'Cash cover'],
+    [fr('gear'),frZone,frCfg,'Gearing (liabilities ÷ equity)'],[hk('be'),hlZone,hlCfg,'Revenue vs breakeven'],[hk('dirp'),hlZone,hlCfg,'Directors cost vs profit before tax']].filter(x=>x[0]);
+  const zc=B.zc, H={M:B.M};
+  const ov=zc.b?['Needs action','st-b']:zc.w?['Generally healthy, with areas to watch','st-w']:['Healthy','st-g'];
+  let h=`<p class="ov"><b>Overall health: <span class="${ov[1]}">${ov[0]}</span></b> · ${zc.g} healthy · ${zc.w} watch · ${zc.b} danger · Jan–${MONTHS[H.M]} 2026</p><div class="tiles">`;
+  tiles.forEach(([r,zf,cfg,lab])=>{ const z=zf(r), S=z?HK_ST[z]:null;
+    h+=`<div class="tile"><div class="tl">${lab}</div><div class="tv">${hkFmt(r)}</div>${S?`<div class="ts ${S[2]}">${S[0]} ${S[1]}</div>`:''}<div class="tn">${hkLim(r,cfg[r.k])}</div></div>`; });
+  h+='</div>';
+  // Anything in danger, then anything unreconciled. Each line opens the view that explains it.
+  const it=[];
+  B.items.forEach(x=>{ if(x.z==='b') it.push(['b',`<b>${x.label}</b>: ${hkFmt(x.K)} (${hkLim(x.K,hlCfg[x.K.k])})`,'bm']); });
+  const g=fr('gear'); if(g&&frZone(g)==='b') it.push(['b',`<b>Gearing</b>: ${hkFmt(g)} (${hkLim(g,frCfg.gear)})`,'fin']);
+  if(!bk.scannedAt&&!bk.cfAt) it.push(['w',bkCfErr?`<b>Bank check could not run</b>: ${esc(bkCfErr)}`:'<b>Bank check not run yet</b>: Cash at Bank has not been compared with the bank','bank']);
+  else { try{ const {accts}=bkMatrix(); const res=state.res0||state.res; const ms=(res.bs.v||res.bs.a).months, last=ms[ms.length-1];
+    accts.forEach(a=>{ if(a.best[last]!=null&&Math.abs(a.book[last]-a.best[last])>0.05) it.push(['w',`<b>${esc(a.l)}</b>: book differs from the bank by RM${fmt(a.book[last]-a.best[last])}`,'bank']);
+      else if(a.best[last]==null&&Math.abs(a.book[last])>0.005) it.push(['w',`<b>${esc(a.l)}</b>: no bank statement or cashflow figure to compare`,'bank']); }); }catch(e){} }
+  const ex=(state.res.extra||[]).length; if(ex) it.push(['w',`<b>${ex} new accounts</b> appeared in the source tab: confirm they are classified correctly`,'ent']);
+  it.sort((x,y)=>(x[0]==='b'?0:1)-(y[0]==='b'?0:1));
+  h+=`<div class="att"><h3>NEEDS BOARD ATTENTION</h3>${it.length?'<ul>'+it.map(([z,t,v])=>`<li><span class="${HK_ST[z][2]}" aria-label="${HK_ST[z][1]}">${HK_ST[z][0]}</span><span class="tx">${t}</span><button data-hkgo="${v}">View</button></li>`).join('')+'</ul>':'<p class="hint" style="padding:10px 14px;margin:0">Nothing outstanding.</p>'}</div>`;
+  el.innerHTML=h;
+  el.querySelectorAll('[data-hkgo]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value=b.dataset.hkgo; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
+}
 function renderTable(){
+  $('homekpi').hidden=state.view!=='home';
   // The two summary bands render above the table on every view, so the homepage is simply those
   // bands with no detail underneath: the position and the period's result, nothing to scroll past.
   if(state.view==='home'){
     $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true;
     $('tablebox').style.maxHeight='none';
+    if(state.res) try{ renderHomeKpi(); }catch(e){ $('homekpi').innerHTML=''; }
     $('tablebox').innerHTML=state.res
       ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'
       : '<div class="empty">Press Refresh data to load the workbook.</div>';
