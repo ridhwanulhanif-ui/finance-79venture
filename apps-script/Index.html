@@ -111,6 +111,18 @@ details.src summary{cursor:pointer;font-weight:600}
 .seg[hidden]{display:none!important}
 .adjtog{display:inline-flex;gap:6px;align-items:center;font-weight:600;padding:6px 10px;border:1.5px dashed var(--ar);border-radius:6px}
 .msg.adj{border-color:var(--ar);border-style:dashed;color:var(--ink)}
+/* The checks sit side by side so they cost one band of height, not one each. */
+#checks{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:10px;margin-top:12px;align-items:stretch}
+#checks .msg{margin:0;height:100%;padding:10px 12px;font-size:13px;display:flex;flex-direction:column;justify-content:space-between;gap:8px}
+/* Let the bar's children join the card's column, so the button can sit last. */
+#checks .icbar{display:contents}
+#checks .icbar > span{order:1}
+#checks .hint{order:2;margin-top:0!important}
+#checks .icbar button{order:3;align-self:flex-start;margin-top:auto;padding:4px 10px;font-size:12px;white-space:nowrap}
+details.coa{margin:16px 0 0;padding:10px 14px;border-radius:6px;background:var(--new);color:var(--newink);font-size:13.5px}
+details.coa summary{cursor:pointer;font-weight:600;list-style-position:outside}
+details.coa ul{margin:8px 0 0;padding-left:18px;font-weight:400}
+details.coa[open] summary{margin-bottom:2px}
 .icbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between}
 .icbar button{font:600 13px var(--sans);padding:6px 12px;border:1.5px solid currentColor;border-radius:6px;background:transparent;color:inherit;cursor:pointer}
 .icmonths{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
@@ -220,6 +232,7 @@ table.cs td.num{min-width:70px}
   </header>
 
   <div id="msgs"></div>
+  <div id="checks"></div>
 
   <section aria-label="Period summary" id="eqbox" hidden>
     <div class="eq" id="eq"></div>
@@ -1490,8 +1503,8 @@ function bkAlert(){
   const res=state.res0||state.res; const months=(res.bs.v||res.bs.a).months; const last=months[months.length-1];
   const bad=accts.filter(a=>a.stmt[last]!=null&&Math.abs(a.book[last]-a.stmt[last])>0.05);
   const miss=accts.filter(a=>a.stmt[last]==null&&Math.abs(a.book[last])>0.005);
-  if(!bad.length&&!miss.length) addMsg(`<div class="icbar"><span><b>Bank check: all bank accounts agree with the statements</b> at ${asAt(last)}.</span><button data-gobk>View bank check</button></div>`,'ok');
-  else addMsg(`<div class="icbar"><span><b>⚠ Bank balances do not all agree with the statements at ${asAt(last)}.</b> ${bad.length?'Difference: '+bad.map(a=>esc(a.l)+' RM'+fmt(a.book[last]-a.stmt[last])).join('; ')+'. ':''}${miss.length?'No statement: '+miss.map(a=>esc(a.l)).join(', ')+'.':''}</span><button data-gobk>View bank check</button></div>`,'err');
+  if(!bad.length&&!miss.length) addCheck(`<div class="icbar"><span><b>Bank check: all bank accounts agree with the statements</b> at ${asAt(last)}.</span><button data-gobk>View bank check</button></div>`,'ok');
+  else addCheck(`<div class="icbar"><span><b>⚠ Bank balances do not all agree with the statements at ${asAt(last)}.</b> ${bad.length?'Difference: '+bad.map(a=>esc(a.l)+' RM'+fmt(a.book[last]-a.stmt[last])).join('; ')+'. ':''}${miss.length?'No statement: '+miss.map(a=>esc(a.l)).join(', ')+'.':''}</span><button data-gobk>View bank check</button></div>`,'err');
   document.querySelectorAll('[data-gobk]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value='bank'; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
 }
 
@@ -2027,10 +2040,10 @@ function niCheck(){
 function niAlert(){
   const N=niCheck(); if(!N) return;
   const nm={v:'79V',a:'Arabina'}; const bad=Object.keys(N).filter(e=>N[e].bad.length);
-  if(!bad.length){ addMsg('<div class="icbar"><span><b>P&amp;L vs BS check: tally.</b> Net Earnings (P&amp;L, YTD) agrees with Net Income in the balance sheet for 79V and Arabina for every month (within RM'+NI_TOL+').</span><button data-goni>View check</button></div>','ok'); }
+  if(!bad.length){ addCheck('<div class="icbar"><span><b>P&amp;L vs BS check: tally.</b> Net Earnings (P&amp;L, YTD) agrees with Net Income in the balance sheet for 79V and Arabina for every month (within RM'+NI_TOL+').</span><button data-goni>View check</button></div>','ok'); }
   else { let t='<div class="icbar"><span><b>⚠ P&amp;L and BS Net Income do not tally.</b> '+bad.map(e=>{ const X=N[e], j=X.months[X.months.length-1];
       return nm[e]+': '+X.bad.map(m=>MONTHS[m]).join(', ')+' (latest '+MONTHS[j]+' difference RM'+fmt(X.diff[j])+')'; }).join(' · ')+'. Usually the P&amp;L and BS tabs were exported from QuickBooks on different dates.</span><button data-goni>View check</button></div>';
-    addMsg(t,'err'); }
+    addCheck(t,'err'); }
   document.querySelectorAll('[data-goni]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value='nic'; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
 }
 function renderNIC(){
@@ -2071,14 +2084,14 @@ function icAlert(){
     let t='<div class="icbar"><span><b>Inter-co balances tally at '+MONTHS[latest]+'.</b> 79V and Arabina agree on the inter-company balance as at the latest month.</span><button data-goic>View reconciliation</button></div>';
     const cl=[...new Set([...balCleared,...mfCleared])].sort((a,b)=>a-b);
     if(cl.length) t+='<div class="hint" style="margin-top:6px">Differences arose in '+cl.map(j=>MONTHS[j]).join(', ')+' and have cleared by '+MONTHS[latest]+'. The balances are cumulative, so these were timing differences.</div>';
-    addMsg(t,'ok');
+    addCheck(t,'ok');
   } else {
     let t='<div class="icbar"><span><b>⚠ Inter-co does not tally</b> at '+MONTHS[latest]+'. Review before finalising the consolidation.</span><button data-goic>View reconciliation</button></div>';
     t+='<div class="icmonths">'+badMonths.map(j=>{ const tot=[...balOpen,...feeBad].filter(b=>b.j===j).reduce((s,b)=>s+Math.abs(b.d),0); return `<span>${MONTHS[j]}: RM${fmt(tot)}</span>`; }).join('')+'</div>';
     if(balCleared.length) t+='<div class="hint" style="margin-top:6px">Balance differences in '+balCleared.map(j=>MONTHS[j]).join(', ')+' have since cleared.</div>';
-    addMsg(t,'err');
+    addCheck(t,'err');
   }
-  if(mfOpen.length) addMsg('<div class="icbar"><span>Management fee balance direction: 79V books the fee as <i>income</i>, but its balance sheet shows <i>Amount Due To- Arabina (Management Fee)</i> as a payable at '+MONTHS[latest]+'. If 79V charges Arabina, the balance should be a receivable in 79V and a payable in Arabina.</span><button data-goic>View reconciliation</button></div>','');
+  if(mfOpen.length) addCheck('<div class="icbar"><span>Management fee balance direction: 79V books the fee as <i>income</i>, but its balance sheet shows <i>Amount Due To- Arabina (Management Fee)</i> as a payable at '+MONTHS[latest]+'. If 79V charges Arabina, the balance should be a receivable in 79V and a payable in Arabina.</span><button data-goic>View reconciliation</button></div>','');
   document.querySelectorAll('[data-goic]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value='ic'; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
 }
 function renderIC(){
@@ -2189,6 +2202,7 @@ function dt(ms){ return new Date(ms).toLocaleString('en-GB',{day:'2-digit',month
 
 function setMsg(html,cls){ $('msgs').innerHTML=html?`<div class="msg ${cls||''}">${html}</div>`:''; }
 function addMsg(html,cls){ $('msgs').insertAdjacentHTML('beforeend',`<div class="msg ${cls||''}">${html}</div>`); }
+function addCheck(html,cls){ $('checks').insertAdjacentHTML('beforeend',`<div class="msg ${cls||''}">${html}</div>`); }
 
 function errText(e){
   const c=e&&e.code;
@@ -2316,10 +2330,10 @@ function initRange(){
 
 function render(){
   const res=state.res; if(!res) return;
-  $('msgs').innerHTML='';
+  $('msgs').innerHTML=''; $('checks').innerHTML='';
   if(state.stale) addMsg('Showing last saved data ('+dt(state.fetchedAt)+'). Press Refresh to pull the latest version.','');
   const extra=res.extra||[];
-  if(extra.length) addMsg('<b>'+extra.length+' new COA detected</b> in the source tab and added automatically (yellow rows):<ul>'+extra.map(x=>`<li>${esc(x.l)}, from tab ${x.src==='v'?'79V':'Arabina'} row ${x.srcRow} (section ${({INC:'Income',COS:'Cost of Sales',OI:'Other Income',EXP:'Expenses',OX:'Other Expenses'})[x.s]})</li>`).join('')+'</ul>','new');
+  if(extra.length) $('msgs').insertAdjacentHTML('beforeend','<details class="coa"><summary>'+extra.length+' new COA detected in the source tab and added automatically (yellow rows)</summary><ul>'+extra.map(x=>`<li>${esc(x.l)}, from tab ${x.src==='v'?'79V':'Arabina'} row ${x.srcRow} (section ${({INC:'Income',COS:'Cost of Sales',OI:'Other Income',EXP:'Expenses',OX:'Other Expenses'})[x.s]})</li>`).join('')+'</ul></details>');
   const bad=[...res.check.v,...res.check.a,...res.check.c].some((x,i)=>Math.abs(x)>0.05);
   if(cipOn&&state.res&&state.res.cipApplied){ const I=cipInfo(adjOn?applyAdj(state.res0):state.res0); if(I) addMsg('<b>Scenario view:</b> Construction in Progress-Warehouse treated as completed on '+asAt(I.j0)+' and capitalised to fixed assets (RM'+fmt(I.cap[I.j0])+': '+I.cats.map(k=>esc(k.n)+' '+k.life+' yrs').join(', ')+'). Untick <i>Apply CIP capitalisation</i> to return to the books as recorded.','adj'); }
   if(adjOn&&state.res&&state.res.adjApplied){ const A=adjInfo(state.res0); addMsg('<b>Adjusted view:</b> Investment Property (Wangsa Maju) of RM'+(A?fmt(A.bal[A.months[A.months.length-1]]):'')+' has been removed from the 79V balance sheet and expensed as Professional Fee-Legal Fee in the 79V P&amp;L. Untick <i>Apply legal fee adjustment</i> to return to the books as recorded.','adj'); }
