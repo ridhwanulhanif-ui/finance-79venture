@@ -119,10 +119,14 @@ const server = http.createServer((req, res) => {
       res.end("Not found");
       return;
     }
+    const ext = path.extname(filePath);
     res.writeHead(200, {
-      "Content-Type": TYPES[path.extname(filePath)] || "application/octet-stream",
+      "Content-Type": TYPES[ext] || "application/octet-stream",
       "X-Content-Type-Options": "nosniff",
       "X-Robots-Tag": "noindex, nofollow",
+      // The dashboard is one HTML file, so without this the browser keeps serving
+      // the version it cached and a deploy looks like it did nothing.
+      "Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=3600",
     });
     res.end(data);
   });
