@@ -3623,6 +3623,9 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
   mcp=m; downloads=d; if(state.res) $('csv').hidden=false;
   if(!mcp){ if(!state.res) $('tablebox').innerHTML='<div class="empty">Connectors are not available in this view. Open the artifact on claude.ai.</div>'; else addMsg('Connectors are not available in this view; showing last saved data.',''); return; }
   refresh(false);
+  // Same reason as on the served page: bank balances live in this browser's storage, so a viewer
+  // who has never pressed the button has no bank check at all. Load it for them.
+  if(!bk.cfAt) setTimeout(()=>{ bkCfLoad().catch(()=>{}); },2500);
 })();
 </script>
 </body>
