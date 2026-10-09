@@ -541,14 +541,19 @@ function bsConsol(V,A){
   const caV=g(V,'Total for Current Assets'), caA=g(A,'Total for Current Assets');
   const othV=sub(sub(sub(sub(caV,cashV),arV),invV),icRV), othA=sub(sub(sub(sub(caA,cashA),arA),invA),icRA);
   const ltaV=g(V,'Total for Long-term assets'), ltaA=sub(g(A,'Total for Assets'),caA);
+  // 79V's shares in Arabina and the share capital Arabina issued to 79V are the same RM100,000 seen
+  // from each side: inside the group nothing came in from outside, so both go on consolidation.
+  const invS=sre(V,/shares in subsidiary.*arabina/i), scH=sre(A,/share capital.*79\s?v/i), invD=sub(invS,scH);
   H('Assets','sec'); H('Current Assets');
   const cash=L('Cash at Bank',cashV,cashA); const ar=L('Trade and other receivables',arV,arA);
   const inv=L('Inventory & Goods in Transit',invV,invA); const oth=L('Other current assets (deposits, advances, petty cash, prepayments, etc.)',othV,othA);
   L('Amount due from related company (inter-co)',icRV,icRA,'line',{ic:true});
   L('Unmatched inter-co difference (receivable − payable)',Z(),Z(),'elim',{conOnly:true,c:icD});
   const ca=L('Total for Current Assets',caV,caA,'tot',{c:add(cash,ar,inv,oth,icD)});
-  const lta=L('Long-term assets (net)',ltaV,ltaA);
-  const ta=L('Total for Assets',add(caV,ltaV),add(caA,ltaA),'key',{c:add(ca,lta)});
+  const lta=L('Long-term assets (net)',sub(ltaV,invS),ltaA);
+  L('Investment in subsidiary (Arabina)',invS,Z(),'line',{ic:true});
+  L('Unmatched investment difference (investment \u2212 share capital)',Z(),Z(),'elim',{conOnly:true,c:invD});
+  const ta=L('Total for Assets',add(caV,ltaV),add(caA,ltaA),'key',{c:add(ca,lta,invD)});
   const apV=g(V,'Total for Accounts Payable'), depV=g(V,'Total for Customer Deposits'), depA=g(A,'Total for Customer Deposit');
   const clV=g(V,'Total for Current Liabilities'), clA=g(A,'Total for Current Liabilities');
   const oclV=sub(sub(sub(clV,apV),depV),icPV), oclA=sub(sub(clA,depA),icPA);
@@ -562,8 +567,10 @@ function bsConsol(V,A){
   const tl=L('Total for Liabilities',add(clV,nclV),add(clA,nclA),'tot',{c:add(cl,ncl)});
   H("Shareholders' equity");
   const eqV=g(V,"Total for Shareholders' equity"), eqA=g(A,"Total for Shareholders' equity"), niV=g(V,'Net Income'), niA=g(A,'Net Income');
-  L('Share capital, retained earnings & reserves',sub(eqV,niV),sub(eqA,niA)); L('Net Income: 79 Ventures',niV,Z()); L('Net Income: Arabina',Z(),niA);
-  const eq=L("Total for Shareholders' equity",eqV,eqA,'tot');
+  L('Share capital, retained earnings & reserves',sub(eqV,niV),sub(sub(eqA,niA),scH));
+  L('Share capital held by 79V (Arabina)',Z(),scH,'line',{ic:true});
+  L('Net Income: 79 Ventures',niV,Z()); L('Net Income: Arabina',Z(),niA);
+  const eq=L("Total for Shareholders' equity",eqV,eqA,'tot',{c:sub(add(eqV,eqA),scH)});
   L("Total for Liabilities and Shareholder's Equity",add(add(clV,nclV),eqV),add(add(clA,nclA),eqA),'key',{c:add(tl,eq)});
   // single-series view for "BS Consol"
   const rowsC=rows.map(r=>r.val?{l:r.l,k:r.k,ic:r.ic,vals:r.val.c}:{l:r.l,k:r.k});
@@ -575,7 +582,8 @@ function bsConsol(V,A){
 // matched across the two companies by name within its group, inter-company balances eliminated on
 // the same rules, and every total rebuilt from the accounts under it, so the two reach the same
 // totals to the sen.
-const BS_IC={rv:/due from.*arabina/i, ra:/due from.*79\s?v/i, pv:/due to.*arabina/i, pa:/due to.*79\s?v/i};
+const BS_IC={rv:/due from.*arabina/i, ra:/due from.*79\s?v/i, pv:/due to.*arabina/i, pa:/due to.*79\s?v/i,
+  iv:/shares in subsidiary.*arabina/i, sa:/share capital.*79\s?v/i};
 const bsNormKey=l=>String(l).toLowerCase().replace(/\s*[-–—]\s*/g,'-').replace(/\s+/g,' ').trim();
 // Each row gets a key made of its group path, because the same name recurs in different places
 // ("Acc Depreciation" sits under every fixed-asset group). A row with no figures is only a group
@@ -594,7 +602,8 @@ function bsKeyed(D,e){
       out.push({key:g+'>#head',grp:g,l:r.l,kind:'head',depth:stack.length,e}); stack.push(bsNormKey(r.l));
       if(r.vals.some(v=>v!=null)) out.push({key:g+'>#own',grp:g,l:r.l,kind:'line',vals:r.vals,ic:null,e});
       return; }
-    const ic=e==='v'?(BS_IC.rv.test(r.l)?'r':BS_IC.pv.test(r.l)?'p':null):(BS_IC.ra.test(r.l)?'r':BS_IC.pa.test(r.l)?'p':null);
+    const ic=e==='v'?(BS_IC.rv.test(r.l)?'r':BS_IC.pv.test(r.l)?'p':BS_IC.iv.test(r.l)?'i':null)
+                     :(BS_IC.ra.test(r.l)?'r':BS_IC.pa.test(r.l)?'p':BS_IC.sa.test(r.l)?'s':null);
     out.push({key:stack.concat(bsNormKey(r.l)).join('>'),grp:stack.join('>'),l:r.l,kind:'line',vals:r.vals,ic,e});
   });
   return out;
@@ -620,16 +629,20 @@ function bsConsolDetail(V,A){
   if(!V||!A) return null;
   const Z=()=>new Array(12).fill(0), nz=x=>x?x.map(v=>v==null?0:v):Z(), R2=x=>x.map(v=>Math.round(v*100)/100);
   const M=bsMerge(bsKeyed(V,'v'),bsKeyed(A,'a'));
-  const icD=Z();
+  const icD=Z(), invD=Z();
   M.forEach(n=>{ if(n.kind!=='line') return;
     const v=nz(n.v&&n.v.vals), a=nz(n.a&&n.a.vals), t=(n.v&&n.v.ic)||(n.a&&n.a.ic);
     n.ic=!!t; n.val={v,a,c:t?Z():v.map((x,j)=>x+a[j])};
-    if(t) v.forEach((x,j)=>{ icD[j]+=(t==='p'?-1:1)*(x+a[j]); }); });
+    if(t==='r'||t==='p') v.forEach((x,j)=>{ icD[j]+=(t==='p'?-1:1)*(x+a[j]); });
+    if(t==='i'||t==='s') v.forEach((x,j)=>{ invD[j]+=(t==='s'?-1:1)*(x+a[j]); }); });
   // Receivable and payable are eliminated in full; if they disagree, the gap stays in current assets
   // so the consolidated balance sheet still balances, exactly as the summary does it.
   const caT=M.findIndex(n=>n.key==='assets>current assets>#total');
   if(caT>=0) M.splice(caT,0,{key:'assets>current assets>#icdiff',grp:'assets>current assets',kind:'line',
     l:'Unmatched inter-co difference (receivable − payable)',conOnly:true,ic:false,val:{v:Z(),a:Z(),c:icD}});
+  const ltT=M.findIndex(n=>n.key==='assets>long-term assets>#total');
+  if(ltT>=0) M.splice(ltT,0,{key:'assets>long-term assets>#invdiff',grp:'assets>long-term assets',kind:'line',
+    l:'Unmatched investment difference (investment − share capital)',conOnly:true,ic:false,val:{v:Z(),a:Z(),c:invD}});
   M.forEach(n=>{ if(n.kind!=='total') return; const v=Z(), a=Z(), c=Z();
     M.forEach(x=>{ if(x.kind!=='line'||!(x.grp===n.grp||x.grp.startsWith(n.grp+'>'))) return;
       for(let j=0;j<12;j++){ v[j]+=x.val.v[j]; a[j]+=x.val.a[j]; c[j]+=x.val.c[j]; } });
@@ -639,7 +652,7 @@ function bsConsolDetail(V,A){
     :{l:n.l,k:n.kind==='total'?n.k:'line',ic:!!n.ic,conOnly:!!n.conOnly,val:{v:R2(n.val.v),a:R2(n.val.a),c:R2(n.val.c)}});
   // Headings carry an empty vals array like the source tabs do, since the inventory-total pass reads every row.
   const rows=rowsE.map(r=>r.val?{l:r.l,k:r.k,ic:r.ic,conOnly:r.conOnly,val:r.val,vals:r.val.c}:{l:r.l,k:r.k,vals:new Array(12).fill(null)});
-  return {months,rowsE,rows,icD:R2(icD)};
+  return {months,rowsE,rows,icD:R2(icD),invD:R2(invD)};
 }
 function buildBS(wb){
   const v=parseBS(wb,cfg.bv||DEF.bv), a=parseBS(wb,cfg.ba||DEF.ba);
@@ -744,7 +757,7 @@ function renderEqBS(elId,noteId){
     +'Equity = <i>Total for Shareholders\u2019 Equity</i>. Cash at Bank = <i>Total for Cash at Bank</i>. '
     +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. The indented lines break that total down account by account; the same account is spelled differently in the two companies (<i>Inventory Hardware-Danial</i> against <i>Inventory Hardware - Danial</i>), so they are matched on a normalised name and added together. <i>RM\u2026 transferred 30 Sep 2026</i> is what 79V actually handed over on each account, taken from the transfer journals in QuickBooks (JE 19615, and JE 19628 for goods in transit). These are fixed figures for that date, not live: the balance sheets cannot produce them, because the transfer fell on the month end itself, so the September column already shows the position after it. They total RM236,323.71, which is the inter-co balance below. <i>Arabina\u2019s own</i> is what Arabina held before receiving anything, from its own ledger: hardware Danial bought through September and the PO29A container Arabina ordered direct. The other four accounts were opened for the transfer and started empty. The figure under the total is the inter-co <i>\u2026 - Inventory Transfer</i> account \u2014 the value billed from 79V to Arabina. It is a balance, not a journal, so it does not fall as the stock is used, and it does fall if the two companies settle in cash; the balance sheets carry no transaction detail, so it cannot be split by inventory account. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
     +'The <b>Consol</b> column is calculated here as 79V + Arabina \u2212 inter-co elimination; it is not a row in the workbook. '
-    +'Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '
+    +'Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets), and 79V\u2019s investment in Arabina against the share capital Arabina issued to 79V: both companies still carry them in their own books, they cancel only when the two are combined. '
     +(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
 }
 // ===== Audit-style statements =====
@@ -776,12 +789,17 @@ function stmtBS(D){
   const add=(...a)=>Z().map((_,j)=>a.reduce((s,x)=>s+x[j],0)), sub=(x,...y)=>x.map((v,j)=>v-y.reduce((s,z)=>s+z[j],0));
   const ta=g('Total for Assets'), caRaw=g('Total for Current Assets');
   const dta=sl(/^deferred tax asset/i);
-  const ppe=sub(ta,caRaw);
+  // An investment in a subsidiary is not property, plant and equipment; it gets its own line.
+  const subs=sl(/shares in subsidiary/i);
+  const ppe=sub(ta,caRaw,subs);
   const inv=sl(/^(inventory|good in transit)/i), ar=g('Total for Accounts Receivable');
   const ic=sl(/due from.*(arabina|79\s?v)/i), dir=sl(/due from.*director/i), invest=g('Total for Investment'), cash=g('Total for Cash at Bank');
   const ca=sub(caRaw,dta); const othr=sub(ca,inv,ar,ic,dir,invest,cash);
-  const nca=add(ppe,dta);
-  const teq=g("Total for Shareholders' equity"), sc=g('Total for Share capital'), re=sub(teq,sc);
+  const nca=add(ppe,dta,subs);
+  // Arabina keeps its share capital as a single account with no "Total for Share capital" group, so
+  // reading only the total put its RM100,000 under retained earnings.
+  const teq=g("Total for Shareholders' equity");
+  const sc=D.rows.some(r=>r.l==='Total for Share capital')?g('Total for Share capital'):sl(/^share capital/i), re=sub(teq,sc);
   const cl=g('Total for Current Liabilities'), ncl=sub(g("Total for Liabilities and Shareholder's Equity"),teq,cl);
   const ap=g('Total for Accounts Payable'), dep=add(g('Total for Customer Deposits'),g('Total for Customer Deposit'));
   const icp=sl(/due to.*(arabina|79\s?v)/i), invf=g('Total for Investor Financing'), tax=sl(/income tax payable|provision for taxation/i);
@@ -790,6 +808,7 @@ function stmtBS(D){
   return {lines:[
     ['cap','Assets'],['hd','Non-current assets'],
     ['l','Property, plant and equipment (incl. construction in progress)',ppe,'ppe'],['l','Deferred tax assets',dta,'dta'],
+    ['l','Investment in subsidiary',subs,'sub'],
     ['tot','',nca,'nca'],
     ['hd','Current assets'],
     ['l','Inventories (incl. goods in transit)',inv,'inv'],['l','Trade receivables',ar,'ar'],
@@ -831,11 +850,15 @@ function renderSummary(){
   if(B&&B.v&&B.a&&j!=null){
     const SV=stmtBS(B.v), SA=stmtBS(B.a); const mv={},ma={}; SV.lines.forEach(l=>{ if(l[3]) mv[l[3]]=l[2]; }); SA.lines.forEach(l=>{ if(l[3]) ma[l[3]]=l[2]; });
     const icd=B.c?B.c.sum.icD[j]:0;
-    const elim=key=>{ if(key==='ic') return -(mv.ic[j]+ma.ic[j])+icd; if(key==='icp') return -(mv.icp[j]+ma.icp[j]);
-      if(['ca','ta'].includes(key)) return -(mv.ic[j]+ma.ic[j])+icd; if(['cl','tl','tel'].includes(key)) return -(mv.icp[j]+ma.icp[j]); return 0; };
-    const lines=SV.lines.map(l=>l[3]==='ic'?['l','Amount due from a related company (Consol: unmatched inter-co balance)',null,'ic']:l);
+    // 79V's investment in Arabina against the share capital it holds in Arabina; any gap between the
+    // two stays in non-current assets, the way an unmatched inter-co balance stays in current assets.
+    const invS=mv.sub[j]+ma.sub[j], scH=B.a.rows.reduce((t,r)=>t+(!/^Total/i.test(r.l)&&/share capital.*79\s?v/i.test(r.l)&&r.vals[j]!=null?r.vals[j]:0),0), invD=invS-scH;
+    const icR=-(mv.ic[j]+ma.ic[j])+icd, icP=-(mv.icp[j]+ma.icp[j]);
+    const elim=key=>({ic:icR,ca:icR,ta:icR-invS+invD,icp:icP,cl:icP,tl:icP,tel:icP-scH,sub:-invS+invD,nca:-invS+invD,sc:-scH,teq:-scH})[key]||0;
+    const lines=SV.lines.map(l=>l[3]==='ic'?['l','Amount due from a related company (Consol: unmatched inter-co balance)',null,'ic']
+      :l[3]==='sub'?['l','Investment in subsidiary (Consol: eliminated against Arabina share capital)',null,'sub']:l);
     const cols=[{label:'79V',cls:'e-v',get:k=>mv[k][j]},{label:'Arabina',cls:'e-a',get:k=>ma[k][j]},{label:'Elim.',get:k=>elim(k)},{label:'Consol',cls:'cc',get:k=>mv[k][j]+ma[k][j]+elim(k)}];
-    h+=`<div class="stmt"><h3>CONSOLIDATED STATEMENT OF FINANCIAL POSITION</h3><p class="sub2">As at ${asAt(j)} · RM · inter-company balances eliminated</p>${stmtTable(cols,lines,{hideZero:$('hideZero').checked})}</div>`;
+    h+=`<div class="stmt"><h3>CONSOLIDATED STATEMENT OF FINANCIAL POSITION</h3><p class="sub2">As at ${asAt(j)} · RM · inter-company balances, and 79V's investment in Arabina against Arabina's share capital, eliminated</p>${stmtTable(cols,lines,{hideZero:$('hideZero').checked})}</div>`;
   } else h+='<div class="stmt"><h3>CONSOLIDATED STATEMENT OF FINANCIAL POSITION</h3><p class="sub2">No balance sheet data. Press Refresh data.</p></div>';
   // P&L consol summary
   const R=k=>{ const r=state.res.rows.find(x=>x.k===k); return r?r.val:{v:new Array(12).fill(0),a:new Array(12).fill(0),c:new Array(12).fill(0)}; };
