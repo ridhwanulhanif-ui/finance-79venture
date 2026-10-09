@@ -3388,13 +3388,10 @@ function renderHomeKpi(){
     h+=`<div class="tile"><div class="tl">${lab}</div><div class="tv">${hkFmt(r)}</div>${S?`<div class="ts ${S[2]}">${S[0]} ${S[1]}</div>`:''}<div class="tn">${hkLim(r,cfg[r.k])}</div></div>`; });
   h+='</div>';
   // Anything in danger, then anything unreconciled. Each line opens the view that explains it.
+  // Bank differences are left to the Bank Reconciliation Check view.
   const it=[];
   B.items.forEach(x=>{ if(x.z==='b') it.push(['b',`<b>${x.label}</b>: ${hkFmt(x.K)} (${hkLim(x.K,hlCfg[x.K.k])})`,'bm']); });
   const g=fr('gear'); if(g&&frZone(g)==='b') it.push(['b',`<b>Gearing</b>: ${hkFmt(g)} (${hkLim(g,frCfg.gear)})`,'fin']);
-  if(!bk.scannedAt&&!bk.cfAt) it.push(['w',bkCfErr?`<b>Bank check could not run</b>: ${esc(bkCfErr)}`:'<b>Bank check not run yet</b>: Cash at Bank has not been compared with the bank','bank']);
-  else { try{ const {accts}=bkMatrix(); const res=state.res0||state.res; const ms=(res.bs.v||res.bs.a).months, last=ms[ms.length-1];
-    accts.forEach(a=>{ if(a.best[last]!=null&&Math.abs(a.book[last]-a.best[last])>0.05) it.push(['w',`<b>${esc(a.l)}</b>: book differs from the bank by RM${fmt(a.book[last]-a.best[last])}`,'bank']);
-      else if(a.best[last]==null&&Math.abs(a.book[last])>0.005) it.push(['w',`<b>${esc(a.l)}</b>: no bank statement or cashflow figure to compare`,'bank']); }); }catch(e){} }
   const ex=(state.res.extra||[]).length; if(ex) it.push(['w',`<b>${ex} new accounts</b> appeared in the source tab: confirm they are classified correctly`,'ent']);
   it.sort((x,y)=>(x[0]==='b'?0:1)-(y[0]==='b'?0:1));
   h+=`<div class="att"><h3>NEEDS BOARD ATTENTION</h3>${it.length?'<ul>'+it.map(([z,t,v])=>`<li><span class="${HK_ST[z][2]}" aria-label="${HK_ST[z][1]}">${HK_ST[z][0]}</span><span class="tx">${t}</span><button data-hkgo="${v}">View</button></li>`).join('')+'</ul>':'<p class="hint" style="padding:10px 14px;margin:0">Nothing outstanding.</p>'}</div>`;
