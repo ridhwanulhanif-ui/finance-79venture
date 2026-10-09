@@ -3840,7 +3840,7 @@ function renderBOD(){
       const vs=b!=null&&act!=null?((g[2]?act>=b*100:act<=b*100)?'okr':'warn'):'';
       return `<td class="r wide${vs?' '+vs:''}" style="${vs==='warn'?'color:var(--bad)':vs==='okr'?'color:var(--ok)':''}">${b!=null?(b*100).toFixed(1)+'%':'–'}</td><td class="r wide">${th?(g[2]?'≥ ':'≤ ')+th.g+'%':''}</td><td style="white-space:nowrap">${chip(z)}</td>`; };
     const row=(l,a,o)=>{ o=o||{}; return `<tr class="${o.cls||''}"><td style="padding-left:${4+(o.lvl||0)*14}px">${l}${o.n?`<span class="note">${o.n}</span>`:''}</td><td class="r">${fmt0(S(a))}</td><td class="r">${o.nop?'':pct(a)}</td>${tcell(l,a)}<td class="r wide">${fmt0(S(a)/n)}</td></tr>`; };
-    let t=`<div style="overflow-x:auto"><table class="tc" style="margin-top:6px"><tr class="sub"><td>RM, ${per}</td><td class="r">Total</td><td class="r">% sales</td><td class="r wide">Budget 2026</td><td class="r wide">Healthy</td><td>Status</td><td class="r wide">Per month</td></tr>`;
+    let t=`<div style="overflow-x:auto"><table class="tc" style="margin-top:6px"><tr class="sub"><td>RM, ${per}</td><td class="r">Total</td><td class="r">% sales</td><td class="r wide">Budget 2026 (approved)</td><td class="r wide">Healthy</td><td>Status</td><td class="r wide">Per month</td></tr>`;
     t+=row('Sales',G.sales,{cls:'sub',nop:1})+row('Cost of Sales',G.cos,{cls:'sub',n:'materials, logistics, site costs'})+row('Gross Retail Margin',G.grm,{cls:'big'});
     t+=row('Operating Expenditure',G.opex,{cls:'sub'});
     G.C.forEach(([l,nn,a])=>{ t+=row(l,a,{lvl:1,n:nn}); });
@@ -3849,7 +3849,7 @@ function renderBOD(){
     t+=row('Other Outflow',oout,{cls:'sub'})+row('CAPEX',F.capex,{lvl:1,n:'vehicles, equipment, warehouse, showroom'})+row('Loan repayments',F.principal,{lvl:1,n:'principal only; the interest is in Finance'})+row('Pay to investors',F.investors,{lvl:1})+row('Dividends',F.dividends,{lvl:1});
     t+=row('Free Retail Flow',free,{cls:'big'})+'</table></div>';
     h+=sec(3,'Line by line, as in the forecast sheet',`${t}<p class="bods">Same layout as the board's forecast sheet, with actual figures: direct labour and commission are in People. Other Inflow and Outflow are cash movements read off the balance sheets${js.includes(0)?', so January shows none (there is no December balance to compare it with)':''}. Depreciation is left out because it is not cash.</p>
-      <p class="bods"><b>Budget 2026</b> = % of sales in the 2026 budget prepared last year (forecast workbook, tab ${esc(bmSt.tab)}, column ${esc(bmSt.col)})${bmSt.vals?'; green where actual is on or better than budget, red where worse':(bodTgtErr?': could not be read ('+esc(bodTgtErr)+')':': loading')}. <b>Healthy</b> = the healthy line in Margin vs Internal Benchmark, where it can be changed; Status rates the actual against it.</p>`); }
+      <p class="bods"><b>Budget 2026 (approved)</b> = % of sales in the approved 2026 budget prepared last year (forecast workbook, tab ${esc(bmSt.tab)}, column ${esc(bmSt.col)})${bmSt.vals?'; green where actual is on or better than budget, red where worse':(bodTgtErr?': could not be read ('+esc(bodTgtErr)+')':': loading')}. <b>Healthy</b> = the healthy line in Margin vs Internal Benchmark, where it can be changed; Status rates the actual against it.</p>`); }
   // 4
   const Wn=[];
   const gpT=hlCfg.gpm||{g:40,b:30}, gm=I?(I-S(cos))/I*100:0, gz=bodZone(gm,gpT,true);
