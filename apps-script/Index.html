@@ -1518,6 +1518,8 @@ function fcBreakdown(R,view,cell,row,TS,tot,h1,h2,secTot){
   h+=`<tr><td class="acct hint" colspan="17" style="white-space:normal">Account lines show actual QuickBooks balances (consolidated, inter-co eliminated). Forecast months for each account (italic) are the line's forecast split in proportion to that account's share over the last ${R.N} actual months.</td></tr>`;
   return h;
 }
+// The actual retail margin sits under every Forecast table, on the same layout as the forecast sheet.
+function fcMarginBlock(){ try{ return '<div class="taxwrap">'+homeMarginHTML(true)+'</div>'; }catch(e){ return ''; } }
 function renderFC(){
   const R=fcCompute(); if(!R){ $('tablebox').innerHTML='<div class="empty">Press Refresh data to load the P&amp;L.</div>'; return; }
   const {M,val,src,totSales}=R; const Z=()=>new Array(12).fill(0);
@@ -1553,8 +1555,8 @@ function renderFC(){
    </div>
    <div class="seg" role="group" aria-label="Forecast tab" style="margin:6px 0 10px;flex-wrap:wrap">${FC_TABS.map(([k,l])=>`<button data-fct="${k}" aria-pressed="${fcView===k}">${l}</button>`).join('')}</div>
    <div><table><thead>${head}</thead><tbody>`;
-  if(fcView==='pl'||fcView==='cf'){ h+=(fcView==='pl'?fcPLTable:fcCFTable)(R,head,tot,h1,h2); h+='</tbody></table></div>'; $('tablebox').innerHTML=h; fcWire(R); const lg=$('fcLag'); if(lg) lg.addEventListener('change',ev=>{ fcSt.lag=+ev.target.value; fcSave(); renderFC(); }); return; }
-  if(fcView!=='sum'){ h+=fcBreakdown(R,fcView,cell,row,TS,tot,h1,h2,secTot); h+='</tbody></table></div>'; $('tablebox').innerHTML=h; fcWire(R); return; }
+  if(fcView==='pl'||fcView==='cf'){ h+=(fcView==='pl'?fcPLTable:fcCFTable)(R,head,tot,h1,h2); h+='</tbody></table></div>'; $('tablebox').innerHTML=h+fcMarginBlock(); fcWire(R); const lg=$('fcLag'); if(lg) lg.addEventListener('change',ev=>{ fcSt.lag=+ev.target.value; fcSave(); renderFC(); }); return; }
+  if(fcView!=='sum'){ h+=fcBreakdown(R,fcView,cell,row,TS,tot,h1,h2,secTot); h+='</tbody></table></div>'; $('tablebox').innerHTML=h+fcMarginBlock(); fcWire(R); return; }
   // Sales
   h+=`<tr class="hd sec"><td class="acct">Sales</td><td colspan="16"></td></tr>`;
   FC_DEF[0].lines.forEach(ln=>h+=lineRow(ln));
@@ -1582,7 +1584,7 @@ function renderFC(){
   const pm=a=>`<tr class="pct"><td class="acct">${a[0]}</td>${a[1].map((x,j)=>`<td class="num gstart">${sales[j]?(x/sales[j]*100).toFixed(1)+'%':''}</td>`).join('')}<td class="num gstart cc">${TS?(tot(a[1])/TS*100).toFixed(1)+'%':''}</td><td class="num gstart">${h1(sales)?(h1(a[1])/h1(sales)*100).toFixed(1)+'%':''}</td><td class="num gstart">${h2(sales)?(h2(a[1])/h2(sales)*100).toFixed(1)+'%':''}</td><td></td></tr>`;
   h+=pm(['Gross Retail Margin %',gm])+pm(['Net Retail Margin %',nm]);
   h+='</tbody></table></div>';
-  $('tablebox').innerHTML=h; fcWire(R);
+  $('tablebox').innerHTML=h+fcMarginBlock(); fcWire(R);
 }
 function fcWire(R){ const val=R.val, M=R.M;
   // editing
@@ -3566,17 +3568,17 @@ function renderHomeKpi(){
   el.innerHTML=h;
   el.querySelectorAll('[data-hkgo]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value=b.dataset.hkgo; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
 }
-// Homepage: the retail-margin layout the board knows from the forecast sheet (Sales, Cost of Sales,
+// Forecast view: the retail-margin layout the board knows from the forecast sheet (Sales, Cost of Sales,
 // Gross Retail Margin, then Admin, Operation, People, Marketing, Finance, Director, Net Retail
 // Margin), filled from the books month by month. On that sheet's basis direct labour and
 // commission sit in People, not in cost of sales. Whatever no category claims is shown as "Other",
 // so Net Retail Margin always equals gross profit less total expenses in the books.
-function homeMarginHTML(){
+function homeMarginHTML(all){
   const rows=state.res.rows, Z=()=>new Array(12).fill(0);
   const K=k=>{ const r=rows.find(x=>x.k===k); return r?r.val.c.map(x=>x||0):Z(); };
   const Lb=re=>rows.filter(x=>x.t==='D'&&x.s==='EXP'&&re.test(x.l)).reduce((t,x)=>t.map((v,j)=>v+(x.val.c[j]||0)),Z());
   const add=(...a)=>Z().map((_,j)=>a.reduce((t,x)=>t+x[j],0)), neg=x=>x.map(v=>-v);
-  const M=lastActualMonth(), js=[]; for(let j=state.from;j<=Math.min(state.to,M);j++) js.push(j);
+  const M=lastActualMonth(), js=[]; for(let j=all?0:state.from;j<=(all?M:Math.min(state.to,M));j++) js.push(j);
   if(!js.length) return '';
   const dirStat=Lb(/\((directors)\)$/i), dirDev=Lb(/^professional development \(directors\)$/i), dirMeet=Lb(/^director meeting expenses$/i);
   const dirStatOnly=add(dirStat,neg(dirDev));
@@ -3716,7 +3718,7 @@ function renderTable(){
     $('tablebox').style.maxHeight='none';
     if(state.res) try{ renderHomeKpi(); }catch(e){ $('homekpi').innerHTML=''; }
     $('tablebox').innerHTML=state.res
-      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ let x=''; try{ x+=homeMarginHTML(); }catch(e){} try{ x+=homeLoansHTML(); }catch(e){} try{ x+=homeOpexHTML(); }catch(e){} return '<div class="taxwrap" style="padding-bottom:0">'+x+'</div>'; })()+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
+      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ let x=''; try{ x+=homeLoansHTML(); }catch(e){} try{ x+=homeOpexHTML(); }catch(e){} return '<div class="taxwrap" style="padding-bottom:0">'+x+'</div>'; })()+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
       : '<div class="empty">Press Refresh data to load the workbook.</div>';
     return;
   }
