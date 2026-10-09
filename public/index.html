@@ -154,8 +154,8 @@ details.coa[open] summary{margin-bottom:2px}
 tr.icd td.num.bad{font-weight:700}
 td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .zg{color:var(--ok,#2f7d4f)} .zw{color:#b7791f} .zb{color:var(--bad)}
-.viewpick{display:inline-flex;align-items:center;gap:8px;font-weight:600}
-.viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:300px;cursor:pointer}
+.viewpick{display:inline-flex;align-items:center;gap:8px;font-weight:600;max-width:100%;min-width:0}
+.viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:min(300px,100%);max-width:100%;cursor:pointer}
 .stmt{padding:18px 18px 8px;min-width:0} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
 .stmt .sub2{font-size:12px;color:var(--muted);margin:0 0 10px}
 /* Fixed widths, and the table only as wide as its columns: dragging the divider then moves
