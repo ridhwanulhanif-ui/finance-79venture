@@ -1589,6 +1589,10 @@ function bkCfMatch(block,accts){
   return cand.length===1?cand[0].key:'';
 }
 let bkCfBusy=false;
+// Why the last attempt failed. Kept out of storage on purpose: it describes this page load, and
+// the card has to be able to say it, because an automatic load that fails otherwise looks exactly
+// like one that never ran.
+let bkCfErr=null;
 async function bkCfLoad(){
   if(bkCfBusy) return; bkCfBusy=true;
   const say=t=>{ const s=$('bkCfStatus'); if(s) s.textContent=t; };
@@ -1623,8 +1627,8 @@ async function bkCfLoad(){
         if(bk.cfmap[id]===undefined) bk.cfmap[id]=bkCfMatch(b.block,accts.filter(a=>a.e===src.e));
       });
     }
-    bk.cfAt=Date.now(); bkSave(); render();
-  }catch(e){ say('Could not read the cashflow workbooks: '+((e&&e.message)||e)); }
+    bkCfErr=null; bk.cfAt=Date.now(); bkSave(); render();
+  }catch(e){ bkCfErr=(e&&e.message)||String(e); say('Could not read the cashflow workbooks: '+bkCfErr); render(); }
   finally{ bkCfBusy=false; }
 }
 let bkBusy=false;
@@ -1800,6 +1804,10 @@ function bkAlert(){
   // cashflow workbook had been read, which reads as "the bank check is missing" rather than "it has
   // nothing to compare against" — and since that state lives in this browser's storage, a different
   // browser, or the artifact, starts empty however many times the balances were loaded elsewhere.
+  if(!bk.scannedAt&&!bk.cfAt&&bkCfErr){
+    addCheck('<div class="icbar"><span><b>\u26a0 Bank check could not run.</b> The cashflow workbooks could not be read: '+esc(bkCfErr)+'</span><button data-gobk>View bank check</button></div>','err');
+    return bkGo();
+  }
   if(!bk.scannedAt&&!bk.cfAt){
     addCheck('<div class="icbar"><span><b>Bank check: not run yet.</b> Cash at Bank in the books has not been compared with anything, because no bank statement or cashflow workbook has been read in this browser.</span><button data-gobk>Load bank balances</button></div>','');
     return bkGo();

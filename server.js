@@ -24,24 +24,33 @@ const caches = new Map();
 // Fixed ID from the environment, never from the request, so the request cannot steer the fetch.
 async function fetchWorkbook(id) {
   if (!/^[A-Za-z0-9_-]{10,100}$/.test(id)) throw new Error("bad_id");
-  const r = await fetch(`https://drive.google.com/uc?export=download&id=${id}`, {
-    redirect: "follow",
-    signal: AbortSignal.timeout(20_000),
-  });
-  if (!r.ok) throw new Error("upstream_" + r.status);
-  const buf = Buffer.from(await r.arrayBuffer());
-  // A workbook is a ZIP ("PK"). Anything else is Google's sign-in or scan-warning page,
-  // which means the file is not shared publicly.
-  if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) throw new Error("not_shared");
-  const cd = r.headers.get("content-disposition") || "";
-  const m = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(cd);
-  let title = "";
-  try {
-    title = m ? decodeURIComponent(m[1]).replace(/[^\x20-\x7e]/g, "").trim() : "";
-  } catch {
-    title = "";
+  // An uploaded .xlsx comes down through uc?export=download. A native Google Sheet does not: that
+  // URL answers with an HTML page for it, so it has to be exported instead. The consolidation file
+  // is the first kind and both cashflow workbooks are the second, so try one then the other.
+  const urls = [
+    `https://drive.google.com/uc?export=download&id=${id}`,
+    `https://docs.google.com/spreadsheets/d/${id}/export?format=xlsx`,
+  ];
+  let lastStatus = 0;
+  for (const url of urls) {
+    const r = await fetch(url, { redirect: "follow", signal: AbortSignal.timeout(20_000) });
+    if (!r.ok) { lastStatus = r.status; continue; }
+    const buf = Buffer.from(await r.arrayBuffer());
+    // A workbook is a ZIP ("PK"). Anything else is a sign-in, scan-warning or not-a-file page.
+    if (buf.length < 4 || buf[0] !== 0x50 || buf[1] !== 0x4b) continue;
+    const cd = r.headers.get("content-disposition") || "";
+    const m = /filename\*?=(?:UTF-8''|")?([^";]+)/i.exec(cd);
+    let title = "";
+    try {
+      title = m ? decodeURIComponent(m[1]).replace(/[^\x20-\x7e]/g, "").trim() : "";
+    } catch {
+      title = "";
+    }
+    return { buf, title };
   }
-  return { buf, title };
+  // Neither form gave a workbook. A 5xx means Google is having trouble; anything else means the
+  // file is not readable without signing in, i.e. not shared "anyone with the link".
+  throw new Error(lastStatus >= 500 ? "upstream_" + lastStatus : "not_shared");
 }
 
 // key picks the id from the table above, never from the request, so a caller cannot steer the
