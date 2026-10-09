@@ -71,6 +71,29 @@ Railway deploys the `main` branch automatically and runs `npm start`. The server
 
 Secrets (API keys, passwords) go in Railway Variables, never in this repo.
 
+## Sign-in
+
+Set these two in Railway Variables and the whole site — page and workbook downloads alike — needs a sign-in.
+Until `AUTH_USERS` is set the site stays open to anyone with the URL, so a deploy cannot lock everyone out.
+
+| Variable | Value |
+|---|---|
+| `AUTH_USERS` | One line per person: `username:salt:hash`. Several people: one per line, or comma-separated. |
+| `SESSION_SECRET` | Any random string of 32+ characters. Without it everyone is signed out on each redeploy. |
+
+Make a line for someone (asks for the password twice, shows nothing, prints only the hash):
+
+```
+npm run hash-password -- boss@79ventures.biz
+```
+
+- **Take someone's access away:** delete their line from `AUTH_USERS`. It applies at once, even to a browser that is already signed in.
+- **Change a password:** make a new line for the same username and replace the old one.
+- **Sign everyone out:** change `SESSION_SECRET`.
+
+A sign-in lasts seven days. Ten wrong passwords from one address lock that address out for fifteen minutes.
+Sign-ins and failures are written to the Railway logs.
+
 ## Working on this repo
 
 Work on a separate branch and open a pull request. Anything merged to `main` goes live.

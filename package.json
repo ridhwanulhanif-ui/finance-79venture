@@ -7,7 +7,8 @@
   "scripts": {
     "start": "node server.js",
     "sync:gas": "node -e \"require('fs').copyFileSync('public/index.html','apps-script/Index.html')\"",
-    "check:gas": "node -e \"const f=require('fs'),a=f.readFileSync('public/index.html'),b=f.readFileSync('apps-script/Index.html');if(!a.equals(b)){console.error('apps-script/Index.html is out of date. Run: npm run sync:gas');process.exit(1)}console.log('apps-script/Index.html matches public/index.html')\""
+    "check:gas": "node -e \"const f=require('fs'),a=f.readFileSync('public/index.html'),b=f.readFileSync('apps-script/Index.html');if(!a.equals(b)){console.error('apps-script/Index.html is out of date. Run: npm run sync:gas');process.exit(1)}console.log('apps-script/Index.html matches public/index.html')\"",
+    "hash-password": "node scripts/hash-password.js"
   },
   "engines": {
     "node": ">=20"

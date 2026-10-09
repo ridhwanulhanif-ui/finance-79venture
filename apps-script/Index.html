@@ -236,6 +236,7 @@ table.cs td.num{min-width:70px}
     <div>
       <div class="status" id="status">No data yet</div>
       <div class="status hint" id="build" hidden></div>
+      <div class="status hint" id="who" hidden></div>
       <div class="actions">
         <label class="hint" style="display:inline-flex;gap:6px;align-items:center"><input type="checkbox" id="auto"> Auto refresh every <select id="autoMin" style="font:inherit;padding:1px 4px"><option value="1">1 min</option><option value="2">2 min</option><option value="5">5 min</option><option value="15">15 min</option></select></label>
         <button id="csv" hidden>Download CSV</button>
@@ -2594,6 +2595,8 @@ async function refreshWeb(manual){
   busy=true; $('refresh').disabled=true; $('refresh').textContent='Fetching data…';
   try{
     const r=await fetch('/api/consol.xlsx',{cache:'no-store'});
+    // Auto-refresh keeps calling this after the session has run out; send the reader back to sign in.
+    if(r.status===401){ location.href='/login?next='+encodeURIComponent(location.pathname+location.search); return; }
     if(!r.ok){
       let code=''; try{ code=(await r.json()).error||''; }catch(e){}
       throw {html: code==='not_shared'
@@ -3618,6 +3621,8 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
         $('build').textContent='Build '+health.commit+(health.startedAt?' · deployed '+dt(Date.parse(health.startedAt)):'');
         $('build').hidden=false;
       }
+      try{ const me=await (await fetch('/api/me',{cache:'no-store'})).json();
+        if(me&&me.user){ $('who').innerHTML='Signed in as <b>'+esc(me.user)+'</b> · <a href="/logout">Sign out</a>'; $('who').hidden=false; } }catch(e){}
       // Every viewer gets their own empty browser storage, so on a page meant to be shared the
       // bank comparison has to load itself rather than wait for each person to press a button.
       MODE='web'; $('dlx').hidden=false; autoSet(); refresh(false);
