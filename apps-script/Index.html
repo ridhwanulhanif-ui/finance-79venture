@@ -276,6 +276,7 @@ table.cs td.num{min-width:70px}
         </optgroup>
         <optgroup label="Forecast">
           <option value="fc">Forecast 2026 (management format)</option>
+          <option value="fcq">Forecast 2026 (management format - sources QB)</option>
           <option value="bud">Budget 2027</option>
         </optgroup>
         <optgroup label="Analysis">
@@ -301,6 +302,7 @@ table.cs td.num{min-width:70px}
       <button data-view="ic" aria-pressed="false">Inter-co</button>
       <button data-view="nic" aria-pressed="false">NI check</button>
       <button data-view="fc" aria-pressed="false">Forecast</button>
+      <button data-view="fcq" aria-pressed="false">Forecast QB</button>
       <button data-view="bank" aria-pressed="false">Bank</button>
       <button data-view="bud" aria-pressed="false">Budget</button>
       <button data-view="bm" aria-pressed="false">Internal benchmark</button>
@@ -352,6 +354,7 @@ table.cs td.num{min-width:70px}
       <div><button id="saveSrc">Save &amp; refresh</button> <button id="resetSrc">Use default</button></div>
     </div>
     <p class="hint">Data is pulled directly from the .xlsx file in Google Drive (using your Google Drive connector). After you edit the file in Google Sheets, press Refresh to pull the latest version. COAs are matched by account name, so adding new rows in the source tab will not break the consolidation; unrecognised COAs appear as yellow rows in the correct section.</p>
+    <p class="hint"><b>Forecast 2026 (management format - sources QB)</b> does not use this workbook. Its actuals come from the QuickBooks Online profit and loss of 79 Ventures and Arabina (accrual basis, a snapshot pulled on 9 Oct 2026, Cash at Bank from the QuickBooks balance sheets). The earlier <i>Forecast 2026 (management format)</i> view still reads the Excel workbook.</p>
   </details>
 </div>
 
@@ -1118,11 +1121,57 @@ const FC_DEF=[
    {l:'Property Operating Expenses',kind:'man'}]}
 ];
 // not part of a cash forecast: depreciation (non-cash), interest (inside loan / HP instalments), inter-co management fee (eliminated)
-const FC_SKIP=/depreciation|interest on (hire purchase|term loan)|management fee/i;
+const FC_SKIP=/depreciation|interest on (hire purchase|term (loan|financing))|management (fee|service)/i;
 let fcSt=(()=>{ try{ return Object.assign({ovr:{},man:{},runN:3,fid:'1dGsuzK1g5KOAVNdWNm6yf5BI3ETMQEpD',tab:'',imported:null},JSON.parse(store.get('consol.fc')||'{}')); }catch(e){ return {ovr:{},man:{},runN:3,fid:'1dGsuzK1g5KOAVNdWNm6yf5BI3ETMQEpD',tab:'',imported:null}; } })();
-function fcSave(){ store.set('consol.fc',JSON.stringify(fcSt)); }
+const fcStX=fcSt;
+let fcStQ=(()=>{ try{ return Object.assign({ovr:{},man:{},runN:3,fid:'',tab:'',imported:null},JSON.parse(store.get('consol.fcq')||'{}')); }catch(e){ return {ovr:{},man:{},runN:3,fid:'',tab:'',imported:null}; } })();
+let fcQ=false;   // true only while the "sources QB" forecast view is showing
+function fcSave(){ store.set(fcQ?'consol.fcq':'consol.fc',JSON.stringify(fcSt)); }
+// ===== Forecast 2026 (management format - sources QB) =====
+// Actuals for this view come from the QuickBooks Online P&L of each company (accrual basis), not from the Excel workbook.
+// Account-level snapshot pulled from QuickBooks on QBD.pulled; Jan-Sep are closed months, October 1-9 is partial and not used.
+const QBD={"pulled":"2026-10-09","mineral":[{"d":"2026-01-16","amt":330,"co":"79V","memo":"Stok Air"},{"d":"2026-01-23","amt":330,"co":"79V","memo":"Air Mineral workers"},{"d":"2026-02-02","amt":330,"co":"79V","memo":"Stok Air"},{"d":"2026-02-09","amt":330,"co":"79V","memo":"Stok Air"},{"d":"2026-02-18","amt":330,"co":"79V","memo":"Stok Air"},{"d":"2026-03-26","amt":330,"co":"79V","memo":"Site Meal"},{"d":"2026-04-03","amt":330,"co":"79V","memo":"mineral"},{"d":"2026-04-11","amt":330,"co":"79V","memo":"Stock Mineral"},{"d":"2026-04-20","amt":330,"co":"79V","memo":"stok mineral"},{"d":"2026-04-24","amt":330,"co":"79V","memo":"mineral stock"},{"d":"2026-04-30","amt":330,"co":"79V","memo":"mineral stock"},{"d":"2026-05-08","amt":330,"co":"79V","memo":"mineral stock"},{"d":"2026-05-15","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-05-23","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-05-30","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-06-06","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-06-12","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-06-19","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-06-26","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-07-07","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-07-13","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-07-20","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-07-27","amt":330,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-08-04","amt":420,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-08-11","amt":600,"co":"79V","memo":"Being payment 08-217 mineral water stock for site workers (cek)"},{"d":"2026-08-18","amt":360,"co":"79V","memo":"MINERAL STOCK"},{"d":"2026-08-27","amt":600,"co":"79V","memo":"09-236 STOK MINERAL"},{"d":"2026-09-09","amt":600,"co":"Arabina","memo":"MINERAL STOCK"},{"d":"2026-09-21","amt":600,"co":"Arabina","memo":"MINERAL STOCK"},{"d":"2026-10-02","amt":600,"co":"Arabina","memo":"MINERAL STOCK (Okt, bulan belum habis)"}],"rows":[{"s":"INC","l":"Prefab Cabin","v":[632655,539870,478149,503009,457535,-70,-3878.8,0,-2000],"a":[0,0,0,0,0,516950,525960,726420,594050]},{"s":"INC","l":"Sales Discounts","v":[-7000,-4428,-6500,-8080,-9120,0,0,0,0],"a":[0,0,0,0,0,-4180,-2600,-4720,-3500]},{"s":"INC","l":"Transportation Income","v":[26400,21700,12650,23600,17500,0,0,0,0],"a":[0,0,0,0,0,29750,15600,45000,29600]},{"s":"INC","l":"Other Sales","v":[0,0,0,0,0,0,0,0,0],"a":[0,0,0,0,0,0,11200,0,1200]},{"s":"INC","l":"Management Service Revenue (79V to Arabina)","v":[0,0,0,0,0,230000,230000,230000,230000],"a":[0,0,0,0,0,0,0,0,0],"e":1,"k":"MFI"},{"s":"COS","l":"Direct Labour","v":[35338.07,48719.65,43317.66,59942.46,48373.89,0,0,0,0],"a":[0,0,0,0,0,47138.05,50921.97,63680.77,63680.77]},{"s":"COS","l":"Labour Supply Cost","v":[9826.5,9826.5,11136.7,11136.7,11136.7,0,0,0,0],"a":[0,0,0,0,0,11346.65,11346.65,10679.2,10679.2]},{"s":"COS","l":"Logistics Cost (Inbound)","v":[17587.7,12167.34,15734.74,16135.6,13441.23,0,0,0,0],"a":[0,0,0,0,0,17937.0,13998.6,15889.95,11008.6]},{"s":"COS","l":"Material & Hardware","v":[112342.23,59932.29,59761.36,69500.0,71721.42,0,0,0,0],"a":[0,0,0,0,0,101876.6,45543.27,95135.01,75044.53]},{"s":"COS","l":"Hardware & Accessories Cabin","v":[12613.14,38229.9,8717.08,11231.74,8350.39,0,0,0,0],"a":[0,0,0,0,0,11842.87,6204.45,12309.36,9166.27]},{"s":"COS","l":"Logistic Cabin","v":[14443.4,48830.3,675.0,4664.32,25510.42,0,0,0,0],"a":[0,0,0,0,0,42364.5,35912.45,46711.52,43238.88]},{"s":"COS","l":"Logistic Hardware & Accessories","v":[5675.9,47714.42,3907.09,4927.05,3198.39,0,0,0,0],"a":[0,0,0,0,0,6631.91,2883.3,5698.26,4011.36]},{"s":"COS","l":"Material Cabin","v":[112171.7,18585.72,0,12177.65,69324.48,0,0,0,0],"a":[0,0,0,0,0,88739.53,70601.1,95594.69,87426.78]},{"s":"COS","l":"Site Meals","v":[11189.65,9179.0,9115.8,12213.3,10752.85,0,0,-0.01,0],"a":[0,0,0,0,0,10924.8,10440.75,12326.5,11532.2]},{"s":"COS","l":"Site Meals - Mineral (box orders)","v":[660,990,330,1650,1320,0,0,0,0],"a":[0,0,0,0,0,1320,1320,1980,1200]},{"s":"COS","l":"Site Staff Uniform & PPE","v":[1000.0,58.5,718.13,1398.57,2629.03,0,0,0,0],"a":[0,0,0,0,0,1188.1,203.4,237.42,93.18]},{"s":"COS","l":"Site Travelling","v":[7874.63,8937.09,10076.82,15351.21,11000.0,0,50.0,0,0],"a":[0,0,0,0,0,12000.36,11588.59,14364.42,11877.73]},{"s":"COS","l":"Site Utilities","v":[250.0,145.0,10.0,230.0,0,0,0,0,0],"a":[0,0,0,0,0,0,250.0,250.0,0]},{"s":"COS","l":"Staff Accomodation","v":[7678.14,9927.58,13460.0,9534.27,6353.0,0,0,0,0],"a":[0,0,0,0,0,7460.0,5852.16,7880.0,6212.77]},{"s":"COS","l":"Subcontractor Costs","v":[4550.0,4862.0,5855.0,4280.0,2920.0,0,0,0,0],"a":[0,0,0,0,0,4025.0,41200.0,52674.2,3755.0]},{"s":"COS","l":"Tools & Equipment Costs","v":[1236.51,0,1358.39,1754.8,754.2,0,0,0,0],"a":[0,0,0,0,0,7165.2,2520.08,2638.83,128.0]},{"s":"COS","l":"Material - Opening Inventory","v":[55578.79,47427.62,42005.42,44189.38,40194.48,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"OI","l":"Dividend income","v":[0,0,0,0,258.85,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"OI","l":"Forfeited Deposit/Booking (Termination Fee)","v":[0,0,400,200,0,6000,0,300,11252],"a":[0,0,0,0,0,0,800,770,0]},{"s":"OI","l":"Interest income","v":[15.38,4.84,0.56,1.1,6.73,146.97,56.18,158.18,56.16],"a":[0,0,0,0,0,0,0,0,0]},{"s":"OI","l":"Meeting Room / Training Room Rental Income","v":[0,0,0,0,0,0,0,0,100],"a":[0,0,0,0,0,0,0,0,0]},{"s":"OI","l":"Miscellaneous Income","v":[0,392,0,0,0,0,550,0,200],"a":[0,0,0,0,0,0,0,0,0]},{"s":"OI","l":"Notice Pay Recovery","v":[2500,0,0,0,0,-141.99,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"OI","l":"Other Income - Murabahah Profit","v":[0,0,0,0,0,0,0,1500,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"OI","l":"Socso - Dasar Gaji Progresif","v":[1300,0,1300,2600,1300,1100,1300,1300,1300],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Cleaning Office","v":[0,100,0,0,0,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Courier, Postage & Stamp","v":[13.4,0,105.79,25.25,501.72,23.5,28,7,53.5],"a":[0,0,0,0,0,0,0,0,21.4]},{"s":"EXP","l":"Insurance - General","v":[0,0,0,0,0,0,808.27,808.27,808.27],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"License Fees","v":[0,0,367.8,0,0,0,0,220,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Penalty & Charges","v":[360,0,0,0,0,2611.48,599,914.03,3253.06],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Printing & Stationery","v":[220.58,228.56,418.8,287.29,414.9,115.92,277.59,238.88,32.1],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Recruitment Expenses","v":[968.03,748.96,2206.6,497.12,0,3189.37,1797.1,2042.95,1647.71],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Registration/Processing Fee","v":[36.18,0,0,0,0,840,850,50,0],"a":[0,0,0,0,0,0,0,0,1450]},{"s":"EXP","l":"Relocation  Showroom Cabin","v":[0,0,0,0,0,0,1600,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Tender Cost","v":[0,0,0,0,0,488,50,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Upkeep of Furniture & Fittings","v":[0,0,0,0,0,0,1974.16,6378,562.71],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Upkeep of Office","v":[883.3,182.7,1513.87,983.81,987.67,1746.6,1349.52,1738.22,654.38],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Bank charges","v":[82.9,70.9,66.9,154,72,63.3,93.95,63.1,63],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"CTOS Report Fee","v":[0,0,0,0,0,0,223.56,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Financing Processing Fee","v":[0,0,0,2500,2410,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Remittance Fees","v":[126,36,72,54,54,54,64,20,30],"a":[0,0,0,0,0,0,0,0,20]},{"s":"EXP","l":"Swipe Card Charges","v":[19,278.2,24,0,879.5,19,156.1,4.5,10],"a":[0,0,0,0,0,0,0,0,34.5]},{"s":"EXP","l":"Commissions on Sale","v":[5847.76,33278.52,16577.64,9770.92,37807.67,14650.21,17812.06,11062.76,10812.76],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Audit Fee","v":[416.67,416.67,0,416.67,833.32,500,500,500,2229.14],"a":[0,0,0,0,0,3874.98,645.83,645.83,645.83]},{"s":"EXP","l":"Audit/Tax Agent Fee(Over/Under Provision)","v":[0,0,0,83.37,0,-1280,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Corporate Taxation (CP204)","v":[0,0,0,0,0,9750,1625,2225,2225],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Filing & Attestation (Lodgement SSM/Annual Return)","v":[0,0,0,0,0,0,0,0,900],"a":[0,0,0,0,0,600,100,100,100]},{"s":"EXP","l":"Resolutions & Corporate Documentation","v":[0,0,194.4,1155.6,496.8,691.2,0,172.8,86.4],"a":[0,0,0,194.4,0,86.4,0,0,108]},{"s":"EXP","l":"Resolutions & Corporate Documentation (Prior Year)","v":[0,0,0,0,0,0,2592,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Secretarial Retainer (Annual)","v":[100,100,100,100,100,100,100,100,100],"a":[0,0,0,0,0,600,100,100,100]},{"s":"EXP","l":"Tax Agent Fee","v":[0,0,500,0,416.65,83.33,83.33,83.33,1739.46],"a":[0,0,0,0,0,1937.4,322.9,322.9,322.9]},{"s":"EXP","l":"Director Allowance - Atiqah Yahya","v":[20000,20000,20000,20000,20000,20000,20000,20000,20000],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Director Allowance - Dr Aisyah","v":[10000,10000,10000,10000,10000,10000,10000,10000,10000],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Director Allowance - Ridhwanul Hanif","v":[20000,20000,20000,20000,20000,20000,20000,20000,20000],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Directors' Benefit","v":[1869.83,1690.62,4291.44,4778.6,4833.64,3695.53,4749.85,3790,3497.72],"a":[0,0,0,0,0,0,0,0,0],"grp":1},{"s":"EXP","l":"Directors' Benefit: Books & Reference Materials","v":[0,0,0,245.45,0,31.89,112.41,0,179.09],"a":[0,0,0,0,0,0,0,0,0],"child":1},{"s":"EXP","l":"Directors' Benefit: Dental Expense","v":[0,0,0,0,0,120,0,0,0],"a":[0,0,0,0,0,0,0,0,0],"child":1},{"s":"EXP","l":"Directors' Benefit: Maid Service","v":[0,0,2100,1600,1600,1600,1600,1600,1600],"a":[0,0,0,0,0,0,0,0,0],"child":1},{"s":"EXP","l":"Directors' Benefit: Medical Expense","v":[0,0,0,0,1240,0,0,190,0],"a":[0,0,0,0,0,0,0,0,0],"child":1},{"s":"EXP","l":"Directors' Benefit: Petrol","v":[869.83,690.62,838.44,875,893.64,843.64,895.64,900,618.63],"a":[0,0,0,0,0,0,0,0,0],"child":1},{"s":"EXP","l":"Directors' Benefit: Rental","v":[1000,1000,1353,2058.15,1100,1100,2141.8,1100,1100],"a":[0,0,0,0,0,0,0,0,0],"child":1},{"s":"EXP","l":"Medical Expense (Staff & Workers)","v":[504,185,525.25,332.2,617,444.2,847.3,552.35,38.5],"a":[0,0,0,0,0,0,0,0,497]},{"s":"EXP","l":"Staff Uniform & Attire","v":[16,0,955,0,0,76,195.81,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Staff Welfare-Gift & Appreciation","v":[114.7,74,4100,1301.23,149,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Interest on Hire Purchase","v":[0,0,773.85,869.16,857.48,845.79,834.11,822.42,810.75],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Interest on Term Financing","v":[0,0,3363.93,4602.8,4535.78,5615.94,5529.13,6256.67,7217.87],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Roadtax & Insurance","v":[5901.5,0,0,4497.5,0,1678.65,1614.65,2105,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Showroom Maintenance","v":[0,91.53,0,0,89.6,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Upkeep of Hostel","v":[69.72,0,529.04,189.2,115.95,65.7,612.8,778,1539.81],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Upkeep Vehicle","v":[1070,70,886.69,1272.62,926.24,716.24,852.04,742.24,204.3],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Upkeep/Display of Showroom","v":[0,0,0,0,0,0,0,2757.2,37],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Upkeep/Repair of Machine Equipment","v":[0,0,0,0,0,0,30,243,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Vehicle Repair & Maintenance","v":[2169,4085,7411.8,5948.39,2554,4847,4348.06,8413.9,7381.98],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Corporate Events (Soft Launch/Grand Opening)","v":[0,0,0,0,0,0,0,0,0],"a":[0,0,0,0,0,0,4350,12,0]},{"s":"EXP","l":"Marketing-Banner/Flyers/Printing","v":[0,2422.5,883.85,0,91,0,0,0,0],"a":[0,0,0,0,0,228.7,304.77,3994.4,260]},{"s":"EXP","l":"Marketing-Booth Rental/Display Setup","v":[0,211.91,1891.13,380,1500,0,0,0,0],"a":[0,0,0,0,0,0,19.6,0,0]},{"s":"EXP","l":"Marketing-Giftaways","v":[0,1375.12,616,2800,0,0,0,0,0],"a":[0,0,0,0,0,671.21,2960,1404.1,1033.96]},{"s":"EXP","l":"Marketing-Tiktok/Facebook Ads","v":[2344.2,787.12,2880.04,2005.53,743.66,0,0,0,0],"a":[0,0,0,0,0,2722.04,4127.09,3432.52,5677.89]},{"s":"EXP","l":"Marketing-Video","v":[0,0,5500,1450,7350,0,0,0,0],"a":[0,0,0,0,0,235.13,1650,1850,30]},{"s":"EXP","l":"Showroom Hospitality","v":[15.8,0,0,0,31.8,0,0,0,0],"a":[0,0,0,0,0,67.45,48.32,0,0]},{"s":"EXP","l":"Business Software","v":[681,303.64,577.5,200.49,664.81,567.48,1016.3,1029.86,1038.61],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Digital Services (ChatGPT/Canva/Claude)","v":[1199.5,125.97,335.86,319.09,1059.95,1438.95,1299.92,865.76,1664.48],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Domain & Hosting","v":[0,0,0,0,53.99,388.55,88.55,244.85,144.57],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Fuel Card Subscriptions","v":[347.64,418.56,1.0,568.48,585.96,468.47,424.78,448.47,448.47],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Membership Fee","v":[0,0,0,15,0,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Rental of Premises","v":[1500,1500,1500,1500,8500,8500,8500,8500,8500],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Electricity Charges - Rantau","v":[534.15,638.6,729.3,747.4,778.55,874.65,850.3,646,458.15],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Electricity Charges - SJ","v":[0,0,0,0,16.35,224.85,476.45,862.9,874.95],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Utilities - Telephone & Wifi","v":[1005.5,897.56,878.79,423.7,409.8,413.12,301.04,269.24,369.24],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Utilities - Telephone & Wifi (SJ)","v":[0,0,0,0,0,0,92,102.1,72.1],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Water Charges - Rantau","v":[160.16,190.16,169.51,212.68,244.39,193.82,158.29,322.93,208.85],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Water Charges - SJ","v":[0,0,0,96.6,0,71.94,28.34,37.05,76.3],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Financing Consultation Fee","v":[0,0,0,25000,0,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"HR Services/Consultant","v":[5935,0,0,0,0,660,0,0,1180],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Marketing Consultant","v":[2500,0,0,0,0,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Professional Fees","v":[0,0,0,0,0,0,0,0,2900],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Software/IT Expenses","v":[0,0,3067.2,0,0,800,0,300,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Salary, Wages & Allowances","v":[53744.85,57443.37,53030.72,59436.25,67281.14,72128.97,67442.49,70723.12,62884.95],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Fixed Allowances","v":[0,0,0,0,0,0,1180,1250,1130],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Non-Fixed Allowances","v":[0,0,0,0,0,0,345,1165,2235],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Sales Agent Duty Allowance","v":[0,0,0,0,0,550,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Staff Receivable Write-Off","v":[0,0,0,0,0,0,0,0,715.6],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Staff Settlement","v":[0,5792.2,0,0,0,0,0,0,1250],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Director Meeting Expenses","v":[0,0,93.1,1739.42,208.85,155.8,32,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Meeting Refreshment","v":[19.5,0,0,0,0,132.69,85.6,58.75,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Pantry Expenses","v":[13.2,185.4,192.28,14,119.45,13,0,288.55,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Staff Events","v":[0,460.15,616,2116.95,0,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"EIS Expense (Directors)","v":[23.8,23.8,23.8,23.8,23.8,23.8,23.8,23.8,23.8],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"EIS Expense (Staff)","v":[87.55,89.9,86.7,95.3,107.7,112.5,108.5,109.4,143.55],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"EPF Expense (Directors)","v":[4800,4800,4800,4800,4800,4800,4800,4800,4800],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"EPF Expense (Staff)","v":[5755,5921,5720,6279,7055,7389,7102,7170,6907],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"HRDF","v":[0,0,0,0,840,970.2,957.78,954.78,935.76],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"SOCSO Expense (Directors)","v":[208.3,208.3,208.3,208.3,208.3,208.3,208.3,208.3,208.3],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"SOCSO Expense (Staff)","v":[765.5,786.55,758.65,833.95,942.55,984.35,949.35,957.2,885.95],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Professional Development (Directors)","v":[796,88,0,21539.84,232,0,1665.56,0,37.17],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Staff Training","v":[0,0,0,0,1400,3000,5409.71,315,58],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Staff Training Venue","v":[0,0,0,0,520,0,1500,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Training Refreshment & Gift","v":[0,0,0,0,351.6,27.02,2682.15,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Petrol/Toll/Parking","v":[63.5,0,585.37,1050,1511.64,300,50,59.87,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"R&D Travelling Expenses","v":[0,0,0,1776.46,0,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Site Visit Expenses (Travelling & Meals)","v":[70,0,0,0,1712.21,134.4,1003.11,150,117.8],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Staff Travelling Expenses (Mileage)","v":[251.29,0,116,48.1,326.8,78.17,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Zakat","v":[-1400,0,0,0,0,0,0,0,0],"a":[0,0,0,0,0,0,0,0,0]},{"s":"EXP","l":"Management Service Expense (from 79V)","v":[0,0,0,0,0,0,0,0,0],"a":[0,0,0,0,0,230000,230000,230000,230000],"e":1,"k":"MFE"},{"s":"OX","l":"Depreciation Expense","v":[3717.18,3771.83,3822.03,5035.42,7414.77,7541.4,7618.64,7785.3,7785.3],"a":[0,0,0,0,0,0,0,0,0]},{"s":"OX","l":"Profit to Investors","v":[750,1575,1575,1575,1575,1575,1575,1575,1575],"a":[0,0,0,0,0,0,0,0,0]}],"ne_v":[89176.83,10352.63,74177.44,8902.56,-87813.89,20677.59,7805.03,18945.34,35343.84],"ne_a":[0,0,0,-194.4,0,-70463.88,-4455.28,87558.12,41993.25],"cash_v":[178870.46,123707.38,66452.15,124785.08,251550.9,369990.72,270269.99,209097.56,308323.3],"cash_a":[0,2000,2000,62600,65592,102721,192794,119836,308418.98]};
+// QuickBooks account names that the shared forecast lines do not recognise are matched here, only while this view is showing.
+const FCQ_RE={'Salary':/salary, wages|fixed allowances|non-fixed allowances|sales agent duty/i,
+  'Professional fees (legal / valuation)':/valuation|legal fee|^professional fees/i,
+  'Loan Arrangement Fee':/loan consultation|financing consultation/i,
+  'Loan Processing Fee':/loan processing|financing processing/i};
+FC_DEF.forEach(S=>S.lines.forEach(ln=>{ if(FCQ_RE[ln.l]){ ln.reX=ln.re; ln.reQ=FCQ_RE[ln.l]; } }));
+const FCQ_INV={l:'Opening inventory (periodic stock adj.)',re:/opening inventory/i,s:'COS'};
+// Mineral water ordered by the carton for site workers (vendor Siti Salwa) is kept apart from daily site meals; flat = forecast by average spend, not % of sales.
+const FCQ_MIN={l:'Site Meals (Mineral)',re:/site meals - mineral/i,s:'COS',flat:true};
+function fcMode(q){
+  q=!!q; if(q===fcQ) return;
+  fcQ=q; fcSt=q?fcStQ:fcStX; if(!q) qdSt=null;
+  FC_DEF.forEach(S=>S.lines.forEach(ln=>{ if(ln.reQ) ln.re=q?ln.reQ:ln.reX; }));
+  const cos=FC_DEF.find(S=>S.sec==='Cost of Sales').lines, i=cos.indexOf(FCQ_INV);
+  if(q&&i<0) cos.splice(cos.length-1,0,FCQ_INV); if(!q&&i>=0) cos.splice(i,1);
+  const jm=cos.indexOf(FCQ_MIN);
+  if(q&&jm<0) cos.splice(cos.findIndex(l=>l.l==='Operations'),0,FCQ_MIN); if(!q&&jm>=0) cos.splice(jm,1);
+}
+let _qbRes=null;
+function qbRes(){
+  if(_qbRes) return _qbRes;
+  const Z=()=>new Array(12).fill(0), pad=a=>a.concat([0,0,0]);
+  const rows=[];
+  QBD.rows.forEach(r=>{ const v=pad(r.v), a=pad(r.a), c=r.e?Z():v.map((x,j)=>x+a[j]);
+    const o={t:'D',s:r.s,l:r.l,val:{v,a,c}}; if(r.e) o.e=1; if(r.k) o.k=r.k; if(r.grp) o.grp=1; if(r.child) o.child=1; rows.push(o); });
+  const tot={}; ['INC','COS','OI','EXP','OX'].forEach(k=>{ tot[k]={v:Z(),a:Z(),c:Z()}; });
+  rows.forEach(r=>{ if(r.child) return; ['v','a','c'].forEach(e=>r.val[e].forEach((x,j)=>{ tot[r.s][e][j]+=x; })); });
+  const gp={}, ne={}; ['v','a','c'].forEach(e=>{ gp[e]=tot.INC[e].map((x,j)=>x-tot.COS[e][j]); ne[e]=gp[e].map((x,j)=>x+tot.OI[e][j]-tot.EXP[e][j]-tot.OX[e][j]); });
+  [['INC','Total for Income'],['COS','Total for Cost of Sales']].forEach(([k,l])=>rows.push({t:'T',k,l,s:k,val:tot[k]}));
+  rows.push({t:'T',k:'GP',l:'Gross Profit',s:'COS',val:gp});
+  [['OI','Total for Other Income(Loss)'],['EXP','Total for Expenses'],['OX','Total for Other Expenses']].forEach(([k,l])=>rows.push({t:'T',k,l,s:k,val:tot[k]}));
+  rows.push({t:'T',k:'NE',l:'Net Earnings',s:'OX',val:ne});
+  const raw={}; ['v','a'].forEach(e=>{ raw[e]=rows.filter(r=>r.t==='D'&&!r.child).map(r=>({l:r.l,k:'D',vals:r.val[e]})); raw[e].push({l:'Net Earnings',k:'T',vals:ne[e]}); });
+  const cash=pad(QBD.cash_v.map((x,j)=>x+QBD.cash_a[j]));
+  _qbRes={rows,raw,qb:true,bs:{c:{months:[0,1,2,3,4,5,6,7,8],sum:{cash}}}};
+  return _qbRes;
+}
+function fcRes(){ return fcQ?qbRes():(state.res0||state.res); }
+function qbTax(e){ if(!fcQ) return taxCalc(e); const s0=state.res; state.res=qbRes(); try{ return taxCalc(e); } finally{ state.res=s0; } }
 function fcCompute(){
-  const res=state.res0||state.res; if(!res) return null;
+  const res=fcRes(); if(!res) return null;
   const Z=()=>new Array(12).fill(0);
   const rows=res.rows.filter(r=>r.t==='D'&&!r.child);
   const inc=res.rows.find(r=>r.k==='INC').val;
@@ -1156,7 +1205,7 @@ function fcCompute(){
   const recSales=recent.reduce((s,j)=>s+actSales[j],0);
   FC_DEF.slice(1).forEach(S=>S.lines.forEach(ln=>{ const v=Z();
     if(ln.kind==='man'){ const m=fcSt.man[ln.l]||{}; for(let j=0;j<12;j++){ v[j]=m[j]!=null?+m[j]:0; if(m[j]!=null) src[ln.l+'|'+j]='man'; } val[ln.l]=v; return; }
-    const isVar=S.var||ln.var; const pct=recSales?recent.reduce((s,j)=>s+ln.act[j],0)/recSales:0; const a=avg(ln.act);
+    const isVar=(S.var||ln.var)&&!ln.flat; const pct=recSales?recent.reduce((s,j)=>s+ln.act[j],0)/recSales:0; const a=avg(ln.act);
     for(let j=0;j<12;j++){ if(j<=M){ v[j]=ln.act[j]; continue; }
       v[j]=get(ln,j,isVar?pct*totSales[j]:a); if(!src[ln.l+'|'+j]) src[ln.l+'|'+j]='auto'; }
     ln.pct=isVar?pct:null; val[ln.l]=v; }));
@@ -1164,18 +1213,18 @@ function fcCompute(){
   val['Other expenses (unmapped)']=unm.map((x,j)=>j<=M?x:get({l:'Other expenses (unmapped)'},j,avg(unm)));
   return {M,val,src,totSales,unmList:[...unmList],unmAccts,recent,N,salesAct};
 }
-const FC_TABS=[['sum','Summary'],['pl','Forecast P&L'],['cf','Cash Flow'],['Sales','Sales'],['Cost of Sales','1. COGS'],['Admin','2. Admin'],['Operation/Supply Chain','3. Operations'],['People','4. People (HR)'],['Marketing','5. Marketing'],['Finance','6. Finance'],['Director','7. Directors'],['io','8. Other Inflow / Outflow']];
+const FC_TABS=[['sum','Summary'],['pl','Forecast P&L'],['cf','Cash Flow'],['Sales','Sales'],['Cost of Sales','1. COGS'],['Admin','2. Admin'],['Operation/Supply Chain','3. Operations'],['People','4. People (HR)'],['Marketing','5. Marketing'],['Finance','6. Finance'],['Director','7. Directors'],['io','8. Other Inflow / Outflow'],['min','Mineral orders (QB)']];
 let fcView=store.get('consol.fcView')||'sum';
 // ----- Forecast P&L and Cash Flow built from the forecast lines -----
 function fcSeries(R){
-  const res=state.res0||state.res, Z=()=>new Array(12).fill(0), V=R.val, M=R.M;
+  const res=fcRes(), Z=()=>new Array(12).fill(0), V=R.val, M=R.M;
   const S=(...ks)=>Z().map((_,j)=>ks.reduce((s,k)=>s+(V[k]?V[k][j]:0),0));
   const lines=sec=>FC_DEF.find(x=>x.sec===sec).lines.map(l=>l.l);
   const byLab=re=>{ const z=Z(); res.rows.filter(r=>r.t==='D'&&!r.child&&re.test(r.l)).forEach(r=>r.val.c.forEach((x,j)=>z[j]+=x)); return z; };
   const recent=R.recent, avg=a=>recent.length?recent.reduce((s,j)=>s+a[j],0)/recent.length:0;
   const proj=a=>a.map((x,j)=>j<=M?x:avg(a));
   const sales=S(...lines('Sales'));
-  const mat=S('Material Purchase China','Material Purchase'), lab=S('Salary Foreigner'), site=S('Operations','Tools & Machinery-Site Expenses');
+  const mat=S('Material Purchase China','Material Purchase'), lab=S('Salary Foreigner'), site=S('Operations','Tools & Machinery-Site Expenses',...(fcQ?[FCQ_INV.l,FCQ_MIN.l]:[]));
   const cos=mat.map((x,j)=>x+lab[j]+site[j]);
   const gp=sales.map((x,j)=>x-cos[j]);
   const oi=S('Other Income');
@@ -1187,10 +1236,10 @@ function fcSeries(R){
   const ebitda=gp.map((x,j)=>x+oi[j]-opex[j]);
   const dep=proj(byLab(/^depreciation expense/i));
   const ebit=ebitda.map((x,j)=>x-dep[j]);
-  const intr=proj(byLab(/^interest on (hire purchase|term loan)/i)), pti=S('Pay to investors');
+  const intr=proj(byLab(/^interest on (hire purchase|term (loan|financing))/i)), pti=S('Pay to investors');
   const fcost=intr.map((x,j)=>x+pti[j]);
   const pbt=ebit.map((x,j)=>x-fcost[j]);
-  let etr=0; try{ const tv=taxCalc('v'), ta=taxCalc('a'); const p=(tv.pbtFY||0)+(ta.pbtFY||0); etr=p>0.5?((tv.tax||0)+(ta.tax||0))/p:0; }catch(e){}
+  let etr=0; try{ const tv=qbTax('v'), ta=qbTax('a'); const p=(tv.pbtFY||0)+(ta.pbtFY||0); etr=p>0.5?((tv.tax||0)+(ta.tax||0))/p:0; }catch(e){}
   const tax=pbt.map(x=>x*etr), pat=pbt.map((x,j)=>x-tax[j]);
   // check: actual PBT should equal books Net Earnings + CP204
   const ne=res.rows.find(r=>r.k==='NE').val.c, cp=byLab(/corporate taxation \(cp204\)/i);
@@ -1226,9 +1275,9 @@ function fcPLTable(R,head,tot,h1,h2){
 }
 function fcCFTable(R,head,tot,h1,h2){
   const F=fcSeries(R), M=R.M, V=F.V, S=F.S, Z=()=>new Array(12).fill(0);
-  const res=state.res0||state.res; const B=res.bs&&res.bs.c; const bsM=B?B.months:[]; const cashBS=B?B.sum.cash:Z();
+  const res=fcRes(); const B=res.bs&&res.bs.c; const bsM=B?B.months:[]; const cashBS=B?B.sum.cash:Z();
   const lastBS=bsM.length?bsM[bsM.length-1]:-1;
-  const stmtCash=bk.useStmt?bkStatementCash():null;
+  const stmtCash=(bk.useStmt&&!fcQ)?bkStatementCash():null;
   const lag=+fcSt.lag||0;
   const coll=F.sales.map((x,j)=>j>lastBS&&j-lag>=0?F.sales[j-lag]:x);
   const recOp=coll.map((x,j)=>x+F.oi[j]);
@@ -1284,7 +1333,7 @@ function fcBreakdown(R,view,cell,row,TS,tot,h1,h2,secTot){
     const recLine=R.recent.reduce((s,j)=>s+R.val[ln.l][j],0), recAcc=R.recent.reduce((s,j)=>s+acc.a[j],0);
     const sh=Math.abs(recLine)>0.5?recAcc/recLine:0;
     const a=acc.a.map((x,j)=>j<=M?x:R.val[ln.l][j]*sh);
-    return `<tr><td class="acct" style="padding-left:40px;color:var(--muted)">${esc(acc.l)}</td>${a.map((x,j)=>`<td class="num gstart${x<-0.004?' neg':''}" style="${j>M?'background:var(--fc,#f3f6fb);color:var(--muted);font-style:italic':''}">${fmt0(x)}</td>`).join('')}<td class="num gstart cc">${fmt0(tot(a))}</td><td class="num gstart">${fmt0(h1(a))}</td><td class="num gstart">${fmt0(h2(a))}</td><td class="num gstart">${TS?(tot(a)/TS*100).toFixed(1)+'%':''}</td></tr>`; };
+    return `<tr><td class="acct"${fcQ&&ln.l!=='Other expenses (unmapped)'?` data-qd="${esc(acc.l)}" data-ln="${esc(ln.l)}" style="padding-left:40px;cursor:pointer;text-decoration:underline dotted;text-underline-offset:3px" title="Click to see the QuickBooks transactions behind this line"`:` style="padding-left:40px;color:var(--muted)"`}>${esc(acc.l)}${fcQ&&ln.l!=='Other expenses (unmapped)'?' <span class="hint">▸ details</span>':''}</td>${a.map((x,j)=>`<td class="num gstart${x<-0.004?' neg':''}" style="${j>M?'background:var(--fc,#f3f6fb);color:var(--muted);font-style:italic':''}">${fmt0(x)}</td>`).join('')}<td class="num gstart cc">${fmt0(tot(a))}</td><td class="num gstart">${fmt0(h1(a))}</td><td class="num gstart">${fmt0(h2(a))}</td><td class="num gstart">${TS?(tot(a)/TS*100).toFixed(1)+'%':''}</td></tr>`; };
   secs.forEach(sec=>{ const S=FC_DEF.find(x=>x.sec===sec); if(!S) return;
     h+=`<tr class="hd sec"><td class="acct">${esc(sec)}</td><td colspan="16"></td></tr>`;
     S.lines.forEach(ln=>{ const a=R.val[ln.l]; const isMan=ln.kind==='man';
@@ -1297,7 +1346,143 @@ function fcBreakdown(R,view,cell,row,TS,tot,h1,h2,secTot){
   h+=`<tr><td class="acct hint" colspan="17" style="white-space:normal">Account lines show actual QuickBooks balances (consolidated, inter-co eliminated). Forecast months for each account (italic) are the line's forecast split in proportion to that account's share over the last ${R.N} actual months.</td></tr>`;
   return h;
 }
+// ===== Drill-down: the QuickBooks transactions behind a forecast line (read live from QuickBooks through the viewer's own connector) =====
+const QBS='Meridian Connector for QuickBooks';
+// accounts that are spelled differently in one of the two companies
+const QBN={'Logistics Cost (Inbound)':{a:'Logistic Cost (Inbound)'},'Staff Accomodation':{a:'Staff Accommodation'},'Tools & Equipment Costs':{v:'Tools,Equipment & Consumable Costs'},
+  'Medical Expense (Staff & Workers)':{a:'Medical Expenses (Workers)'},'Upkeep of Hostel':{a:'Upkeep Of Hostel'},'Sales Discounts':{a:'Sales Discount'}};
+let qdSt=null, qdIds=null; const qdCache={};
+function qdSpec(label){
+  if(label==='Site Meals - Mineral (box orders)') return {acct:'Site Meals',only:/siti salwa/i,title:'Site Meals (Mineral): carton orders'};
+  if(label==='Site Meals') return {acct:'Site Meals',not:/siti salwa/i,title:'Site Meals (food and drinks bought at shops)'};
+  return {acct:label,title:label};
+}
+const qdWho=s=>{ s=String(s||''); let m=s.match(/Petty Cash\s*-\s*(.+)$/i); if(m) return m[1].trim()+' (petty cash)'; m=s.match(/Staff Claim Payable\s*-\s*(.+)$/i); if(m) return m[1].trim()+' (staff claim)'; m=s.match(/Cash at Bank:(.+)$/i); if(m) return 'Bank: '+m[1].trim(); return s.replace(/^.*:/,'')||'–'; };
+function qdErr(e){ const c=e&&e.code;
+  if(c==='needs_reauth') return 'The QuickBooks connection has expired. Reconnect <b>Meridian Connector for QuickBooks</b> at claude.ai → Settings → Connectors, then try again.';
+  if(c==='server_not_connected') return 'The QuickBooks connector (<b>Meridian Connector for QuickBooks</b>) is not connected on this account. Add it at claude.ai → Settings → Connectors.';
+  if(c==='not_in_manifest'||c==='consent_required'||c==='not_granted'||c==='blocked_by_policy'||c==='approval_required') return 'QuickBooks access is not allowed for this page. Allow it from the artifact Permissions menu, then try again.';
+  return 'Could not read QuickBooks'+(c?' ('+esc(c)+')':'')+': '+esc((e&&e.message)||String(e));
+}
+async function qdCompanies(){
+  if(qdIds) return qdIds;
+  const r=await mcp.callTool(QBS,'list_companies',{},{cache:false}); const p=payloadOf(r); const items=(p&&p.items)||[];
+  const f=re=>{ const x=items.find(i=>re.test(i.company_label||'')); return x&&x.company_id; };
+  qdIds={v:f(/79\s*ventures/i),a:f(/arabina/i)};
+  if(!qdIds.v||!qdIds.a){ const miss=[!qdIds.v&&'79 Ventures',!qdIds.a&&'Arabina'].filter(Boolean).join(' and '); qdIds=null; throw {code:'tool_error',message:'QuickBooks company not found for this connector login: '+miss+'.'}; }
+  return qdIds;
+}
+function qdParse(p){
+  const rr=p&&p.raw_report; if(!rr) throw {code:'tool_error',message:(p&&p.error&&p.error.message)||'QuickBooks returned no report.'};
+  const keys=((rr.metadata&&rr.metadata.Columns&&rr.metadata.Columns.Column)||[]).map(c=>((c.MetaData||[]).find(m=>m.Name==='ColKey')||{}).Value);
+  const ix=k=>keys.indexOf(k), val=(cd,k)=>{ const i=ix(k); return i>=0&&cd[i]?String(cd[i].value==null?'':cd[i].value):''; };
+  const out=[];
+  (rr.rows||[]).forEach(x=>{ const row=x.row, cd=row&&row.ColData; if(!cd||row.type!=='Data') return; const d=cd[0]&&cd[0].value; if(!/^\d{4}-\d{2}-\d{2}$/.test(d||'')) return;
+    out.push({d,typ:val(cd,'txn_type'),num:val(cd,'doc_num'),name:val(cd,'name'),memo:val(cd,'memo'),split:val(cd,'split_acc'),site:val(cd,'cust_name'),amt:parseFloat(val(cd,'subt_nat_amount'))||0}); });
+  return out;
+}
+async function qdFetch(e,acct,from,to,onPage){
+  const key=[e,acct,from,to].join('|'); if(qdCache[key]) return qdCache[key];
+  const ids=await qdCompanies(); const cid=ids[e]; let all=[], cursor=null, pages=0;
+  for(;;){
+    const input=cursor?{company_id:cid,cursor}:{company_id:cid,report_type:'general_ledger',account:{name:acct},start_date:from,end_date:to,accounting_method:'Accrual',
+      columns:['tx_date','txn_type','doc_num','name','memo','split_acc','cust_name','subt_nat_amount'],response_mode:'raw',row_page_size:500};
+    let r; try{ r=await mcp.callTool(QBS,'run_report',input,{cache:false}); }
+    catch(err){ if(err&&err.retryable&&pages<30){ await new Promise(z=>setTimeout(z,1500)); continue; } throw err; }
+    const p=payloadOf(r); all=all.concat(qdParse(p)); pages++; if(onPage) onPage(all.length,pages);
+    if(p&&p.truncated&&p.continuation_cursor&&pages<60) cursor=p.continuation_cursor; else break;
+  }
+  qdCache[key]=all; return all;
+}
+function qdMonthRange(j){ const last=new Date(2026,j+1,0).getDate(), m=String(j+1).padStart(2,'0'); return [`2026-${m}-01`,`2026-${m}-${String(last).padStart(2,'0')}`]; }
+async function qdLoad(){
+  const st=qdSt; if(!st) return; st.busy=true; st.err=null; st.rows=null; st.skipped=0; qdDraw();
+  const months=st.month==='all'?[...Array(st.M+1).keys()]:[+st.month];
+  try{
+    if(!mcp) throw {code:'not_granted',message:'Connectors are not available in this view. Open the artifact on claude.ai.'};
+    let rows=[];
+    for(const j of months){ const [f,t]=qdMonthRange(j);
+      for(const e of ['v','a']){
+        let got=[];
+        try{ got=await qdFetch(e,(QBN[st.spec.acct]&&QBN[st.spec.acct][e])||st.spec.acct,f,t,(n,pg)=>{ st.prog=`${e==='v'?'79 Ventures':'Arabina'} · ${MONTHS[j]} · ${n} rows read`; qdDrawStatus(); }); }
+        catch(err){ if(err&&err.code==='tool_error'&&/not found|no account|no match|candidate|does not exist/i.test(String(err.message||''))) got=[]; else throw err; }
+        got.forEach(x=>rows.push({...x,co:e==='v'?'79V':'Arabina'})); } }
+    // the reclass journals only move cost from 79V to Arabina; the purchases themselves are the rows in 79V's books
+    let skipped=0; rows=rows.filter(x=>{ if(x.typ==='Journal Entry'&&/reclass/i.test(x.memo)){ skipped+=x.amt; return false; } return true; });
+    if(st.spec.only) rows=rows.filter(x=>st.spec.only.test(x.name)); if(st.spec.not) rows=rows.filter(x=>!st.spec.not.test(x.name));
+    rows.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:(a.co<b.co?-1:1)); st.rows=rows;
+  }catch(err){ st.err=qdErr(err); }
+  st.busy=false; qdDraw();
+}
+function qdFetchArgsFix(){}
+function qdOpen(label,lnLabel,R){
+  const ln=FC_DEF.flatMap(S=>S.lines).find(l=>l.l===lnLabel), acc=ln&&ln.accts&&ln.accts.find(a=>a.l===label);
+  qdSt={label,spec:qdSpec(label),acc:acc?acc.a.slice():null,M:R.M,month:R.M,rows:null,busy:false,err:null,q:'',prog:''};
+  qdDraw(); qdLoad();
+  setTimeout(()=>{ const el=$('qdPanel'); if(el) el.scrollIntoView({behavior:'smooth',block:'nearest'}); },60);
+}
+function qdDrawStatus(){ const el=$('qdProg'); if(el&&qdSt) el.textContent=qdSt.prog||''; }
+function qdDraw(){
+  const st=qdSt; if(!st) return; let box=$('qdPanel');
+  if(!box){ $('tablebox').insertAdjacentHTML('beforeend','<div id="qdPanel" class="stmt" style="border-top:2px solid var(--ink);margin-top:14px"></div>'); box=$('qdPanel'); }
+  const mOpts=`<option value="all"${st.month==='all'?' selected':''}>Jan–${MONTHS[st.M]} (all months)</option>`+[...Array(st.M+1).keys()].map(j=>`<option value="${j}"${String(st.month)===String(j)?' selected':''}>${MONTHS[j]} 2026</option>`).join('');
+  let h=`<h3>${esc(st.spec.title)} · QuickBooks transactions</h3>
+   <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center">
+     <label>Month <select id="qdMonth">${mOpts}</select></label>
+     <label>Search <input id="qdQ" value="${esc(st.q)}" placeholder="vendor, item, person, site" style="width:220px"></label>
+     <button id="qdReload">Reload from QuickBooks</button><button id="qdClose">Close</button>
+     <span class="hint" id="qdProg">${st.busy?esc(st.prog||'Reading QuickBooks…'):''}</span></div>`;
+  if(st.err){ h+=`<div class="msg err" style="margin:8px 0">${st.err}</div>`; box.innerHTML=h; return qdWire(); }
+  if(!st.rows){ h+=`<p class="sub2">${st.busy?'Reading the transactions from QuickBooks. A month of site meals can take a few seconds.':''}</p>`; box.innerHTML=h; return qdWire(); }
+  const q=st.q.trim().toLowerCase();
+  const vis=st.rows.filter(x=>!q||(x.name+' '+x.memo+' '+qdWho(x.split)+' '+x.site+' '+x.co).toLowerCase().includes(q));
+  const tot=a=>a.reduce((s,x)=>s+x.amt,0), T=tot(vis), allT=tot(st.rows);
+  const months=st.month==='all'?[...Array(st.M+1).keys()]:[+st.month];
+  const tbl=st.acc?months.reduce((s,j)=>s+(st.acc[j]||0),0):null;
+  const grp=(key)=>{ const m=new Map(); vis.forEach(x=>{ const k=key(x)||'(none)'; const o=m.get(k)||{k,t:0,n:0}; o.t+=x.amt; o.n++; m.set(k,o); }); return [...m.values()].sort((a,b)=>b.t-a.t); };
+  const small=(title,arr)=>`<div><table style="width:auto"><thead><tr class="m"><th class="acct">${title}</th><th class="gstart" style="text-align:right">RM</th><th class="gstart" style="text-align:right">No.</th></tr></thead><tbody>${arr.slice(0,8).map(o=>`<tr class="in1"><td class="acct">${esc(o.k)}</td><td class="num gstart">${fmt(o.t)}</td><td class="num gstart">${o.n}</td></tr>`).join('')}${arr.length>8?`<tr class="in1"><td class="acct hint">+ ${arr.length-8} more</td><td></td><td></td></tr>`:''}</tbody></table></div>`;
+  const diff=tbl==null?null:Math.round((allT-tbl)*100)/100;
+  h+=`<p class="sub2" style="margin:8px 0"><b>${vis.length} transactions · RM${fmt(T)}</b>${q?` (filtered from ${st.rows.length}, RM${fmt(allT)})`:''}. Date, vendor, what was bought (memo), who paid (petty cash holder, staff claim or bank) and the site (QuickBooks customer / project) are exactly as entered in QuickBooks.
+    ${tbl==null?'':(Math.abs(diff)<0.05?`<span class="good"> ✓ Agrees with the forecast table (RM${fmt(tbl)}).</span>`:`<span class="bad"> Table shows RM${fmt(tbl)}; these transactions add to RM${fmt(allT)} (difference RM${fmt(diff)}). Cost booked by journal without a purchase behind it, or an account booked elsewhere, explains a difference.</span>`)}</p>
+   <div style="display:flex;gap:24px;flex-wrap:wrap;margin:6px 0">${small('By site',grp(x=>x.site))}${small('By who paid',grp(x=>qdWho(x.split)))}${small('By vendor',grp(x=>x.name))}</div>
+   <div style="overflow:auto;max-height:30rem;margin-top:8px"><table style="width:100%"><thead><tr class="m"><th class="acct" style="text-align:left;min-width:92px">Date</th><th class="gstart">Company</th><th class="gstart" style="text-align:left">Vendor</th><th class="gstart" style="text-align:left">What was bought</th><th class="gstart" style="text-align:right">RM</th><th class="gstart" style="text-align:left">Who paid</th><th class="gstart" style="text-align:left">Site</th></tr></thead><tbody>`;
+  vis.slice(0,2500).forEach(x=>{ h+=`<tr class="in1"><td class="acct" style="white-space:nowrap">${esc(x.d)}</td><td class="gstart">${x.co}</td><td class="gstart" style="white-space:normal;min-width:150px">${esc(x.name||'–')}</td><td class="gstart" style="white-space:normal;min-width:240px;max-width:420px">${esc(x.memo||'–')}${x.typ==='Journal Entry'?' <span class="hint">(journal)</span>':''}</td><td class="num gstart${x.amt<0?' neg':''}">${fmt(x.amt)}</td><td class="gstart" style="white-space:nowrap">${esc(qdWho(x.split))}</td><td class="gstart" style="white-space:nowrap">${esc(x.site||'–')}</td></tr>`; });
+  h+=`</tbody></table></div>${vis.length>2500?'<p class="sub2">Showing the first 2,500 rows. Choose one month or search to narrow down.</p>':''}
+   <p class="sub2" style="margin-top:8px">Read live from QuickBooks with your own connector login. Cost moved from 79V to Arabina by reclass journals is not listed twice: the purchases are the rows in 79V's books.</p>`;
+  box.innerHTML=h; qdWire();
+}
+function qdWire(){
+  const st=qdSt; if(!st) return;
+  const m=$('qdMonth'); if(m) m.addEventListener('change',ev=>{ st.month=ev.target.value; qdLoad(); });
+  const q=$('qdQ'); if(q) q.addEventListener('input',ev=>{ st.q=ev.target.value; const pos=ev.target.selectionStart; qdDraw(); const n=$('qdQ'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } });
+  const rl=$('qdReload'); if(rl) rl.addEventListener('click',()=>{ Object.keys(qdCache).forEach(k=>delete qdCache[k]); qdLoad(); });
+  const c=$('qdClose'); if(c) c.addEventListener('click',()=>{ qdSt=null; const b=$('qdPanel'); if(b) b.remove(); });
+}
+function fcMineralHtml(R){
+  const O=QBD.mineral.slice().sort((a,b)=>a.d<b.d?-1:1), M=R.M;
+  const day=d=>Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10))/86400000;
+  O.forEach((o,i)=>{ o.gap=i?day(o.d)-day(O[i-1].d):null; });
+  const rows=[]; for(let j=0;j<=M;j++){ const L=O.filter(o=>+o.d.slice(5,7)===j+1), n=L.length, t=L.reduce((s,o)=>s+o.amt,0), g=L.map(o=>o.gap).filter(x=>x!=null);
+    rows.push({j,n,t,avg:n?t/n:0,gap:g.length?g.reduce((s,x)=>s+x,0)/g.length:null}); }
+  const act=O.filter(o=>+o.d.slice(5,7)<=M+1), nT=act.length, tT=act.reduce((s,o)=>s+o.amt,0);
+  const span=nT>1?day(act[nT-1].d)-day(act[0].d):0;
+  const rec=R.recent, nRec=rec.reduce((s,j)=>s+rows[j].n,0), tRec=rec.reduce((s,j)=>s+rows[j].t,0), k=rec.length||1;
+  const fv=(R.val[FCQ_MIN.l]||[]);
+  const f0=x=>fmt0(x), f1=x=>x==null?'–':x.toFixed(1);
+  let h=`<div class="stmt"><h3 style="font-size:13px">MINERAL ORDERS: WATER ORDERED BY THE CARTON FOR SITE WORKERS</h3>
+   <p class="sub2">Kept apart from daily <i>Site Meals</i> (food and drinks bought at shops). A mineral order is a payment to the supplier <b>Siti Salwa</b> booked to the QuickBooks account <i>Site Meals</i>. Orders Jan–Aug were paid by 79 Ventures; since June 79V books them on behalf of Arabina and reclasses the cost to Arabina, so the cost sits in Arabina from June. Small water purchases from petty cash at shops stay in Site Meals. Source: QuickBooks transactions of vendor Siti Salwa, 79V and Arabina.</p>
+   <table style="width:auto"><thead><tr class="m"><th class="acct">Month</th><th class="gstart" style="text-align:right">Orders</th><th class="gstart" style="text-align:right">Total RM</th><th class="gstart" style="text-align:right">Average RM per order</th><th class="gstart" style="text-align:right">Average days between orders</th></tr></thead><tbody>`;
+  rows.forEach(r=>{ h+=`<tr class="in1"><td class="acct">${MONTHS[r.j]} 2026</td><td class="num gstart">${r.n}</td><td class="num gstart">${f0(r.t)}</td><td class="num gstart">${r.n?f0(r.avg):'–'}</td><td class="num gstart">${f1(r.gap)}</td></tr>`; });
+  h+=`<tr class="tot"><td class="acct">Jan–${MONTHS[M]}</td><td class="num gstart">${nT}</td><td class="num gstart">${f0(tT)}</td><td class="num gstart">${nT?f0(tT/nT):'–'}</td><td class="num gstart">${nT>1?f1(span/(nT-1)):'–'}</td></tr></tbody></table>
+   <p class="sub2" style="margin-top:8px"><b>Forecast ${MONTHS[M+1]||''}–Dec:</b> average of the last ${k} actual month${k>1?'s':''} = ${f1(nRec/k)} orders a month at about RM${nRec?f0(tRec/nRec):'–'} an order, which is RM${f0(tRec/k)} a month. The forecast line <i>Site Meals (Mineral)</i> (Cost of Sales) uses RM${f0(fv[Math.min(11,M+1)]||0)} a month; click a forecast cell in the Summary or 1. COGS tab to type your own figure (for example the number of orders × the price per order).</p></div>`;
+  h+=`<div class="stmt"><h3 style="font-size:13px">Every mineral order</h3><div style="overflow:auto"><table style="width:auto"><thead><tr class="m"><th class="acct">Date</th><th class="gstart">Paid by</th><th class="gstart" style="text-align:left">Memo in QuickBooks</th><th class="gstart" style="text-align:right">RM</th><th class="gstart" style="text-align:right">Days since previous order</th></tr></thead><tbody>`;
+  O.forEach(o=>{ const late=+o.d.slice(5,7)>M+1;
+    h+=`<tr class="in1"${late?' style="color:var(--muted)"':''}><td class="acct">${esc(o.d)}</td><td class="gstart">${esc(o.co)}</td><td class="gstart" style="white-space:normal">${esc(o.memo)}</td><td class="num gstart">${f0(o.amt)}</td><td class="num gstart">${o.gap==null?'–':o.gap}</td></tr>`; });
+  h+=`</tbody></table></div><p class="sub2" style="margin-top:8px">Orders in a month that is not complete (grey) are shown for reference and are not in the actual figures. Order size moved from RM330 to RM360–600 from August, so compare months by total RM and by number of orders together.</p></div>`;
+  return h;
+}
 function renderFC(){
+  if(fcView==='min'&&!fcQ) fcView='sum';
   const R=fcCompute(); if(!R){ $('tablebox').innerHTML='<div class="empty">Press Refresh data to load the P&amp;L.</div>'; return; }
   const {M,val,src,totSales}=R; const Z=()=>new Array(12).fill(0);
   const sum=(...ks)=>Z().map((_,j)=>ks.reduce((s,k)=>s+(val[k]?val[k][j]:0),0));
@@ -1318,20 +1503,21 @@ function renderFC(){
   const row=(label,a,cls,ed,indent)=>`<tr class="${cls||''}"><td class="acct"${indent?' style="padding-left:22px"':''}>${label}</td>${a.map((x,j)=>cell(ed||'',j,x,!!ed&&(ed==='__man'?true:j>M))).join('')}<td class="num gstart cc">${fmt0(tot(a))}</td><td class="num gstart">${fmt0(h1(a))}</td><td class="num gstart">${fmt0(h2(a))}</td><td class="num gstart">${TS?(tot(a)/TS*100).toFixed(1)+'%':''}</td></tr>`;
   const lineRow=(ln,manAll)=>{ const a=val[ln.l]; const editable=true; const isMan=ln.kind==='man';
     return `<tr><td class="acct" style="padding-left:22px">${esc(ln.l)}${ln.pct!=null?`<span class="hint" style="font-weight:400"> · ${(ln.pct*100).toFixed(1)}% of sales</span>`:''}${isMan?'<span class="tag" style="color:var(--muted)">manual</span>':''}</td>${a.map((x,j)=>cell(ln.l,j,x,isMan||j>M)).join('')}<td class="num gstart cc">${fmt0(tot(a))}</td><td class="num gstart">${fmt0(h1(a))}</td><td class="num gstart">${fmt0(h2(a))}</td><td class="num gstart">${TS?(tot(a)/TS*100).toFixed(1)+'%':''}</td></tr>`; };
-  let h=`<div class="stmt"><h3>FORECAST 2026: 79 VENTURES + ARABINA</h3>
-   <p class="sub2">Actual ${MONTHS[0]}–${MONTHS[Math.max(0,M)]} from the QuickBooks P&amp;L (inter-co management fee eliminated; depreciation and loan interest excluded as non-cash / inside instalments). Forecast ${M<11?MONTHS[M+1]+'–Dec':'none'}: sales and variable costs (Cost of Sales, Commission) at the % of sales of the last ${R.N} actual months; other costs at their ${R.N}-month average. Click any forecast cell, or any <i>manual</i> line, to type your own figure (blue).</p>
+  let h=`<div class="stmt"><h3>FORECAST 2026: 79 VENTURES + ARABINA${fcQ?' · SOURCE: QUICKBOOKS':''}</h3>
+   <p class="sub2">Actual ${MONTHS[0]}–${MONTHS[Math.max(0,M)]} from the QuickBooks P&amp;L${fcQ?' of each company, read directly from QuickBooks Online (accrual basis, snapshot pulled '+new Date(QBD.pulled).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})+'; not the Excel workbook). October 1-9 is partial and not used. <i>Opening inventory</i> is the periodic stock adjustment booked in 79V for Jan–May and has no forecast. Cash at Bank for the Cash Flow tab also comes from the QuickBooks balance sheets':''} (inter-co management fee eliminated; depreciation and loan interest excluded as non-cash / inside instalments). Forecast ${M<11?MONTHS[M+1]+'–Dec':'none'}: sales and variable costs (Cost of Sales, Commission) at the % of sales of the last ${R.N} actual months; other costs at their ${R.N}-month average. Click any forecast cell, or any <i>manual</i> line, to type your own figure (blue).</p>
    <div class="controls" style="margin:8px 0;gap:10px;flex-wrap:wrap;align-items:center">
      <label>Run-rate months <input id="fcN" type="number" min="1" max="12" value="${R.N}" style="width:56px"></label>
-     <button id="fcImport">Import from forecast workbook</button>
+     <button id="fcImport"${fcQ?' hidden':''}>Import from forecast workbook</button>
      <button id="fcClear">Clear my figures</button>
-     <span class="hint">${fcSt.imported?`Imported from <b>${esc(fcSt.imported.title||'')}</b> · tab ${esc(fcSt.imported.tab||'')} · ${dt(fcSt.imported.at)}`:'Workbook: '+esc(fcSt.fid)}</span>
+     <span class="hint">${fcQ?'Source: QuickBooks Online · 79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd':(fcSt.imported?`Imported from <b>${esc(fcSt.imported.title||'')}</b> · tab ${esc(fcSt.imported.tab||'')} · ${dt(fcSt.imported.at)}`:'Workbook: '+esc(fcSt.fid))}</span>
    </div>
-   <details style="margin:4px 0 8px"><summary style="cursor:pointer">Forecast workbook link / tab</summary>
+   <details${fcQ?' hidden':''} style="margin:4px 0 8px"><summary style="cursor:pointer">Forecast workbook link / tab</summary>
      <label style="display:block;margin-top:6px">Drive link or ID <input id="fcFid" value="${esc(fcSt.fid)}" style="width:min(520px,100%)"></label>
      <label style="display:block;margin-top:6px">Tab (blank = latest "Nth draft") <input id="fcTab" value="${esc(fcSt.tab||'')}" style="width:260px"></label></details>
    </div>
-   <div class="seg" role="group" aria-label="Forecast tab" style="margin:6px 0 10px;flex-wrap:wrap">${FC_TABS.map(([k,l])=>`<button data-fct="${k}" aria-pressed="${fcView===k}">${l}</button>`).join('')}</div>
+   <div class="seg" role="group" aria-label="Forecast tab" style="margin:6px 0 10px;flex-wrap:wrap">${FC_TABS.filter(t=>fcQ||t[0]!=='min').map(([k,l])=>`<button data-fct="${k}" aria-pressed="${fcView===k}">${l}</button>`).join('')}</div>
    <div style="overflow:auto"><table><thead>${head}</thead><tbody>`;
+  if(fcQ&&fcView==='min'){ h=h.slice(0,h.lastIndexOf('<div style="overflow:auto"><table><thead>'))+fcMineralHtml(R); $('tablebox').innerHTML=h; fcWire(R); return; }
   if(fcView==='pl'||fcView==='cf'){ h+=(fcView==='pl'?fcPLTable:fcCFTable)(R,head,tot,h1,h2); h+='</tbody></table></div>'; $('tablebox').innerHTML=h; fcWire(R); const lg=$('fcLag'); if(lg) lg.addEventListener('change',ev=>{ fcSt.lag=+ev.target.value; fcSave(); renderFC(); }); return; }
   if(fcView!=='sum'){ h+=fcBreakdown(R,fcView,cell,row,TS,tot,h1,h2,secTot); h+='</tbody></table></div>'; $('tablebox').innerHTML=h; fcWire(R); return; }
   // Sales
@@ -1378,7 +1564,9 @@ function fcWire(R){ const val=R.val, M=R.M;
   $('fcTab').addEventListener('change',ev=>{ fcSt.tab=ev.target.value.trim(); fcSave(); });
   $('fcImport').addEventListener('click',fcImport);
 
-  $('tablebox').querySelectorAll('[data-fct]').forEach(b=>b.addEventListener('click',()=>{ fcView=b.dataset.fct; store.set('consol.fcView',fcView); renderFC(); }));
+  $('tablebox').querySelectorAll('td[data-qd]').forEach(td=>td.addEventListener('click',()=>qdOpen(td.dataset.qd,td.dataset.ln,R)));
+  if(fcQ&&qdSt) qdDraw();
+  $('tablebox').querySelectorAll('[data-fct]').forEach(b=>b.addEventListener('click',()=>{ qdSt=null; fcView=b.dataset.fct; store.set('consol.fcView',fcView); renderFC(); }));
 }
 
 async function fcImport(){
@@ -1731,8 +1919,8 @@ function bkAlert(){
 // ===== BUDGET 2027 (driver-based, consolidated, inter-co eliminated) =====
 function fcCFData(R){ // same logic as the Cash Flow tab, returned as numbers
   const F=fcSeries(R), M=R.M, V=F.V, S=F.S, Z=()=>new Array(12).fill(0);
-  const res=state.res0||state.res; const B=res.bs&&res.bs.c; const bsM=B?B.months:[]; const cashBS=B?B.sum.cash:Z();
-  const lastBS=bsM.length?bsM[bsM.length-1]:-1; const stmtCash=bk.useStmt?bkStatementCash():null; const lag=+fcSt.lag||0;
+  const res=fcRes(); const B=res.bs&&res.bs.c; const bsM=B?B.months:[]; const cashBS=B?B.sum.cash:Z();
+  const lastBS=bsM.length?bsM[bsM.length-1]:-1; const stmtCash=(bk.useStmt&&!fcQ)?bkStatementCash():null; const lag=+fcSt.lag||0;
   const coll=F.sales.map((x,j)=>j>lastBS&&j-lag>=0?F.sales[j-lag]:x);
   const paySup=S('Material Purchase China','Material Purchase','Operations','Tools & Machinery-Site Expenses');
   const payroll=S(...FC_DEF.find(x=>x.sec==='People').lines.map(l=>l.l),'Director Remuneration','EPF & SOCSO','Director Fee');
@@ -3247,6 +3435,7 @@ function renderBE(){
 }
 
 function renderTable(){
+  fcMode(state.view==='fcq');
   if(state.view==='mg'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderMG(); }
   if(state.view==='be'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; if(state.res) $('csv').hidden=false; $('tablebox').style.maxHeight='none'; return renderBE(); }
   const isTax=state.view==='tax';
@@ -3264,7 +3453,7 @@ function renderTable(){
   if(state.view==='zk'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderZak(); }
   if(state.view==='bm'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; if(!bmSt.vals&&mcp) setTimeout(bmLoad,0); return renderBM(); }
   if(state.view==='bud'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderBudget(); }
-  if(state.view==='fc'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderFC(); }
+  if(state.view==='fc'||state.view==='fcq'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderFC(); }
   if(state.view==='sum'){ $('legend').hidden=true; $('csv').hidden=true; return renderSummary(); }
   if(state.view==='aud'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderAudit(); }
   if(state.view==='v'||state.view==='a') return renderIndiv(state.view);
@@ -3367,7 +3556,7 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   renderEq(); renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
+(()=>{ const sv=store.get('consol.view'); if(['ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
