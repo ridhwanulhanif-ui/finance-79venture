@@ -588,9 +588,82 @@ function bsConsol(V,A){
   const rowsC=rows.map(r=>r.val?{l:r.l,k:r.k,ic:r.ic,vals:r.val.c}:{l:r.l,k:r.k});
   return {months, rowsE:rows, rows:rowsC, sum:{ta,tl,eq,cash,icD}};
 }
+// ===== Balance sheet consolidated account by account =====
+// bsConsol above folds the balance sheet into a dozen summary lines, which is what the summary views
+// and Financing Readiness read. BS Consol and BS Consol by entity show every account instead:
+// matched across the two companies by name within its group, inter-company balances eliminated on
+// the same rules, and every total rebuilt from the accounts under it, so the two reach the same
+// totals to the sen.
+const BS_IC={rv:/due from.*arabina/i, ra:/due from.*79\s?v/i, pv:/due to.*arabina/i, pa:/due to.*79\s?v/i};
+const bsNormKey=l=>String(l).toLowerCase().replace(/\s*[-–—]\s*/g,'-').replace(/\s+/g,' ').trim();
+// Each row gets a key made of its group path, because the same name recurs in different places
+// ("Acc Depreciation" sits under every fixed-asset group). A row with no figures is only a group
+// heading if a matching "Total for …" closes it; otherwise it is an account that happens to be empty.
+function bsKeyed(D,e){
+  const name=l=>bsNormKey(l.replace(/^Total for /i,'').replace(/ with sub-accounts$/i,''));
+  const closers=new Set(D.rows.filter(r=>/^Total for /i.test(r.l)).map(r=>name(r.l)));
+  const stack=[], out=[];
+  D.rows.forEach(r=>{
+    if(/^Total for /i.test(r.l)){ const n=name(r.l), i=stack.lastIndexOf(n), path=i>=0?stack.slice(0,i+1):stack.slice();
+      out.push({key:path.join('>')+'>#total',grp:path.join('>'),l:r.l,kind:'total',k:bsKind(r),vals:r.vals,e}); if(i>=0) stack.length=i; return; }
+    // A parent account with a balance of its own arrives as a heading that carries figures
+    // ("Share capital" 25,499.64, then its sub-accounts, then "Total for Share capital"). It opens the
+    // group either way, and its own balance becomes the group's first line.
+    if(closers.has(bsNormKey(r.l))){ const g=stack.concat(bsNormKey(r.l)).join('>');
+      out.push({key:g+'>#head',grp:g,l:r.l,kind:'head',depth:stack.length,e}); stack.push(bsNormKey(r.l));
+      if(r.vals.some(v=>v!=null)) out.push({key:g+'>#own',grp:g,l:r.l,kind:'line',vals:r.vals,ic:null,e});
+      return; }
+    const ic=e==='v'?(BS_IC.rv.test(r.l)?'r':BS_IC.pv.test(r.l)?'p':null):(BS_IC.ra.test(r.l)?'r':BS_IC.pa.test(r.l)?'p':null);
+    out.push({key:stack.concat(bsNormKey(r.l)).join('>'),grp:stack.join('>'),l:r.l,kind:'line',vals:r.vals,ic,e});
+  });
+  return out;
+}
+// 79V's order, with each Arabina-only row placed after the Arabina row that came before it.
+// An account filed in a group in 79V and loose in Arabina ("Inventory Material-Cabin" sits under a
+// parent in 79V, directly under Current Assets in Arabina) still matches on its name within the same
+// section, provided exactly one unmatched account there carries that name. One that Arabina keeps in
+// a group of its own stays there, so Arabina's own subtotals still read as they do in its tab.
+function bsMerge(LV,LA){
+  const res=LV.map(n=>({...n,v:n,a:null})), idx=new Map(res.map(n=>[n.key,n]));
+  const sect=k=>k.split('>').slice(0,2).join('>'), nm=k=>k.split('>').pop();
+  let prev=null;
+  LA.forEach(n=>{ let node=idx.get(n.key);
+    if(!node&&n.kind==='line'&&!n.key.endsWith('#own')&&n.grp===sect(n.key)){
+      const c=res.filter(x=>x.kind==='line'&&!x.a&&x.v&&sect(x.key)===sect(n.key)&&nm(x.key)===nm(n.key));
+      if(c.length===1) node=c[0]; }
+    if(node){ node.a=n; prev=node; return; }
+    node={...n,v:null,a:n}; res.splice(prev?res.indexOf(prev)+1:0,0,node); idx.set(n.key,node); prev=node; });
+  return res;
+}
+function bsConsolDetail(V,A){
+  if(!V||!A) return null;
+  const Z=()=>new Array(12).fill(0), nz=x=>x?x.map(v=>v==null?0:v):Z(), R2=x=>x.map(v=>Math.round(v*100)/100);
+  const M=bsMerge(bsKeyed(V,'v'),bsKeyed(A,'a'));
+  const icD=Z();
+  M.forEach(n=>{ if(n.kind!=='line') return;
+    const v=nz(n.v&&n.v.vals), a=nz(n.a&&n.a.vals), t=(n.v&&n.v.ic)||(n.a&&n.a.ic);
+    n.ic=!!t; n.val={v,a,c:t?Z():v.map((x,j)=>x+a[j])};
+    if(t) v.forEach((x,j)=>{ icD[j]+=(t==='p'?-1:1)*(x+a[j]); }); });
+  // Receivable and payable are eliminated in full; if they disagree, the gap stays in current assets
+  // so the consolidated balance sheet still balances, exactly as the summary does it.
+  const caT=M.findIndex(n=>n.key==='assets>current assets>#total');
+  if(caT>=0) M.splice(caT,0,{key:'assets>current assets>#icdiff',grp:'assets>current assets',kind:'line',
+    l:'Unmatched inter-co difference (receivable − payable)',conOnly:true,ic:false,val:{v:Z(),a:Z(),c:icD}});
+  M.forEach(n=>{ if(n.kind!=='total') return; const v=Z(), a=Z(), c=Z();
+    M.forEach(x=>{ if(x.kind!=='line'||!(x.grp===n.grp||x.grp.startsWith(n.grp+'>'))) return;
+      for(let j=0;j<12;j++){ v[j]+=x.val.v[j]; a[j]+=x.val.a[j]; c[j]+=x.val.c[j]; } });
+    n.val={v,a,c}; });
+  const months=V.months.filter(m=>A.months.includes(m));
+  const rowsE=M.map(n=>n.kind==='head'?{l:n.l,k:n.depth===0?'sec':'hd'}
+    :{l:n.l,k:n.kind==='total'?n.k:'line',ic:!!n.ic,conOnly:!!n.conOnly,val:{v:R2(n.val.v),a:R2(n.val.a),c:R2(n.val.c)}});
+  // Headings carry an empty vals array like the source tabs do, since the inventory-total pass reads every row.
+  const rows=rowsE.map(r=>r.val?{l:r.l,k:r.k,ic:r.ic,conOnly:r.conOnly,val:r.val,vals:r.val.c}:{l:r.l,k:r.k,vals:new Array(12).fill(null)});
+  return {months,rowsE,rows,icD:R2(icD)};
+}
 function buildBS(wb){
   const v=parseBS(wb,cfg.bv||DEF.bv), a=parseBS(wb,cfg.ba||DEF.ba);
-  return {v,a,c:bsConsol(v,a)};
+  const c=bsConsol(v,a); if(c) c.det=bsConsolDetail(v,a);
+  return {v,a,c};
 }
 function bsTotals(D){ const f=re=>{ for(let i=D.rows.length-1;i>=0;i--) if(re.test(D.rows[i].l)) return D.rows[i].vals; return new Array(12).fill(null); };
   return {ta:f(/^Total for Assets/i), tl:f(/^Total for Liabilities$|^Total for Current Liabilities$/i), tle:f(/^Total for Liabilities and/i), eq:f(/^Total for Shareholders/i), cash:f(/^Total for Cash at Bank$/i)}; }
@@ -2465,10 +2538,11 @@ function renderBSEnt(){
   let h='<table><thead><tr class="m"><th class="acct" rowspan="2" style="vertical-align:bottom">Account</th>';
   ms.forEach(j=>{ h+=`<th class="gstart" colspan="3">${MONTHS[j]} 2026</th>`; }); h+='</tr><tr class="e">';
   ms.forEach(()=>cols.forEach((e,i)=>{ h+=`<th class="e-${e}${i===0?' gstart':''}${e==='c'?' cc':''}">${EN[e]}</th>`; })); h+='</tr></thead><tbody>';
-  for(const r of D.rowsE){
+  const RE=D.det?D.det.rowsE:D.rowsE;
+  for(const r of RE){
     if(r.k==='hd'||r.k==='sec'){ h+=`<tr class="hd${r.k==='sec'?' sec':''}"><td class="acct">${esc(r.l)}</td><td colspan="${ms.length*3}"></td></tr>`; continue; }
     const z=ms.every(j=>cols.every(e=>Math.abs(r.val[e][j])<0.005));
-    if(hz && z && (r.k==='line'||r.k==='elim') && !r.ic) continue;
+    if(hz && z && (r.k==='line'||r.k==='elim') && !(r.ic&&!D.det)) continue;
     const cls=r.k==='key'?'tot key':r.k==='tot'?'tot':'';
     h+=`<tr class="${cls}"><td class="acct" title="${esc(r.l)}">${esc(r.l)}${(r.ic||r.k==='elim')?'<span class="tag" style="color:var(--muted)">inter-co</span>':''}</td>`;
     ms.forEach(j=>cols.forEach((e,k)=>{ const x=r.val[e][j]; const blank=r.conOnly&&e!=='c';
@@ -2476,7 +2550,7 @@ function renderBSEnt(){
     h+='</tr>';
   }
   const tv=bsTotals(B.v), tA=bsTotals(B.a);
-  const ck={v:j=>(tv.ta[j]||0)-(tv.tle[j]||0), a:j=>(tA.ta[j]||0)-(tA.tle[j]||0), c:j=>{ const r=D.rows; const f=re=>{for(let i=r.length-1;i>=0;i--) if(re.test(r[i].l)) return r[i].vals[j]; return 0;}; return f(/^Total for Assets/)-f(/^Total for Liabilities and/); }};
+  const ck={v:j=>(tv.ta[j]||0)-(tv.tle[j]||0), a:j=>(tA.ta[j]||0)-(tA.tle[j]||0), c:j=>{ const r=D.det?D.det.rows:D.rows; const f=re=>{for(let i=r.length-1;i>=0;i--) if(re.test(r[i].l)) return r[i].vals[j]; return 0;}; return f(/^Total for Assets/)-f(/^Total for Liabilities and/); }};
   h+=`<tr class="hd sec"><td class="acct">Checking</td><td colspan="${ms.length*3}"></td></tr><tr class="chk"><td class="acct">Assets − (Liabilities + Equity)</td>`;
   ms.forEach(j=>cols.forEach((e,k)=>{ const x=ck[e](j); const b=Math.abs(x)>0.05; h+=`<td class="num${k===0?' gstart':''} ${b?'bad':'good'}">${b?fmt(x):'✓ 0'}</td>`; }));
   h+='</tr><tr class="chk"><td class="acct">Unmatched inter-co difference</td>';
@@ -2510,22 +2584,23 @@ function renderBS(which){
     $('tablebox').innerHTML='<div class="empty">Tab <b>'+esc(nm)+'</b> not found in the file. Check the tab names under “Data source”.</div>'; return; }
   const hz=$('hideZero').checked; const ms=D.months.filter(m=>m>=state.from&&m<=state.to);
   const NAME={v:'79 Ventures Sdn Bhd',a:'Arabina Eco Tiny Homes Sdn Bhd',c:'Consol: 79V + Arabina'}[which];
-  const sub=which==='c'?'Calculated from BS 79V + BS Arabina tabs, inter-co eliminated':'Source tab: '+esc(D.sheet);
+  const sub=which==='c'?'Every account in BS 79V + BS Arabina, inter-co eliminated':'Source tab: '+esc(D.sheet);
   const ecls=which==='c'?'cc':'e-'+which;
   let h=`<table><thead><tr class="m"><th class="acct" style="text-align:left">${NAME}<br><span class="hint" style="font-weight:400">${sub}</span></th>`;
   ms.forEach(j=>{ h+=`<th class="gstart ${ecls}" style="text-align:right">${MONTHS[j]} 2026</th>`; });
   h+='</tr></thead><tbody>';
-  for(const r of (which==='c'?D.rows:bsWithInvTotal(D))){
+  for(const r of bsWithInvTotal(which==='c'&&D.det?D.det:D)){
     const k=r.k||bsKind(r);
     if(k==='hd'||k==='sec'){ h+=`<tr class="hd${k==='sec'?' sec':''}"><td class="acct">${esc(r.l)}</td><td colspan="${ms.length}"></td></tr>`; continue; }
     const z=ms.every(j=>r.vals[j]==null||Math.abs(r.vals[j])<0.005);
     if(hz && z && (k==='line'||k==='elim') && !r.ic) continue;
+    if(hz && r.ic && r.val && ms.every(j=>Math.abs(r.val.v[j])<0.005&&Math.abs(r.val.a[j])<0.005)) continue;
     const cls=k==='key'?'tot key':k==='tot'?'tot':'';
     h+=`<tr class="${cls}"><td class="acct" title="${esc(r.l)}">${esc(r.l)}${(k==='elim'||r.ic)?'<span class="tag" style="color:var(--muted)">inter-co</span>':''}${r.calc?'<span class="tag" style="color:var(--muted)">calculated here</span>':''}</td>`;
     ms.forEach(j=>{ const x=r.vals[j]; h+=`<td class="num gstart${x!=null&&x<-0.004?' neg':''}${which==='c'?' cc':''}">${(r.ic&&which==='c')?'<span class="elim">elim</span>':fmt(x)}</td>`; });
     h+='</tr>';
   }
-  const t=bsTotals(D);
+  const t=bsTotals(which==='c'&&D.det?D.det:D);
   h+=`<tr class="hd sec"><td class="acct">Checking</td><td colspan="${ms.length}"></td></tr><tr class="chk"><td class="acct">Assets − (Liabilities + Equity)</td>`;
   ms.forEach(j=>{ const x=(t.ta[j]||0)-(t.tle[j]||0); const b=Math.abs(x)>0.05; h+=`<td class="num gstart ${b?'bad':'good'}">${b?fmt(x):'✓ 0'}</td>`; });
   h+='</tr>';
@@ -3499,7 +3574,7 @@ function toCSV(){
   const q=s=>'"'+String(s).replace(/"/g,'""')+'"';
   if(state.view==='bse'){ const D=state.res.bs&&state.res.bs.c; if(!D) return ''; const ms=D.months.filter(m=>m>=state.from&&m<=state.to); const EN={v:'79V',a:'Arabina',c:'Consol'};
     const head=[q('Account')]; ms.forEach(j=>['v','a','c'].forEach(e=>head.push(q(MONTHS[j]+' 2026 '+EN[e]))));
-    return [head.join(','),...D.rowsE.map(r=>{ if(!r.val) return q(r.l); const L=[q(r.l)]; ms.forEach(j=>['v','a','c'].forEach(e=>L.push((r.ic&&e==='c')||(r.conOnly&&e!=='c')?'':r.val[e][j].toFixed(2)))); return L.join(','); })].join('\n'); }
+    return [head.join(','),...(D.det?D.det.rowsE:D.rowsE).map(r=>{ if(!r.val) return q(r.l); const L=[q(r.l)]; ms.forEach(j=>['v','a','c'].forEach(e=>L.push((r.ic&&e==='c')||(r.conOnly&&e!=='c')?'':r.val[e][j].toFixed(2)))); return L.join(','); })].join('\n'); }
   if(state.view.startsWith('bs')){ const B=state.res.bs, w=state.view.slice(2), D=B&&(w==='c'?B.c:B[w]); if(!D) return '';
     const ms=D.months.filter(m=>m>=state.from&&m<=state.to);
     return [[q('Account'),...ms.map(j=>q(MONTHS[j]+' 2026'))].join(','),...D.rows.map(r=>[q(r.l),...ms.map(j=>r.vals[j]==null?'':r.vals[j].toFixed(2))].join(','))].join('\n'); }
