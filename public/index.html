@@ -132,13 +132,15 @@ td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .zg{color:var(--ok,#2f7d4f)} .zw{color:#b7791f} .zb{color:var(--bad)}
 .viewpick{display:inline-flex;align-items:center;gap:8px;font-weight:600}
 .viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:300px;cursor:pointer}
-.stmt{padding:18px 18px 8px} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
+.stmt{padding:18px 18px 8px;min-width:0;overflow-x:auto} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
 .stmt .sub2{font-size:12px;color:var(--muted);margin:0 0 10px}
 .stmt table{min-width:0;width:100%} .stmt td.num{min-width:120px}
 tr.cap td{font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:12px;padding-top:14px;color:var(--muted)}
 tr.in1 td.acct{padding-left:22px} tr.gt td{font-weight:700;border-top:1px solid var(--ink);border-bottom:3px double var(--ink)}
-.stmtgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,520px),1fr));gap:0}
+/* Five columns need about 840px; below that the statements stack rather than clip the Consol column. */
+.stmtgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,840px),1fr));gap:0}
 .stmtgrid > .stmt + .stmt{border-left:1px solid var(--rule)}
+@media (max-width:1760px){ .stmtgrid > .stmt + .stmt{border-left:0;border-top:1px solid var(--rule)} }
 .skel{height:14px;border-radius:3px;background:var(--rule2);margin:10px 0}
 /* breakeven */
 .bewrap{padding:16px 18px;font-family:var(--sans)}
