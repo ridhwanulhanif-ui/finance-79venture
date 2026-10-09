@@ -2879,23 +2879,29 @@ function renderEq(){
   try{ renderEqBS('eqbs','eqbsnote'); }catch(e){ $('eqbsbox').hidden=true; }
   const g=k=>{const r=rowBy(k).val; return {v:sumR(r.v),a:sumR(r.a),c:sumR(r.c)}};
   const inc=g('INC'), gp=g('GP'), ne=g('NE');
+  // Cost of sales is what separates revenue from gross profit, so it is read off the two rather
+  // than summed again; each company's share of revenue sits under its own figure.
+  const cos={v:gp.v-inc.v,a:gp.a-inc.a,c:gp.c-inc.c};
+  const pc=(x,y)=>Math.abs(y)>0.5?(x/y*100).toFixed(1)+'%':'';
+  const cosS={v:pc(-cos.v,inc.v)&&pc(-cos.v,inc.v)+' of revenue',a:pc(-cos.a,inc.a)&&pc(-cos.a,inc.a)+' of revenue',lab:'COGS'};
+  const gpS={v:pc(gp.v,inc.v)&&pc(gp.v,inc.v)+' margin',a:pc(gp.a,inc.a)&&pc(gp.a,inc.a)+' margin'};
   const T=eqTax!=='none'?eqTaxData():null;
   let L;
   if(T){ const pbt={v:T.v.pbt,a:T.a.pbt,c:T.v.pbt+T.a.pbt}, tax={v:-T.v.tax,a:-T.a.tax,c:-(T.v.tax+T.a.tax)}, pat={v:pbt.v+tax.v,a:pbt.a+tax.a,c:pbt.c+tax.c};
     const sub=e=>T[e].etr!=null?`${(T[e].etr*100).toFixed(1)}%`:'';
     const EB={v:ebitData('v'),a:ebitData('a')}; const ebit={v:sumR(EB.v.ebit),a:sumR(EB.a.ebit)}; ebit.c=ebit.v+ebit.a;
-    L=[['Revenue',inc],['Gross Profit',gp],['EBIT',ebit],['Profit before tax',pbt],
+    L=[['Revenue',inc],['Cost of Sales',cos,cosS],['Gross Profit',gp,gpS],['EBIT',ebit],['Profit before tax',pbt],
        [eqTax==='books'?'Tax (CP204 booked)':'Estimated tax',tax,{v:sub('v'),a:sub('a'),c:Math.abs(pbt.c)>0.5?((-tax.c)/pbt.c*100).toFixed(1)+'%':'',lab:eqTax==='books'?'instalments booked in the period':'effective rate from Tax & CP204'}],
        ['Profit after tax',pat],
        // The books' own bottom line, kept in view beside the estimate: this is the figure that
        // carries into the balance sheet and that the P&L vs BS check reconciles against, whereas
        // profit after tax above is this dashboard applying an effective rate.
        ['Net Earnings (per books)',ne,{lab:'as booked, after CP204 charged as an expense'}]];
-  } else L=[['Revenue',inc],['Gross Profit',gp],['Net Earnings',ne]];
+  } else L=[['Revenue',inc],['Cost of Sales',cos,cosS],['Gross Profit',gp,gpS],['Net Earnings',ne]];
   const per=state.from===state.to?MONTHS[state.from]+' 2026':MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026';
   let h=`<div class="h">${per}</div><div class="h v" style="text-align:right">79V</div><div class="h a" style="text-align:right">+ Arabina</div><div class="h" style="text-align:right">− Elim. inter-co</div><div class="h c" style="text-align:right">= Consol</div>`;
   L.forEach(([lab,o,sb],i)=>{ const el=o.v+o.a-o.c; const cls=i===L.length-1?' last':'';
-    const marg=(lab==='Gross Profit'&&Math.abs(inc.c)>0)?`<span class="sub">${(o.c/inc.c*100).toFixed(1)}% margin</span>`:(lab==='Profit after tax'&&Math.abs(inc.c)>0?`<span class="sub">${(o.c/inc.c*100).toFixed(1)}% net margin</span>`:(sb&&sb.c?`<span class="sub">${sb.c} of PBT</span>`:''));
+    const marg=(lab==='Cost of Sales'&&Math.abs(inc.c)>0)?`<span class="sub">${(-o.c/inc.c*100).toFixed(1)}% of revenue</span>`:(lab==='Gross Profit'&&Math.abs(inc.c)>0)?`<span class="sub">${(o.c/inc.c*100).toFixed(1)}% margin</span>`:(lab==='Profit after tax'&&Math.abs(inc.c)>0?`<span class="sub">${(o.c/inc.c*100).toFixed(1)}% net margin</span>`:(sb&&sb.c?`<span class="sub">${sb.c} of PBT</span>`:''));
     const s=e=>sb&&sb[e]?`<span class="sub">${sb[e]}</span>`:'';
     h+=`<div class="lab${cls}">${lab}${sb&&sb.lab?`<span class="sub">${sb.lab}</span>`:''}</div><div class="n e-v${cls}">${fmt0(o.v)}${s('v')}</div><div class="n e-a${cls}">${fmt0(o.a)}${s('a')}</div><div class="n${cls}" style="color:var(--muted)">${fmt0(el)}</div><div class="n c${cls}">${fmt0(o.c)}${marg}</div>`; });
   $('eq').innerHTML=h;
