@@ -2921,7 +2921,8 @@ function renderZak(){
     h+=zakRow(e,'add','Add: adjustments (RM)','number','0','Items the state authority requires to be added back.');
     h+=zakRow(e,'own','Muslim ownership (%)','number','100','State formulas apply zakat to the Muslim-owned share.');
     h+=zakRow(e,'rate','Rate (%)','number','2.5','2.5% is the rate in the Malaysian state formulas.');
-    h+=zakRow(e,'nisab','Nisab (RM)','number','value of 85g gold','Zakat is due only once the base reaches nisab. Enter the current value of 85g gold; leave blank to skip the check.');
+    h+=zakRow(e,'nisab','Nisab (RM)','number','value of 85g gold',
+      'Zakat is due only once the base reaches nisab, the value of 85g gold. It moves with the gold price, and your state zakat authority publishes the current figure — take it from them rather than working it out. This page tests the base <i>after</i> the Muslim ownership share is applied; check that is the order your authority uses, because it only changes the answer when that share is small. Leave blank to skip the check.');
     h+='</div>';
     h+=`<h3>Computation</h3><table class="tc">
       <tr><td>Current assets</td><td class="r">${fmt(z.ca)}</td></tr>
