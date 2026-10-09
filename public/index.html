@@ -2347,6 +2347,23 @@ function renderBSEnt(){
   h+='</tr></tbody></table>';
   $('tablebox').innerHTML=h;
 }
+// The workbook lists each inventory account on its own line and never totals them, so the
+// source tabs show six figures where a reader wants one. Same grouping the consolidated
+// "Inventory & Goods in Transit" line uses, so the two always agree.
+const INV_RE=/^(inventory|good in transit)/i;
+function bsWithInvTotal(D){
+  // Sit below the workbook's own group sub-totals (e.g. "Total for Inventory Material &
+  // Logistic-Cabin"), so the grand total is the last line of the block rather than the middle of it.
+  let last=-1; for(let i=0;i<D.rows.length;i++){ const l=D.rows[i].l;
+    if(INV_RE.test(l)||/^Total for (inventory|good in transit)/i.test(l)) last=i; }
+  if(last<0) return D.rows;
+  const vals=new Array(12).fill(null);
+  D.rows.forEach(r=>{ if(/^Total/i.test(r.l)||!INV_RE.test(r.l)) return;
+    for(let j=0;j<12;j++) if(r.vals[j]!=null) vals[j]=Math.round(((vals[j]||0)+r.vals[j])*100)/100; });
+  const out=D.rows.slice();
+  out.splice(last+1,0,{l:'Total for Inventory & Goods in Transit',vals,k:'tot',calc:true});
+  return out;
+}
 function renderBS(which){
   if(which==='e') return renderBSEnt();
   const B=state.res.bs;
@@ -2361,13 +2378,13 @@ function renderBS(which){
   let h=`<table><thead><tr class="m"><th class="acct" style="text-align:left">${NAME}<br><span class="hint" style="font-weight:400">${sub}</span></th>`;
   ms.forEach(j=>{ h+=`<th class="gstart ${ecls}" style="text-align:right">${MONTHS[j]} 2026</th>`; });
   h+='</tr></thead><tbody>';
-  for(const r of D.rows){
+  for(const r of (which==='c'?D.rows:bsWithInvTotal(D))){
     const k=r.k||bsKind(r);
     if(k==='hd'||k==='sec'){ h+=`<tr class="hd${k==='sec'?' sec':''}"><td class="acct">${esc(r.l)}</td><td colspan="${ms.length}"></td></tr>`; continue; }
     const z=ms.every(j=>r.vals[j]==null||Math.abs(r.vals[j])<0.005);
     if(hz && z && (k==='line'||k==='elim') && !r.ic) continue;
     const cls=k==='key'?'tot key':k==='tot'?'tot':'';
-    h+=`<tr class="${cls}"><td class="acct" title="${esc(r.l)}">${esc(r.l)}${(k==='elim'||r.ic)?'<span class="tag" style="color:var(--muted)">inter-co</span>':''}</td>`;
+    h+=`<tr class="${cls}"><td class="acct" title="${esc(r.l)}">${esc(r.l)}${(k==='elim'||r.ic)?'<span class="tag" style="color:var(--muted)">inter-co</span>':''}${r.calc?'<span class="tag" style="color:var(--muted)">calculated here</span>':''}</td>`;
     ms.forEach(j=>{ const x=r.vals[j]; h+=`<td class="num gstart${x!=null&&x<-0.004?' neg':''}${which==='c'?' cc':''}">${(r.ic&&which==='c')?'<span class="elim">elim</span>':fmt(x)}</td>`; });
     h+='</tr>';
   }
