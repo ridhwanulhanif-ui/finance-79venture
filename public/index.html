@@ -282,6 +282,7 @@ table.cs td.num{min-width:70px}
           <option value="be">Breakeven</option>
           <option value="mg">Margin vs Industry</option>
           <option value="tax">Tax &amp; CP204</option>
+          <option value="zk">Zakat Perniagaan</option>
           <option value="ic">Inter-co Reconciliation</option>
           <option value="nic">P&amp;L vs BS Net Income Check</option>
           <option value="bank">Bank Reconciliation Check</option>
@@ -307,6 +308,7 @@ table.cs td.num{min-width:70px}
       <button data-view="adj" aria-pressed="false">Adj</button>
       <button data-view="cip" aria-pressed="false">CIP</button>
       <button data-view="tax" aria-pressed="false">Tax &amp; CP204</button>
+      <button data-view="zk" aria-pressed="false">Zakat</button>
       <button data-view="sum" aria-pressed="false">Consol Summary</button>
       <button data-view="aud" aria-pressed="false">Individual Statements</button>
       <button data-view="bse" aria-pressed="false">BS Consol by entity</button>
@@ -2533,7 +2535,7 @@ function ebitData(e){ // monthly EBITDA / depreciation / EBIT / interest income 
   return {ebitda,dep,ebit,ii,fin,pbt};
 }
 function renderEq(){
-  if(['aud','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(state.view)){ $('eqbox').hidden=true; return; }
+  if(['aud','ic','adj','cip','nic','fc','bank','bud','bm','fin','zk'].includes(state.view)){ $('eqbox').hidden=true; return; }
   $('eqbox').hidden=!state.res;
   // A balance sheet view already shows these in the main box; everywhere else they
   // ride along underneath, so assets, liabilities and equity are never more than a glance away.
@@ -2806,6 +2808,81 @@ function renderTax(){
     setTimeout(()=>{ renderTax(); $('tablebox').scrollTop=sy; },0); }));
 }
 
+// ================= ZAKAT PERNIAGAAN =================
+// Two methods from the JAWHAR manual. Modal Kerja is the one for a Sdn Bhd that classifies
+// current and non-current; Modal Berkembang is for entities that do not. Before adjustments
+// the accounting identity makes them equal, so the page shows both and marks which is in use.
+const ZAKDEF={v:{method:'mk',less:0,add:0,own:100,rate:2.5,nisab:''},a:{method:'mk',less:0,add:0,own:100,rate:2.5,nisab:''}};
+let zakCfg=(()=>{try{const o=JSON.parse(store.get('consol.zakat')||'{}');return {v:{...ZAKDEF.v,...(o.v||{})},a:{...ZAKDEF.a,...(o.a||{})}};}catch(e){return JSON.parse(JSON.stringify(ZAKDEF));}})();
+function zakCalc(e){
+  const B=state.res&&state.res.bs, j=bsLastMonth();
+  if(!B||!B[e]||j==null) return null;
+  const D=B[e], at=re=>{ for(let i=D.rows.length-1;i>=0;i--) if(re.test(D.rows[i].l)) return D.rows[i].vals[j]||0; return 0; };
+  const ca=at(/^Total for Current Assets$/i), ta=at(/^Total for Assets$/i);
+  const cl=at(/^Total for Current Liabilities$/i), tle=at(/^Total for Liabilities and/i), eq=at(/^Total for Shareholders/i);
+  const nca=ta-ca, ncl=tle-eq-cl;
+  const c=zakCfg[e];
+  const mk=ca-cl, mb=(eq+ncl)-nca;
+  const base0=c.method==='mb'?mb:mk;
+  const less=+c.less||0, add=+c.add||0, base=base0-less+add;
+  const own=(c.own===''||c.own==null)?100:+c.own;
+  const zakatable=base*own/100;
+  const rate=(c.rate===''||c.rate==null)?2.5:+c.rate;
+  const nisab=c.nisab===''||c.nisab==null?null:+c.nisab;
+  const meets=nisab==null?null:zakatable>=nisab;
+  const zakat=(zakatable>0&&meets!==false)?zakatable*rate/100:0;
+  return {j,ca,cl,nca,ncl,eq,ta,mk,mb,base0,less,add,base,own,zakatable,rate,nisab,meets,zakat};
+}
+function zakRow(e,k,label,type,opts,note){
+  const v=zakCfg[e][k];
+  const ctl=type==='select'
+    ? `<select data-ze="${e}" data-zk="${k}">${opts.map(o=>`<option value="${o[0]}"${String(v)===String(o[0])?' selected':''}>${o[1]}</option>`).join('')}</select>`
+    : `<input type="number" step="0.01" data-ze="${e}" data-zk="${k}" value="${v===''?'':v}" placeholder="${opts||''}">`;
+  return `<label>${label}</label>${ctl}${note?`<div class="note">${note}</div>`:''}`;
+}
+function renderZak(){
+  if(!state.res||!state.res.bs){ $('tablebox').innerHTML='<div class="empty">Press Refresh data to load the balance sheets.</div>'; return; }
+  let h='<div class="taxwrap"><div class="taxgrid">';
+  for(const e of ['v','a']){
+    const z=zakCalc(e), c=zakCfg[e];
+    const NAME={v:'79 Ventures Sdn Bhd',a:'Arabina Eco Tiny Homes Sdn Bhd'}[e];
+    h+=`<div class="tcard"><h2 class="e-${e}">${NAME}</h2>`;
+    if(!z){ h+='<div class="hint">No balance sheet for this period.</div></div>'; continue; }
+    h+=`<div class="hint">Zakat perniagaan · as at ${asAt(z.j)} · RM</div>`;
+    h+='<h3>Basis</h3><div class="inp">';
+    h+=zakRow(e,'method','Method','select',[['mk','Modal Kerja (working capital)'],['mb','Modal Berkembang (growth capital)']],
+      'Modal Kerja is the JAWHAR method for a Sdn Bhd that classifies current and non-current. Modal Berkembang is for entities that do not, such as Islamic banks and takaful.');
+    h+=zakRow(e,'less','Less: assets not subject to zakat (RM)','number','0','Bad debts, non-productive or non-halal assets, anything not held for trade.');
+    h+=zakRow(e,'add','Add: adjustments (RM)','number','0','Items the state authority requires to be added back.');
+    h+=zakRow(e,'own','Muslim ownership (%)','number','100','State formulas apply zakat to the Muslim-owned share.');
+    h+=zakRow(e,'rate','Rate (%)','number','2.5','2.5% is the rate in the Malaysian state formulas.');
+    h+=zakRow(e,'nisab','Nisab (RM)','number','value of 85g gold','Zakat is due only once the base reaches nisab. Enter the current value of 85g gold; leave blank to skip the check.');
+    h+='</div>';
+    h+=`<h3>Computation</h3><table class="tc">
+      <tr><td>Current assets</td><td class="r">${fmt(z.ca)}</td></tr>
+      <tr><td>Less: current liabilities</td><td class="r">(${fmt(z.cl)})</td></tr>
+      <tr class="sub"><td>Modal Kerja${c.method==='mk'?'':' <span class="note">not in use</span>'}</td><td class="r">${fmt(z.mk)}</td></tr>
+      <tr><td>Equity ${fmt(z.eq)} + non-current liabilities ${fmt(z.ncl)} − non-current assets ${fmt(z.nca)}</td><td class="r"></td></tr>
+      <tr class="sub"><td>Modal Berkembang${c.method==='mb'?'':' <span class="note">not in use</span>'}</td><td class="r">${fmt(z.mb)}</td></tr>
+      <tr><td>Less: assets not subject to zakat</td><td class="r">${z.less?'('+fmt(z.less)+')':'–'}</td></tr>
+      <tr><td>Add: adjustments</td><td class="r">${z.add?fmt(z.add):'–'}</td></tr>
+      <tr class="sub"><td>Adjusted base</td><td class="r">${fmt(z.base)}</td></tr>
+      <tr><td>Muslim ownership ${z.own}%</td><td class="r">${fmt(z.zakatable)}</td></tr>
+      <tr class="big"><td>Zakat at ${z.rate}%</td><td class="r">${fmt(z.zakat)}</td></tr></table>`;
+    if(Math.abs(z.mk-z.mb)>0.05) h+=`<div class="verdict bad">The two methods differ by ${fmt(z.mk-z.mb)} before adjustments, which should not happen: the balance sheet may not be balancing. Check the balance sheet view.</div>`;
+    if(z.nisab==null) h+='<div class="verdict">Enter the nisab to check whether zakat is due at all.</div>';
+    else if(z.meets===false) h+=`<div class="verdict">The base of ${fmt(z.zakatable)} is below the nisab of ${fmt(z.nisab)}, so no zakat is due this haul.</div>`;
+    else h+=`<div class="verdict">The base of ${fmt(z.zakatable)} is at or above the nisab of ${fmt(z.nisab)}.</div>`;
+    h+=`<div class="hint" style="margin-top:8px">Zakat paid by the company is a rebate against tax under s44(11A), capped at 2.5% of aggregate income. Enter the figure under <i>Company zakat deduction</i> in Tax &amp; CP204 to carry it into the tax computation.</div>`;
+    h+='</div>';
+  }
+  h+=`</div><p class="taxfoot">Both methods start from the same figure, because current assets − current liabilities equals equity + non-current liabilities − non-current assets. They part only on the adjustments each authority requires. Balances are the QuickBooks balance sheet at ${asAt(bsLastMonth())}, unaudited. Adjustment rules, nisab and the treatment of Muslim ownership differ between state zakat authorities; confirm with your own before paying. Assumptions are saved in this browser only.</p></div>`;
+  $('tablebox').innerHTML=h;
+  $('tablebox').querySelectorAll('[data-zk]').forEach(el=>el.addEventListener('change',()=>{
+    zakCfg[el.dataset.ze][el.dataset.zk]=el.value; store.set('consol.zakat',JSON.stringify(zakCfg));
+    const sy=$('tablebox').scrollTop; setTimeout(()=>{ renderZak(); $('tablebox').scrollTop=sy; },0); }));
+}
+
 // ================= MARGIN vs INDUSTRI =================
 const BMDEF={
   prefab:{name:'Cabin / modular home manufacturer (prefab)', gp:[18,27], op:[8,11], net:[5,9],
@@ -3059,6 +3136,7 @@ function renderTable(){
   if(state.view==='nic'){ $('legend').hidden=true; $('csv').hidden=true; return renderNIC(); }
   if(state.view==='bank'){ $('legend').hidden=true; $('csv').hidden=true; return renderBank(); }
   if(state.view==='fin'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderFin(); }
+  if(state.view==='zk'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderZak(); }
   if(state.view==='bm'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; if(!bmSt.vals&&mcp) setTimeout(bmLoad,0); return renderBM(); }
   if(state.view==='bud'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderBudget(); }
   if(state.view==='fc'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderFC(); }
@@ -3164,7 +3242,7 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   renderEq(); renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['ent','con','v','a','be','mg','tax','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
+(()=>{ const sv=store.get('consol.view'); if(['ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
