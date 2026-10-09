@@ -1351,10 +1351,12 @@ const QBS='Meridian Connector for QuickBooks';
 // accounts that are spelled differently in one of the two companies
 const QBN={'Logistics Cost (Inbound)':{a:'Logistic Cost (Inbound)'},'Staff Accomodation':{a:'Staff Accommodation'},'Tools & Equipment Costs':{v:'Tools,Equipment & Consumable Costs'},
   'Medical Expense (Staff & Workers)':{a:'Medical Expenses (Workers)'},'Upkeep of Hostel':{a:'Upkeep Of Hostel'},'Sales Discounts':{a:'Sales Discount'}};
+// A bulk mineral order is the supplier Siti Salwa or any line whose memo says it is stock / cartons of water; a bottle bought at a shop with a meal stays in Site Meals.
+const MINRE=/siti salwa|mineral stock|stock air|stok air|air mineral workers|karton|kotak|carton/i;
 let qdSt=null, qdIds=null; const qdCache={};
 function qdSpec(label){
-  if(label==='Site Meals - Mineral (box orders)') return {acct:'Site Meals',only:/siti salwa/i,title:'Site Meals (Mineral): carton orders'};
-  if(label==='Site Meals') return {acct:'Site Meals',not:/siti salwa/i,title:'Site Meals (food and drinks bought at shops)'};
+  if(label==='Site Meals - Mineral (box orders)') return {acct:'Site Meals',only:MINRE,title:'Site Meals (Mineral): carton orders'};
+  if(label==='Site Meals') return {acct:'Site Meals',not:MINRE,title:'Site Meals (food and drinks bought at shops)'};
   return {acct:label,title:label};
 }
 const qdWho=s=>{ s=String(s||''); let m=s.match(/Petty Cash\s*-\s*(.+)$/i); if(m) return m[1].trim()+' (petty cash)'; m=s.match(/Staff Claim Payable\s*-\s*(.+)$/i); if(m) return m[1].trim()+' (staff claim)'; m=s.match(/Cash at Bank:(.+)$/i); if(m) return 'Bank: '+m[1].trim(); return s.replace(/^.*:/,'')||'–'; };
@@ -1409,7 +1411,7 @@ async function qdLoad(){
         got.forEach(x=>rows.push({...x,co:e==='v'?'79V':'Arabina'})); } }
     // the reclass journals only move cost from 79V to Arabina; the purchases themselves are the rows in 79V's books
     let skipped=0; rows=rows.filter(x=>{ if(x.typ==='Journal Entry'&&/reclass/i.test(x.memo)){ skipped+=x.amt; return false; } return true; });
-    if(st.spec.only) rows=rows.filter(x=>st.spec.only.test(x.name)); if(st.spec.not) rows=rows.filter(x=>!st.spec.not.test(x.name));
+    if(st.spec.only) rows=rows.filter(x=>st.spec.only.test(x.name+' '+x.memo)); if(st.spec.not) rows=rows.filter(x=>!st.spec.not.test(x.name+' '+x.memo));
     rows.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:(a.co<b.co?-1:1)); st.rows=rows;
   }catch(err){ st.err=qdErr(err); }
   st.busy=false; qdDraw();
@@ -1470,7 +1472,7 @@ function fcMineralHtml(R){
   const fv=(R.val[FCQ_MIN.l]||[]);
   const f0=x=>fmt0(x), f1=x=>x==null?'–':x.toFixed(1);
   let h=`<div class="stmt"><h3 style="font-size:13px">MINERAL ORDERS: WATER ORDERED BY THE CARTON FOR SITE WORKERS</h3>
-   <p class="sub2">Kept apart from daily <i>Site Meals</i> (food and drinks bought at shops). A mineral order is a payment to the supplier <b>Siti Salwa</b> booked to the QuickBooks account <i>Site Meals</i>. Orders Jan–Aug were paid by 79 Ventures; since June 79V books them on behalf of Arabina and reclasses the cost to Arabina, so the cost sits in Arabina from June. Small water purchases from petty cash at shops stay in Site Meals. Source: QuickBooks transactions of vendor Siti Salwa, 79V and Arabina.</p>
+   <p class="sub2">Kept apart from daily <i>Site Meals</i> (food and drinks bought at shops). A mineral order is stock of water bought in bulk (cartons) and booked to the QuickBooks account <i>Site Meals</i>: usually from the supplier <b>Siti Salwa</b>, but any vendor counts when the memo says stock / cartons. Tell Finance which other vendors to include. Orders Jan–Aug were paid by 79 Ventures; since June 79V books them on behalf of Arabina and reclasses the cost to Arabina, so the cost sits in Arabina from June. Small water purchases from petty cash at shops stay in Site Meals. Source: QuickBooks transactions of vendor Siti Salwa, 79V and Arabina.</p>
    <table style="width:auto"><thead><tr class="m"><th class="acct">Month</th><th class="gstart" style="text-align:right">Orders</th><th class="gstart" style="text-align:right">Total RM</th><th class="gstart" style="text-align:right">Average RM per order</th><th class="gstart" style="text-align:right">Average days between orders</th></tr></thead><tbody>`;
   rows.forEach(r=>{ h+=`<tr class="in1"><td class="acct">${MONTHS[r.j]} 2026</td><td class="num gstart">${r.n}</td><td class="num gstart">${f0(r.t)}</td><td class="num gstart">${r.n?f0(r.avg):'–'}</td><td class="num gstart">${f1(r.gap)}</td></tr>`; });
   h+=`<tr class="tot"><td class="acct">Jan–${MONTHS[M]}</td><td class="num gstart">${nT}</td><td class="num gstart">${f0(tT)}</td><td class="num gstart">${nT?f0(tT/nT):'–'}</td><td class="num gstart">${nT>1?f1(span/(nT-1)):'–'}</td></tr></tbody></table>
