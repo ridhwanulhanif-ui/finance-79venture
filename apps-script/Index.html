@@ -2063,10 +2063,14 @@ function icAlert(){
   const balOpen=R.bad.filter(b=>!isFee(b)&&b.j===latest);
   const balCleared=[...new Set(R.bad.filter(b=>!isFee(b)&&b.j!==latest).map(b=>b.j))].sort((a,b)=>a-b);
   const feeBad=R.bad.filter(isFee);
+  // The fee balance direction reads a cumulative balance too, so the latest month decides it as well.
+  const mfOpen=R.mfWrong.filter(x=>x.j===latest);
+  const mfCleared=R.mfWrong.filter(x=>x.j!==latest).map(x=>x.j);
   const badMonths=[...new Set([...balOpen,...feeBad].map(b=>b.j))].sort((a,b)=>a-b);
   if(!badMonths.length){
     let t='<div class="icbar"><span><b>Inter-co balances tally at '+MONTHS[latest]+'.</b> 79V and Arabina agree on the inter-company balance as at the latest month.</span><button data-goic>View reconciliation</button></div>';
-    if(balCleared.length) t+='<div class="hint" style="margin-top:6px">Differences arose in '+balCleared.map(j=>MONTHS[j]).join(', ')+' and have cleared by '+MONTHS[latest]+'. The balances are cumulative, so these were timing differences.</div>';
+    const cl=[...new Set([...balCleared,...mfCleared])].sort((a,b)=>a-b);
+    if(cl.length) t+='<div class="hint" style="margin-top:6px">Differences arose in '+cl.map(j=>MONTHS[j]).join(', ')+' and have cleared by '+MONTHS[latest]+'. The balances are cumulative, so these were timing differences.</div>';
     addMsg(t,'ok');
   } else {
     let t='<div class="icbar"><span><b>⚠ Inter-co does not tally</b> at '+MONTHS[latest]+'. Review before finalising the consolidation.</span><button data-goic>View reconciliation</button></div>';
@@ -2074,7 +2078,7 @@ function icAlert(){
     if(balCleared.length) t+='<div class="hint" style="margin-top:6px">Balance differences in '+balCleared.map(j=>MONTHS[j]).join(', ')+' have since cleared.</div>';
     addMsg(t,'err');
   }
-  if(R.mfWrong.length) addMsg('<div class="icbar"><span>Management fee balance direction: 79V books the fee as <i>income</i>, but its balance sheet shows <i>Amount Due To- Arabina (Management Fee)</i> as a payable in '+R.mfWrong.map(x=>MONTHS[x.j]).join(', ')+'. If 79V charges Arabina, the balance should be a receivable in 79V and a payable in Arabina.</span><button data-goic>View reconciliation</button></div>','');
+  if(mfOpen.length) addMsg('<div class="icbar"><span>Management fee balance direction: 79V books the fee as <i>income</i>, but its balance sheet shows <i>Amount Due To- Arabina (Management Fee)</i> as a payable at '+MONTHS[latest]+'. If 79V charges Arabina, the balance should be a receivable in 79V and a payable in Arabina.</span><button data-goic>View reconciliation</button></div>','');
   document.querySelectorAll('[data-goic]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value='ic'; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
 }
 function renderIC(){
