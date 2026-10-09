@@ -1550,20 +1550,26 @@ function bkMatrix(){
   const stmtAcc={}; // ent|last4 -> month -> {close,title}
   files.forEach(f=>{ const k=f.ent+'|'+(f.acct||'?'); stmtAcc[k]=stmtAcc[k]||{}; stmtAcc[k][f.month]={close:f.close,title:f.title+(f.derived?' (month-end balance from running balance; statement period is not a calendar month)':''),path:f.path}; });
   const used=new Set();
-  accts.forEach(a=>{ const k=a.e+'|'+a.last4; a.stmt=new Array(12).fill(null); a.src=new Array(12).fill(null);
-    // Cashflow workbook first, then a statement PDF over it, then anything typed by hand.
+  // Three independent sources: the books, the cashflow workbook, and the statement itself
+  // (a PDF, or a figure typed in). `best` is the one to reconcile against: the statement
+  // where there is one, otherwise the cashflow workbook.
+  accts.forEach(a=>{ const k=a.e+'|'+a.last4;
+    a.cf=new Array(12).fill(null); a.cfSrc=new Array(12).fill(null);
+    a.stmt=new Array(12).fill(null); a.src=new Array(12).fill(null);
     Object.entries(bk.cfmap||{}).forEach(([id,key])=>{ if(key!==a.key) return; const vals=(bk.cf||{})[id]; if(!vals) return;
       const blk=(bk.cfBlocks||[]).find(b=>b.id===id);
-      vals.forEach((v,m)=>{ if(v!=null){ a.stmt[m]=v; a.src[m]='Cashflow workbook'+(blk?' · '+blk.block:''); } }); });
+      vals.forEach((v,m)=>{ if(v!=null){ a.cf[m]=v; a.cfSrc[m]='Cashflow workbook'+(blk?' · '+blk.block:''); } }); });
     const S=stmtAcc[k]; if(S){ used.add(k); Object.entries(S).forEach(([m,v])=>{ a.stmt[m]=v.close; a.src[m]=v.title; }); }
-    const o=bk.ovr[a.key]||{}; Object.entries(o).forEach(([m,v])=>{ if(v!==''&&v!=null){ a.stmt[m]=+v; a.src[m]='entered manually'; } }); });
+    const o=bk.ovr[a.key]||{}; Object.entries(o).forEach(([m,v])=>{ if(v!==''&&v!=null){ a.stmt[m]=+v; a.src[m]='entered manually'; } });
+    a.best=a.stmt.map((v,m)=>v!=null?v:a.cf[m]);
+    a.bestSrc=a.stmt.map((v,m)=>v!=null?a.src[m]:a.cfSrc[m]); });
   const unmatched=Object.keys(stmtAcc).filter(k=>!used.has(k)).map(k=>({k,months:stmtAcc[k]}));
   const unread=Object.values(bk.files).filter(f=>f.err||f.close==null||f.month==null);
   return {accts,unmatched,unread};
 }
 function bkStatementCash(){ // consolidated statement balance by month (null if any matched account lacks a figure)
   const {accts}=bkMatrix(); const out=new Array(12).fill(null);
-  for(let j=0;j<12;j++){ let s=0, ok=accts.length>0; accts.forEach(a=>{ if(Math.abs(a.book[j])<0.005&&a.stmt[j]==null) return; if(a.stmt[j]==null) ok=false; else s+=a.stmt[j]; }); out[j]=ok?s:null; }
+  for(let j=0;j<12;j++){ let s=0, ok=accts.length>0; accts.forEach(a=>{ if(Math.abs(a.book[j])<0.005&&a.best[j]==null) return; if(a.best[j]==null) ok=false; else s+=a.best[j]; }); out[j]=ok?s:null; }
   return out;
 }
 function renderBank(){
@@ -1599,10 +1605,19 @@ function renderBank(){
     h+=`<tr class="hd sec"><td class="acct">${nm[e]}</td><td colspan="${C}"></td></tr>`;
     list.forEach(a=>{
       h+=`<tr class="hd"><td class="acct">${esc(a.l)}${a.last4?'':' <span class="tag">no account no. in name</span>'}</td><td colspan="${C}"></td></tr>`;
+      const anyCf=months.some(j=>a.cf[j]!=null), anySt=months.some(j=>a.stmt[j]!=null);
+      const diffRow=(label,arr)=>`<tr class="chk"><td class="acct">${label}</td>${months.map(j=>{ const v=arr[j];
+        if(v==null) return '<td class="num gstart hint">—</td>';
+        const d=a.book[j]-v, bad=Math.abs(d)>0.05; return `<td class="num gstart ${bad?'bad':'good'}">${bad?fmt(d):'✓ 0'}</td>`; }).join('')}</tr>`;
       h+=`<tr class="in1"><td class="acct">Book (QuickBooks)</td>${months.map(j=>`<td class="num gstart">${fmt(a.book[j])}</td>`).join('')}</tr>`;
+      if(anyCf){
+        h+=`<tr class="in1"><td class="acct">Cashflow workbook</td>${months.map(j=>{ const v=a.cf[j]; return `<td class="num gstart" title="${esc(a.cfSrc[j]||'')}">${v==null?'<span class="hint">—</span>':fmt(v)}</td>`; }).join('')}</tr>`;
+        h+=diffRow('Difference (book − cashflow)',a.cf);
+      }
       h+=`<tr class="in1"><td class="acct">Bank statement</td>${months.map(j=>{ const v=a.stmt[j]; return `<td class="num gstart" data-bk="${esc(a.key)}" data-j="${j}" title="${esc(a.src[j]||'Click to enter')}" style="cursor:text;${a.src[j]==='entered manually'?'color:#1d4ed8;font-weight:600':''}">${v==null?'<span class="hint">—</span>':fmt(v)}</td>`; }).join('')}</tr>`;
-      h+=`<tr class="chk"><td class="acct">Difference (book − bank)</td>${months.map(j=>{ const v=a.stmt[j]; if(v==null){ if(Math.abs(a.book[j])>0.005) tot[e].miss[j]=true; return '<td class="num gstart hint">no statement</td>'; } const d=a.book[j]-v; const b=Math.abs(d)>0.05; return `<td class="num gstart ${b?'bad':'good'}">${b?fmt(d):'✓ 0'}</td>`; }).join('')}</tr>`;
-      months.forEach(j=>{ tot[e].b[j]+=a.book[j]; if(a.stmt[j]!=null) tot[e].s[j]+=a.stmt[j]; });
+      if(anySt) h+=diffRow('Difference (book − statement)',a.stmt);
+      months.forEach(j=>{ if(a.best[j]==null&&Math.abs(a.book[j])>0.005) tot[e].miss[j]=true; });
+      months.forEach(j=>{ tot[e].b[j]+=a.book[j]; if(a.best[j]!=null) tot[e].s[j]+=a.best[j]; });
     });
     h+=`<tr class="tot"><td class="acct">Total book · ${e==='v'?'79V':'Arabina'}</td>${months.map(j=>`<td class="num gstart">${fmt(tot[e].b[j])}</td>`).join('')}</tr>`;
     h+=`<tr class="tot"><td class="acct">Total bank statement · ${e==='v'?'79V':'Arabina'}</td>${months.map(j=>`<td class="num gstart">${tot[e].miss[j]?'<span class="hint">incomplete</span>':fmt(tot[e].s[j])}</td>`).join('')}</tr>`;
@@ -1631,12 +1646,12 @@ function renderBank(){
     inp.addEventListener('keydown',ev=>{ if(ev.key==='Enter') done(true); if(ev.key==='Escape') done(false); }); inp.addEventListener('blur',()=>done(true)); }));
 }
 function bkAlert(){
-  if(!bk.scannedAt) return; const {accts}=bkMatrix(); if(!accts.length) return;
+  if(!bk.scannedAt&&!bk.cfAt) return; const {accts}=bkMatrix(); if(!accts.length) return;
   const res=state.res0||state.res; const months=(res.bs.v||res.bs.a).months; const last=months[months.length-1];
-  const bad=accts.filter(a=>a.stmt[last]!=null&&Math.abs(a.book[last]-a.stmt[last])>0.05);
-  const miss=accts.filter(a=>a.stmt[last]==null&&Math.abs(a.book[last])>0.005);
+  const bad=accts.filter(a=>a.best[last]!=null&&Math.abs(a.book[last]-a.best[last])>0.05);
+  const miss=accts.filter(a=>a.best[last]==null&&Math.abs(a.book[last])>0.005);
   if(!bad.length&&!miss.length) addCheck(`<div class="icbar"><span><b>Bank check: all bank accounts agree with the statements</b> at ${asAt(last)}.</span><button data-gobk>View bank check</button></div>`,'ok');
-  else addCheck(`<div class="icbar"><span><b>⚠ Bank balances do not all agree with the statements at ${asAt(last)}.</b> ${bad.length?'Difference: '+bad.map(a=>esc(a.l)+' RM'+fmt(a.book[last]-a.stmt[last])).join('; ')+'. ':''}${miss.length?'No statement: '+miss.map(a=>esc(a.l)).join(', ')+'.':''}</span><button data-gobk>View bank check</button></div>`,'err');
+  else addCheck(`<div class="icbar"><span><b>⚠ Bank balances do not all agree with the statements at ${asAt(last)}.</b> ${bad.length?'Difference: '+bad.map(a=>esc(a.l)+' RM'+fmt(a.book[last]-a.best[last])).join('; ')+'. ':''}${miss.length?'No statement: '+miss.map(a=>esc(a.l)).join(', ')+'.':''}</span><button data-gobk>View bank check</button></div>`,'err');
   document.querySelectorAll('[data-gobk]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value='bank'; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
 }
 
@@ -2105,7 +2120,7 @@ function frData(){
     {l:'Net Earnings in P&amp;L agree with Net Income in the balance sheet (79V &amp; Arabina)',ok:niC?Object.values(niC).every(x=>!x.bad.length):null,view:'nic'},
     {l:'Inter-company balances 79V ↔ Arabina agree every month',ok:icR?!icR.bad.length:null,view:'ic'},
     {l:'Management fee balance recorded in the right direction (receivable in 79V, payable in Arabina)',ok:icR?!icR.mfWrong.length:null,view:'ic'},
-    {l:'Bank accounts agree with bank statements at the latest month',ok:(()=>{ if(!bk.scannedAt) return null; const {accts}=bkMatrix(); const last=j; return accts.every(a=>a.stmt[last]==null?Math.abs(a.book[last])<0.005:Math.abs(a.book[last]-a.stmt[last])<=0.05); })(),view:'bank'},
+    {l:'Bank accounts agree with bank statements at the latest month',ok:(()=>{ if(!bk.scannedAt&&!bk.cfAt) return null; const {accts}=bkMatrix(); const last=j; return accts.every(a=>a.best[last]==null?Math.abs(a.book[last])<0.005:Math.abs(a.book[last]-a.best[last])<=0.05); })(),view:'bank'},
     {l:'Arabina share capital recorded in QuickBooks',ok:SA?Math.abs(shareA)>0.5:null,view:'aud'},
     {l:'Construction in progress capitalised / classified (warehouse SJ)',ok:(()=>{ const I=cipInfo(res); return I?null:true; })(),view:'cip',info:'Pending: decide capitalisation when the warehouse is ready'}]};
 }
