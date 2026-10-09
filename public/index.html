@@ -565,13 +565,25 @@ function bsTotals(D){ const f=re=>{ for(let i=D.rows.length-1;i>=0;i--) if(re.te
   return {ta:f(/^Total for Assets/i), tl:f(/^Total for Liabilities$|^Total for Current Liabilities$/i), tle:f(/^Total for Liabilities and/i), eq:f(/^Total for Shareholders/i), cash:f(/^Total for Cash at Bank$/i)}; }
 function bsLastMonth(){ const B=state.res&&state.res.bs; if(!B) return state.to;
   const ms=(B.c||B.v||B.a||{months:[]}).months.filter(m=>m>=state.from&&m<=state.to); return ms.length?ms[ms.length-1]:null; }
+// Stock gets two lines, not one: goods in transit are paid for but not yet landed, and since the
+// September transfer the two companies hold very different amounts of each.
+const GIT_RE=/^good in transit/i;
+function bsStock(D,j){
+  let git=0, inv=0;
+  D.rows.forEach(r=>{ if(/^Total/i.test(r.l)) return; const x=r.vals[j]; if(x==null) return;
+    if(GIT_RE.test(r.l)) git+=x; else if(/^inventory/i.test(r.l)) inv+=x; });
+  const R=x=>Math.round(x*100)/100;
+  return {git:R(git), inv:R(inv)};
+}
 function renderEqBS(elId,noteId){
   const EL=elId||'eq', NOTE=noteId||'eqnote';
   const B=state.res.bs; const j=bsLastMonth();
   if(!B||!B.v||!B.a||!B.c||j==null){ $(EL).innerHTML='<div class="lab last">No balance sheet data for this period.</div>'; $(NOTE).textContent=''; return; }
   const tv=bsTotals(B.v), tA=bsTotals(B.a);
   const tlV=(()=>{ const t=tv.tle[j]||0, e=tv.eq[j]||0; return t-e; })(), tlA=(tA.tle[j]||0)-(tA.eq[j]||0);
-  const L=[['Total Assets',tv.ta[j]||0,tA.ta[j]||0,B.c.sum.ta[j]],['Total Liabilities',tlV,tlA,B.c.sum.tl[j]],['Equity',tv.eq[j]||0,tA.eq[j]||0,B.c.sum.eq[j]],['Cash at Bank',tv.cash[j]||0,tA.cash[j]||0,B.c.sum.cash[j]]];
+  const sv=bsStock(B.v,j), sa=bsStock(B.a,j);
+  const L=[['Total Assets',tv.ta[j]||0,tA.ta[j]||0,B.c.sum.ta[j]],['Total Liabilities',tlV,tlA,B.c.sum.tl[j]],['Equity',tv.eq[j]||0,tA.eq[j]||0,B.c.sum.eq[j]],['Cash at Bank',tv.cash[j]||0,tA.cash[j]||0,B.c.sum.cash[j]],
+    ['Inventory',sv.inv,sa.inv,Math.round((sv.inv+sa.inv)*100)/100],['Goods in Transit',sv.git,sa.git,Math.round((sv.git+sa.git)*100)/100]];
   let h=`<div class="h">As at ${MONTHS[j]} 2026</div><div class="h v" style="text-align:right">79V</div><div class="h a" style="text-align:right">+ Arabina</div><div class="h" style="text-align:right">− Elim. inter-co</div><div class="h c" style="text-align:right">= Consol</div>`;
   L.forEach(([lab,v,a,c],i)=>{ const cls=i===L.length-1?' last':''; h+=`<div class="lab${cls}">${lab}</div><div class="n e-v${cls}">${fmt0(v)}</div><div class="n e-a${cls}">${fmt0(a)}</div><div class="n${cls}" style="color:var(--muted)">${fmt0(v+a-c)}</div><div class="n c${cls}">${fmt0(c)}</div>`; });
   $(EL).innerHTML=h;
@@ -581,6 +593,7 @@ function renderEqBS(elId,noteId){
   $(NOTE).innerHTML='<b>Where these come from:</b> '+esc(wbk)+' \u2014 tab <b>'+esc(cfg.bv||DEF.bv)+'</b> for 79V and <b>'+esc(cfg.ba||DEF.ba)+'</b> for Arabina, column <b>'+MONTHS[j]+' 2026</b>. '
     +'Total Assets = the <i>Total for Assets</i> row. Total Liabilities = <i>Total for Liabilities and Shareholder\u2019s Equity</i> less <i>Total for Shareholders\u2019 Equity</i>, so it covers current and non-current liabilities together. '
     +'Equity = <i>Total for Shareholders\u2019 Equity</i>. Cash at Bank = <i>Total for Cash at Bank</i>. '
+    +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
     +'The <b>Consol</b> column is calculated here as 79V + Arabina \u2212 inter-co elimination; it is not a row in the workbook. '
     +'Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '
     +(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
