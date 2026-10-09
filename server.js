@@ -11,13 +11,20 @@ const PUBLIC_DIR = path.join(__dirname, "public");
 const COMMIT = (process.env.RAILWAY_GIT_COMMIT_SHA || process.env.SOURCE_COMMIT || "").slice(0, 7);
 const STARTED_AT = new Date().toISOString();
 const FILE_ID = process.env.CONSOL_FILE_ID || "1mx6JMUwsWpLx_4BT2vTy71bYGmIlXqCT";
+// The two cashflow workbooks the bank reconciliation compares against. Without these the bank
+// check cannot run here at all: the Drive connector only exists inside claude.ai, so on this
+// server the page had a button that could never succeed.
+const CF_IDS = {
+  v: process.env.CF79V_FILE_ID || "1HG-szfIeeKbhgg7k7KD1_9i2UEDLOzPulsDibEXrSUQ",
+  a: process.env.CFARABINA_FILE_ID || "1wWDiW5UHSnYx3IeK8US23uBK0cMYq3uXgwckgTzS_Hg",
+};
 const CACHE_MS = 60_000;
-let cache = null;
+const caches = new Map();
 
 // Fixed ID from the environment, never from the request, so the request cannot steer the fetch.
-async function fetchWorkbook() {
-  if (!/^[A-Za-z0-9_-]{10,100}$/.test(FILE_ID)) throw new Error("bad_id");
-  const r = await fetch(`https://drive.google.com/uc?export=download&id=${FILE_ID}`, {
+async function fetchWorkbook(id) {
+  if (!/^[A-Za-z0-9_-]{10,100}$/.test(id)) throw new Error("bad_id");
+  const r = await fetch(`https://drive.google.com/uc?export=download&id=${id}`, {
     redirect: "follow",
     signal: AbortSignal.timeout(20_000),
   });
@@ -37,14 +44,23 @@ async function fetchWorkbook() {
   return { buf, title };
 }
 
-async function serveWorkbook(res) {
+// key picks the id from the table above, never from the request, so a caller cannot steer the
+// fetch at some other Drive file.
+async function serveWorkbook(res, key) {
+  const id = key === "consol" ? FILE_ID : CF_IDS[key];
+  if (!id) {
+    res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
+    res.end(JSON.stringify({ error: "unknown_workbook" }));
+    return;
+  }
+  const cache = caches.get(key);
   if (cache && Date.now() - cache.at < CACHE_MS) {
     res.writeHead(200, cache.headers);
     res.end(cache.buf);
     return;
   }
   try {
-    const { buf, title } = await fetchWorkbook();
+    const { buf, title } = await fetchWorkbook(id);
     const headers = {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
       "Content-Length": buf.length,
@@ -54,12 +70,12 @@ async function serveWorkbook(res) {
       "X-Consol-Title": encodeURIComponent(title),
       "X-Consol-Fetched": new Date().toISOString(),
     };
-    cache = { buf, headers, at: Date.now() };
+    caches.set(key, { buf, headers, at: Date.now() });
     res.writeHead(200, headers);
     res.end(buf);
   } catch (err) {
     const code = err && err.message === "not_shared" ? "not_shared" : "upstream";
-    console.error("workbook fetch failed:", (err && err.message) || err);
+    console.error("workbook fetch failed (" + key + "):", (err && err.message) || err);
     res.writeHead(code === "not_shared" ? 403 : 502, {
       "Content-Type": "application/json; charset=utf-8",
       "Cache-Control": "no-store",
@@ -97,8 +113,13 @@ const server = http.createServer((req, res) => {
     return;
   }
 
-  if (urlPath === "/api/consol.xlsx") {
-    serveWorkbook(res);
+  const WORKBOOK_ROUTES = {
+    "/api/consol.xlsx": "consol",
+    "/api/cashflow-79v.xlsx": "v",
+    "/api/cashflow-arabina.xlsx": "a",
+  };
+  if (WORKBOOK_ROUTES[urlPath]) {
+    serveWorkbook(res, WORKBOOK_ROUTES[urlPath]);
     return;
   }
 
