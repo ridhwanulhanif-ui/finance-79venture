@@ -146,6 +146,13 @@ table.rz{min-width:0;width:max-content;table-layout:fixed}
 table.rz th.acct,table.rz td.acct{width:var(--labw,420px);min-width:0;max-width:none;white-space:normal}
 table.rz th:not(.acct),table.rz td:not(.acct){width:var(--numw,140px)}
 table.rz thead th.acct{overflow:visible}
+#tablebox table.rzl th.acct,#tablebox table.rzl td.acct{width:min(var(--labw,420px),50vw);min-width:min(var(--labw,420px),50vw);max-width:min(var(--labw,420px),50vw)}
+#tablebox table.rzl thead th.acct{overflow:visible}
+/* A statement with too many months to fit: the table fills the box and the months share what the
+   description column leaves, so dragging still moves the figures instead of being scaled away. */
+.stmt table.rzw:not(.tc){width:100%}
+.stmt table.rzw:not(.tc) th:not(.acct),.stmt table.rzw:not(.tc) td:not(.acct){width:auto}
+.stmt table.rzw:not(.tc) th.acct,.stmt table.rzw:not(.tc) td.acct{width:var(--labw,420px)}
 .colgrip{position:absolute;top:0;right:-6px;width:12px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .colgrip::after{content:"";position:absolute;left:5px;top:2px;bottom:2px;width:2px;border-radius:1px;background:transparent}
 .colgrip:hover::after,.colgrip.drag::after{background:var(--v79)}
@@ -764,10 +771,21 @@ function renderEqBS(elId,noteId){
 // The divider between the account names and the figures can be dragged, because how much
 // room the names need depends on the statement and on who is reading it.
 let labW=(()=>{ const v=parseFloat(store.get('consol.labpx')); return isFinite(v)&&v>=160&&v<=900?v:420; })();
+// Every table with an account column gets it, in every view: statements and the bank check size
+// their figures to fixed widths (.stmt, table.rz); everywhere else only the account column is pinned.
+// A statement whose months no longer fit beside the description column switches to filling the box.
+function stmtFit(){
+  $('tablebox').querySelectorAll('.stmt table:not(.tc):not(.rz) thead th.acct').forEach(th=>{
+    const tb=th.closest('table'), box=tb.parentElement.clientWidth, cols=th.parentElement.children.length;
+    if(box) tb.classList.toggle('rzw',(cols-1)*140+labW+40>box);
+  });
+}
 function stmtGrips(){
-  $('tablebox').style.setProperty('--labw',labW+'px');
-  $('tablebox').querySelectorAll('.stmt thead th.acct,table.rz thead th.acct').forEach(th=>{
+  $('tablebox').style.setProperty('--labw',labW+'px'); stmtFit();
+  $('tablebox').querySelectorAll('thead th.acct').forEach(th=>{
+    const tb=th.closest('table'); if(!tb) return;
     if(th.querySelector('.colgrip')) return;
+    if(!tb.classList.contains('rz')&&!(tb.closest('.stmt')&&!tb.classList.contains('tc'))) tb.classList.add('rzl');
     const g=document.createElement('span');
     g.className='colgrip'; g.title='Drag to resize the description column';
     th.appendChild(g);
@@ -775,13 +793,17 @@ function stmtGrips(){
       const tbl=th.closest('table'); if(!tbl) return;
       ev.preventDefault(); g.classList.add('drag'); g.setPointerCapture(ev.pointerId);
       const left=tbl.getBoundingClientRect().left;
-      const move=e=>{ labW=Math.min(900,Math.max(160,e.clientX-left)); $('tablebox').style.setProperty('--labw',labW+'px'); };
+      const move=e=>{ labW=Math.min(900,Math.max(160,e.clientX-left)); $('tablebox').style.setProperty('--labw',labW+'px'); stmtFit(); };
       const up=()=>{ g.classList.remove('drag'); g.removeEventListener('pointermove',move); g.removeEventListener('pointerup',up);
         store.set('consol.labpx',String(Math.round(labW))); };
       g.addEventListener('pointermove',move); g.addEventListener('pointerup',up);
     });
   });
 }
+// Views draw their tables in many places; watching the box catches every one of them.
+// $ is declared further down, so it does not exist yet when this line runs.
+new MutationObserver(()=>stmtGrips()).observe(document.getElementById('tablebox'),{childList:true});
+addEventListener('resize',()=>stmtFit());
 function stmtBS(D){
   const Z=()=>new Array(12).fill(0);
   const g=l=>{ let r=null; for(let i=D.rows.length-1;i>=0;i--) if(D.rows[i].l===l){ r=D.rows[i]; break; } return Z().map((_,j)=>r&&r.vals[j]!=null?r.vals[j]:0); };
