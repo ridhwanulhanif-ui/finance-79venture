@@ -597,6 +597,20 @@ function stockKey(l){ return l.toLowerCase().replace(/\s*-\s*/g,'-').replace(/\s
 function bsXfer(D,j){ let t=0; D.rows.forEach(r=>{ if(/^Total/i.test(r.l)) return;
   if(/inventory transfer/i.test(r.l)&&r.vals[j]!=null) t+=r.vals[j]; }); return Math.round(t*100)/100; }
 function stockLabel(l){ return l.replace(/^Inventory\s*/i,'').replace(/\s*-\s*/g,' \u2013 ').trim()||'Inventory'; }
+// For a line a company no longer holds, the last month it did hold it, and how much. The transfer
+// itself is a journal and journals are not in a balance sheet, so this is the closing balance of
+// the month before it moved \u2014 not the amount on the transfer entry, which can differ where the
+// stock was also bought or consumed during the final month.
+function bsStockPrior(D,j){
+  const out={};
+  (D.months||[]).filter(m=>m<=j).sort((x,y)=>x-y).forEach(m=>{
+    D.rows.forEach(r=>{ if(/^Total/i.test(r.l)) return;
+      const g=GIT_RE.test(r.l); if(!g&&!/^inventory/i.test(r.l)) return;
+      const x=r.vals[m]; if(x==null||Math.abs(x)<0.005) return;
+      out[g?'__git':stockKey(r.l)]={m,v:Math.round(x*100)/100}; });
+  });
+  return out;
+}
 function renderEqBS(elId,noteId){
   const EL=elId||'eq', NOTE=noteId||'eqnote';
   const B=state.res.bs; const j=bsLastMonth();
@@ -604,15 +618,21 @@ function renderEqBS(elId,noteId){
   const tv=bsTotals(B.v), tA=bsTotals(B.a);
   const tlV=(()=>{ const t=tv.tle[j]||0, e=tv.eq[j]||0; return t-e; })(), tlA=(tA.tle[j]||0)-(tA.eq[j]||0);
   const sv=bsStock(B.v,j), sa=bsStock(B.a,j);
+  const pv=bsStockPrior(B.v,j), pa=bsStockPrior(B.a,j);
+  // Only worth saying for a line the company has emptied: while it still holds stock the figure
+  // is already in its own column.
+  const held=(cur,prior)=>(Math.abs(cur)<0.005&&prior&&prior.m<j)?'held RM'+fmt0(prior.v)+' at '+MONTHS[prior.m]:'';
   const L=[['Total Assets',tv.ta[j]||0,tA.ta[j]||0,B.c.sum.ta[j]],['Total Liabilities',tlV,tlA,B.c.sum.tl[j]],['Equity',tv.eq[j]||0,tA.eq[j]||0,B.c.sum.eq[j]],['Cash at Bank',tv.cash[j]||0,tA.cash[j]||0,B.c.sum.cash[j]],
-    ['Goods in Transit',sv.git,sa.git,Math.round((sv.git+sa.git)*100)/100]];
+    ['Goods in Transit',sv.git,sa.git,Math.round((sv.git+sa.git)*100)/100,
+      {sub:{v:held(sv.git,pv.__git),a:held(sa.git,pa.__git)}}]];
   // Inventory broken out account by account, then totalled: the board asks what the stock is made
   // of, and a single figure cannot answer that. Labels come from whichever company uses the account.
   const names={}; [[B.v,sv],[B.a,sa]].forEach(([D])=>D.rows.forEach(r=>{ if(/^Total/i.test(r.l)||!/^inventory/i.test(r.l)) return;
     const k=stockKey(r.l); if(!names[k]) names[k]=stockLabel(r.l); }));
   const keys=Object.keys(names).filter(k=>Math.abs(sv.acc[k]||0)>0.004||Math.abs(sa.acc[k]||0)>0.004)
     .sort((x,y)=>((sv.acc[y]||0)+(sa.acc[y]||0))-((sv.acc[x]||0)+(sa.acc[x]||0)));
-  keys.forEach(k=>{ const v=sv.acc[k]||0, a=sa.acc[k]||0; L.push([names[k],v,a,Math.round((v+a)*100)/100,{ind:1}]); });
+  keys.forEach(k=>{ const v=sv.acc[k]||0, a=sa.acc[k]||0;
+    L.push([names[k],v,a,Math.round((v+a)*100)/100,{ind:1,sub:{v:held(v,pv[k]),a:held(a,pa[k])}}]); });
   const xv=bsXfer(B.v,j), xa=bsXfer(B.a,j);
   L.push(['Total inventory',sv.inv,sa.inv,Math.round((sv.inv+sa.inv)*100)/100,
     {tot:1,sub:{v:xv?'RM'+fmt0(xv)+' billed to Arabina':'', a:xa?'incl. RM'+fmt0(xa)+' transferred from 79V':''}}]);
@@ -627,7 +647,7 @@ function renderEqBS(elId,noteId){
   $(NOTE).innerHTML='<b>Where these come from:</b> '+esc(wbk)+' \u2014 tab <b>'+esc(cfg.bv||DEF.bv)+'</b> for 79V and <b>'+esc(cfg.ba||DEF.ba)+'</b> for Arabina, column <b>'+MONTHS[j]+' 2026</b>. '
     +'Total Assets = the <i>Total for Assets</i> row. Total Liabilities = <i>Total for Liabilities and Shareholder\u2019s Equity</i> less <i>Total for Shareholders\u2019 Equity</i>, so it covers current and non-current liabilities together. '
     +'Equity = <i>Total for Shareholders\u2019 Equity</i>. Cash at Bank = <i>Total for Cash at Bank</i>. '
-    +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. The indented lines break that total down account by account; the same account is spelled differently in the two companies (<i>Inventory Hardware-Danial</i> against <i>Inventory Hardware - Danial</i>), so they are matched on a normalised name and added together. The figure under the total is the inter-co <i>\u2026 - Inventory Transfer</i> account \u2014 the value billed from 79V to Arabina. It is a balance, not a journal, so it does not fall as the stock is used, and it does fall if the two companies settle in cash; the balance sheets carry no transaction detail, so it cannot be split by inventory account. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
+    +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. The indented lines break that total down account by account; the same account is spelled differently in the two companies (<i>Inventory Hardware-Danial</i> against <i>Inventory Hardware - Danial</i>), so they are matched on a normalised name and added together. Where a company no longer holds a line, <i>held RM\u2026 at \u2026</i> is its closing balance in the last month it did, read from that month\u2019s column. That is a month-end balance, not the transfer entry: the two differ wherever the stock was also bought or used up during the final month. The figure under the total is the inter-co <i>\u2026 - Inventory Transfer</i> account \u2014 the value billed from 79V to Arabina. It is a balance, not a journal, so it does not fall as the stock is used, and it does fall if the two companies settle in cash; the balance sheets carry no transaction detail, so it cannot be split by inventory account. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
     +'The <b>Consol</b> column is calculated here as 79V + Arabina \u2212 inter-co elimination; it is not a row in the workbook. '
     +'Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '
     +(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
