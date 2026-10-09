@@ -202,7 +202,7 @@ table.cs td.num{min-width:70px}
 .anbox ul{margin:8px 0 6px;padding-left:18px;font-size:13.5px;line-height:1.55} .anbox li{margin-bottom:5px}
 /* tax */
 .taxwrap{padding:18px;font-family:var(--sans)}
-.taxgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(420px,1fr));gap:22px}
+.taxgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(420px,100%),1fr));gap:22px}
 .tcard{border:1px solid var(--rule);border-radius:8px;padding:16px 18px;background:var(--card)}
 .tcard h2{font-size:17px;margin:0 0 2px}
 .tcard h2.e-v{color:var(--v79)} .tcard h2.e-a{color:var(--ar)}
@@ -2992,6 +2992,17 @@ function cp204Next(e){
   const cp=Math.max(tax,floor);
   return {pbt,basis,ratio,autoRatio,ci,tax,floor,floorPct,cp,binds:cp>tax+0.005,est26:t.est,inst:cp/12};
 }
+// What the next CP204A window means in money and dates. Instalments are due on the 15th from the
+// 2nd month of the basis period to the 13th (15 Feb 2026 to 15 Jan 2027); a revision in month m
+// changes the instalments after it, so 13 − m are left, each (revised estimate − paid) ÷ that.
+function cp204aPlan(e){
+  const {nxt}=windowsInfo(); if(!nxt) return null;
+  const t=taxCalc(e), m=nxt.m, rem=13-m, paid=t.paidThru(m);
+  const due=[...MONTHS.slice(m,12).map(x=>'15 '+x+' 2026'),'15 Jan 2027'];
+  const plan=rev=>({rev,inst:Math.max(0,(rev-paid)/rem),pen:penalty(t.tax,rev)});
+  return {t,m,st:nxt.st,last:new Date(2026,m,0).getDate(),rem,paid,due,pen0:penalty(t.tax,t.est),
+    full:plan(t.tax),min:plan(t.tax*0.7)};
+}
 function windowsInfo(){
   const now=new Date(); const y=now.getFullYear(), mo=now.getMonth()+1;
   const W=[6,9,11].map(m=>{ let st; if(y>2026||(y===2026&&mo>m)) st='past'; else if(y===2026&&mo===m) st='open'; else st='future'; return {m,st}; });
@@ -3056,15 +3067,15 @@ function renderTax(){
       if(pen0<=0 && ex<=0) h+=`<div class="verdict">The CP204 estimate is sufficient. <b>CP204A is not required</b> (unless you want to reduce instalments).</div>`;
       else if(pen0<=0) h+=`<div class="verdict">The excess is within the 30% limit, so <b>no penalty</b>. CP204A is optional. The balance of ${fmt(ex)} is payable with Form C.</div>`;
       if(nxt){
-        const m=nxt.m, rem=12-m, paid=t.paidThru(m);
+        const m=nxt.m, rem=13-m, paid=t.paidThru(m);
         const last=new Date(2026,m,0).getDate();
         const opts=[['Full revision (= estimated tax)',t.tax],['Minimum revision to avoid penalty (70%)',t.tax*0.7]];
         if(c.cust!==''&&c.cust!=null) opts.push(['Your chosen figure',+c.cust]);
         if(pen0>0) h+=`<div class="verdict bad"><b>CP204A required</b> in the month ${m} window: submit e-CP204A on MyTax between 1–${last} ${MONTHS[m-1]} 2026.</div>`;
-        h+=`<table class="tc"><tr><td>Paid to ${MONTHS[m-1]} (estimate)<span class="note">${rem} instalments remaining: ${MONTHS.slice(m,12).join(', ')}</span></td><td class="r">${fmt(paid)}</td></tr>`;
+        h+=`<table class="tc"><tr><td>Paid to ${MONTHS[m-1]} (estimate)<span class="note">${rem} instalments remaining: ${MONTHS.slice(m,12).join(', ')}, Jan 2027</span></td><td class="r">${fmt(paid)}</td></tr>`;
         opts.forEach(([lab,rev])=>{ const inst=(rev-paid)/rem, bal=t.tax-rev, p=penalty(t.tax,rev);
           h+=`<tr class="sub"><td>${lab}</td><td class="r">${fmt(rev)}</td></tr>
-          <tr><td>${rem>1?'Monthly instalment':'Instalment'} ${MONTHS[m]}${rem>1?'–Dec':''}<span class="note">Pay by the 15th</span></td><td class="r">${fmt(Math.max(0,inst))}</td></tr>
+          <tr><td>Monthly instalment ${MONTHS[m]} 2026–Jan 2027<span class="note">Pay by the 15th</span></td><td class="r">${fmt(Math.max(0,inst))}</td></tr>
           <tr><td>Balance payable with Form C</td><td class="r">${fmt(Math.max(0,bal))}</td></tr>
           <tr class="${p>0?'warn':'okr'}"><td>Penalty</td><td class="r">${fmt(p)}</td></tr>`; });
         h+=`</table><div class="inp" style="margin-top:10px">${inpRow(e,'cust','Try your own revised figure (RM)','number','e.g. 75000')}</div>`;
@@ -3456,6 +3467,31 @@ function renderBE(){
   $('tablebox').querySelectorAll('[data-be]').forEach(b=>b.addEventListener('click',()=>{ beEnt=b.dataset.be; store.set('consol.beEnt',beEnt); renderBE(); }));
 }
 
+// Homepage: the two tax dates the board needs to see coming, from the same figures as Tax & CP204.
+function homeTaxHTML(){
+  const R=x=>'RM'+fmt0(x), D=a=>a.length>1?a[0]+' and '+a[a.length-1]:a[0];
+  let h='<div class="taxwrap" style="padding-top:0"><h3 style="font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em">TAX · CP204 &amp; CP204A</h3><p class="sub2" style="margin:0 0 12px">Estimates from Tax &amp; CP204, which holds the assumptions behind them. Confirm the figures with your tax agent before submitting.</p><div class="taxgrid">';
+  for(const e of ['v','a']){
+    const c=taxCfg[e], ex=c.exempt===true||c.exempt==='true', P=cp204aPlan(e), n=cp204Next(e);
+    h+=`<div class="tcard"><h2 class="e-${e}">${e==='v'?'79 Ventures Sdn Bhd':'Arabina Eco Tiny Homes Sdn Bhd'}</h2><table class="tc">`;
+    if(ex) h+=`<tr class="sub"><td>CP204A YA2026</td><td class="r">Not needed</td></tr><tr><td colspan="2"><span class="note">Marked exempt from CP204 as a new SME, so there is nothing to revise. Estimated tax ${R(P?P.t.tax:taxCalc(e).tax)} is paid with Form C.</span></td></tr>`;
+    else if(P){
+      const req=P.pen0>0, mo=MONTHS[P.m-1];
+      h+=`<tr class="sub"><td>CP204A month ${P.m} (${mo} 2026)</td><td class="r">${req?'Required':(P.t.tax>P.t.est?'Optional':'Not needed')}</td></tr>
+      <tr><td>Submit e-CP204A on MyTax</td><td class="r"><b>1–${P.last} ${mo} 2026</b></td></tr>
+      <tr><td>Current estimate<span class="note">vs estimated tax YA2026 ${R(P.t.tax)}</span></td><td class="r">${R(P.t.est)}</td></tr>
+      <tr><td>Revise to<span class="note">Full estimated tax. The minimum that avoids a penalty is ${R(P.min.rev)} (70%).</span></td><td class="r"><b>${R(P.full.rev)}</b></td></tr>
+      <tr><td>Paid to ${mo}<span class="note">including instalments still due at the current ${R(P.t.cur)} a month</span></td><td class="r">${R(P.paid)}</td></tr>
+      <tr><td>New instalment × ${P.rem}<span class="note">pay by ${D(P.due)}</span></td><td class="r"><b>${R(P.full.inst)}</b></td></tr>
+      <tr class="${req?'warn':'okr'}"><td>Penalty if not revised</td><td class="r">${R(P.pen0)}</td></tr>`;
+    } else h+=`<tr class="sub"><td>CP204A YA2026</td><td class="r">Windows closed</td></tr>`;
+    h+=`<tr class="sub"><td>CP204 YA2027${ex?'<span class="note">only if the new-SME exemption has ended; check with the tax agent</span>':''}</td><td class="r"><b>${R(n.cp)}</b></td></tr>
+      <tr><td>Submit e-CP204 on MyTax</td><td class="r"><b>by 2 Dec 2026</b></td></tr>
+      <tr><td>Monthly instalment × 12<span class="note">pay by the 15th, 15 Feb 2027 to 15 Jan 2028</span></td><td class="r"><b>${R(n.inst)}</b></td></tr>
+      </table></div>`;
+  }
+  return h+'</div></div>';
+}
 function renderTable(){
   // The two summary bands render above the table on every view, so the homepage is simply those
   // bands with no detail underneath: the position and the period's result, nothing to scroll past.
@@ -3463,7 +3499,7 @@ function renderTable(){
     $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true;
     $('tablebox').style.maxHeight='none';
     $('tablebox').innerHTML=state.res
-      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'
+      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
       : '<div class="empty">Press Refresh data to load the workbook.</div>';
     return;
   }
