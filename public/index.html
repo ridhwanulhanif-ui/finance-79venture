@@ -237,6 +237,10 @@ table.cs td.num{min-width:70px}
   <section aria-label="Period summary" id="eqbox" hidden>
     <div class="eq" id="eq"></div>
     <p class="eqnote" id="eqnote"></p>
+    <div id="eqbsbox" hidden>
+      <div class="eq" id="eqbs"></div>
+      <p class="eqnote" id="eqbsnote"></p>
+    </div>
   </section>
 
   <div class="controls" id="controls" hidden>
@@ -549,16 +553,17 @@ function bsTotals(D){ const f=re=>{ for(let i=D.rows.length-1;i>=0;i--) if(re.te
   return {ta:f(/^Total for Assets/i), tl:f(/^Total for Liabilities$|^Total for Current Liabilities$/i), tle:f(/^Total for Liabilities and/i), eq:f(/^Total for Shareholders/i), cash:f(/^Total for Cash at Bank$/i)}; }
 function bsLastMonth(){ const B=state.res&&state.res.bs; if(!B) return state.to;
   const ms=(B.c||B.v||B.a||{months:[]}).months.filter(m=>m>=state.from&&m<=state.to); return ms.length?ms[ms.length-1]:null; }
-function renderEqBS(){
+function renderEqBS(elId,noteId){
+  const EL=elId||'eq', NOTE=noteId||'eqnote';
   const B=state.res.bs; const j=bsLastMonth();
-  if(!B||!B.v||!B.a||!B.c||j==null){ $('eq').innerHTML='<div class="lab last">No balance sheet data for this period.</div>'; $('eqnote').textContent=''; return; }
+  if(!B||!B.v||!B.a||!B.c||j==null){ $(EL).innerHTML='<div class="lab last">No balance sheet data for this period.</div>'; $(NOTE).textContent=''; return; }
   const tv=bsTotals(B.v), tA=bsTotals(B.a);
   const tlV=(()=>{ const t=tv.tle[j]||0, e=tv.eq[j]||0; return t-e; })(), tlA=(tA.tle[j]||0)-(tA.eq[j]||0);
   const L=[['Total Assets',tv.ta[j]||0,tA.ta[j]||0,B.c.sum.ta[j]],['Total Liabilities',tlV,tlA,B.c.sum.tl[j]],['Equity',tv.eq[j]||0,tA.eq[j]||0,B.c.sum.eq[j]],['Cash at Bank',tv.cash[j]||0,tA.cash[j]||0,B.c.sum.cash[j]]];
   let h=`<div class="h">As at ${MONTHS[j]} 2026</div><div class="h v" style="text-align:right">79V</div><div class="h a" style="text-align:right">+ Arabina</div><div class="h" style="text-align:right">− Elim. inter-co</div><div class="h c" style="text-align:right">= Consol</div>`;
   L.forEach(([lab,v,a,c],i)=>{ const cls=i===L.length-1?' last':''; h+=`<div class="lab${cls}">${lab}</div><div class="n e-v${cls}">${fmt0(v)}</div><div class="n e-a${cls}">${fmt0(a)}</div><div class="n${cls}" style="color:var(--muted)">${fmt0(v+a-c)}</div><div class="n c${cls}">${fmt0(c)}</div>`; });
-  $('eq').innerHTML=h;
-  const d=B.c.sum.icD[j]; $('eqnote').textContent='Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '+(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
+  $(EL).innerHTML=h;
+  const d=B.c.sum.icD[j]; $(NOTE).textContent='Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '+(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
 }
 // ===== Audit-style statements =====
 function stmtBS(D){
@@ -2388,7 +2393,12 @@ function ebitData(e){ // monthly EBITDA / depreciation / EBIT / interest income 
 function renderEq(){
   if(['aud','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(state.view)){ $('eqbox').hidden=true; return; }
   $('eqbox').hidden=!state.res;
-  if(state.view&&state.view.startsWith('bs')) return renderEqBS();
+  // A balance sheet view already shows these in the main box; everywhere else they
+  // ride along underneath, so assets, liabilities and equity are never more than a glance away.
+  const onBS=!!(state.view&&state.view.startsWith('bs'));
+  $('eqbsbox').hidden=onBS;
+  if(onBS) return renderEqBS();
+  try{ renderEqBS('eqbs','eqbsnote'); }catch(e){ $('eqbsbox').hidden=true; }
   const g=k=>{const r=rowBy(k).val; return {v:sumR(r.v),a:sumR(r.a),c:sumR(r.c)}};
   const inc=g('INC'), gp=g('GP'), ne=g('NE');
   const T=eqTax!=='none'?eqTaxData():null;
