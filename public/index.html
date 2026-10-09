@@ -134,7 +134,13 @@ td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:300px;cursor:pointer}
 .stmt{padding:18px 18px 8px;min-width:0;overflow-x:auto} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
 .stmt .sub2{font-size:12px;color:var(--muted);margin:0 0 10px}
-.stmt table{min-width:0;width:100%} .stmt td.num{min-width:120px}
+.stmt table{min-width:0;width:100%;table-layout:fixed} .stmt td.num{min-width:120px}
+/* The divider between the names and the figures is draggable; --labw is its position. */
+.stmt th.acct,.stmt td.acct{width:var(--labw,44%);min-width:0;max-width:none;white-space:normal}
+.stmt thead th.acct{overflow:visible}
+.colgrip{position:absolute;top:0;right:-6px;width:12px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
+.colgrip::after{content:"";position:absolute;left:5px;top:2px;bottom:2px;width:2px;border-radius:1px;background:transparent}
+.colgrip:hover::after,.colgrip.drag::after{background:var(--v79)}
 tr.cap td{font-weight:700;text-transform:uppercase;letter-spacing:.05em;font-size:12px;padding-top:14px;color:var(--muted)}
 tr.in1 td.acct{padding-left:22px} tr.gt td{font-weight:700;border-top:1px solid var(--ink);border-bottom:3px double var(--ink)}
 /* Five columns need about 840px; below that the statements stack rather than clip the Consol column. */
@@ -568,6 +574,27 @@ function renderEqBS(elId,noteId){
   const d=B.c.sum.icD[j]; $(NOTE).textContent='Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '+(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
 }
 // ===== Audit-style statements =====
+// The divider between the account names and the figures can be dragged, because how much
+// room the names need depends on the statement and on who is reading it.
+let labW=(()=>{ const v=parseFloat(store.get('consol.labw')); return isFinite(v)&&v>=15&&v<=80?v:44; })();
+function stmtGrips(){
+  $('tablebox').style.setProperty('--labw',labW+'%');
+  $('tablebox').querySelectorAll('.stmt thead th.acct').forEach(th=>{
+    if(th.querySelector('.colgrip')) return;
+    const g=document.createElement('span');
+    g.className='colgrip'; g.title='Drag to resize the description column';
+    th.appendChild(g);
+    g.addEventListener('pointerdown',ev=>{
+      const tbl=th.closest('table'); if(!tbl) return;
+      ev.preventDefault(); g.classList.add('drag'); g.setPointerCapture(ev.pointerId);
+      const box=tbl.getBoundingClientRect();
+      const move=e=>{ labW=Math.min(80,Math.max(15,(e.clientX-box.left)/box.width*100)); $('tablebox').style.setProperty('--labw',labW+'%'); };
+      const up=()=>{ g.classList.remove('drag'); g.removeEventListener('pointermove',move); g.removeEventListener('pointerup',up);
+        store.set('consol.labw',String(Math.round(labW*10)/10)); };
+      g.addEventListener('pointermove',move); g.addEventListener('pointerup',up);
+    });
+  });
+}
 function stmtBS(D){
   const Z=()=>new Array(12).fill(0);
   const g=l=>{ let r=null; for(let i=D.rows.length-1;i>=0;i--) if(D.rows[i].l===l){ r=D.rows[i]; break; } return Z().map((_,j)=>r&&r.vals[j]!=null?r.vals[j]:0); };
@@ -652,7 +679,7 @@ function renderSummary(){
   h+=`<div class="stmt"><h3>CONSOLIDATED STATEMENT OF PROFIT OR LOSS</h3><p class="sub2">For the period ${per} · RM · inter-company management fee eliminated</p>${stmtTable(pcols,plLines)}
     <p class="sub2" style="margin-top:8px">Taxation = Corporate Taxation (CP204) booked as an expense in the 79V P&amp;L, presented separately below profit before tax. Elim. on Revenue and Expenses = management fee between 79V and Arabina.</p></div>`;
   h+='</div>';
-  $('tablebox').innerHTML=h;
+  $('tablebox').innerHTML=h; stmtGrips();
 }
 let aud=(()=>{ try{ return Object.assign({e:'v',j:null,j0:'none'},JSON.parse(store.get('consol.aud')||'{}')); }catch(e){ return {e:'v',j:null,j0:'none'}; } })();
 function renderAudit(){
@@ -680,7 +707,7 @@ function renderAudit(){
       <p class="sub2" style="margin-top:8px">${Math.abs(chk)<1?'✓ Total assets = total equity and liabilities.':'Out of balance: difference RM'+fmt(chk)+'.'} Classified in the audited financial statements format (summary); figures from the QuickBooks balance sheet, unaudited.</p></div>`;
   }
   h+='</div>';
-  $('tablebox').innerHTML=h;
+  $('tablebox').innerHTML=h; stmtGrips();
   const save=()=>{ store.set('consol.aud',JSON.stringify(aud)); renderAudit(); };
   $('tablebox').querySelectorAll('[data-aud-e]').forEach(b=>b.addEventListener('click',()=>{ aud.e=b.dataset.audE; save(); }));
   $('audJ').addEventListener('change',ev=>{ aud.j=+ev.target.value; save(); });
