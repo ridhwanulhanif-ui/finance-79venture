@@ -2,9 +2,14 @@
 const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
+const { createAuth, safeNext, loginPage } = require("./auth");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
+const auth = createAuth();
+console.log(auth.enabled
+  ? `sign-in required: ${auth.users.size} account(s) in AUTH_USERS`
+  : "AUTH_USERS is not set: the site is open to anyone with the URL");
 
 // The consolidation workbook, fetched server-side because Google sends no CORS headers.
 // Override with CONSOL_FILE_ID in Railway Variables. The file must be shared "anyone with the link".
@@ -105,12 +110,66 @@ const TYPES = {
   ".woff2": "font/woff2",
 };
 
-const server = http.createServer((req, res) => {
-  let urlPath;
+const HTML_HEADERS = {
+  "Content-Type": "text/html; charset=utf-8",
+  "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff",
+  "X-Robots-Tag": "noindex, nofollow",
+  // Nobody has a reason to frame this page, and framing it is how a sign-in form gets spoofed.
+  "Content-Security-Policy": "frame-ancestors 'none'",
+  "X-Frame-Options": "DENY",
+};
+
+function readForm(req, limit = 4096) {
+  return new Promise((resolve) => {
+    let body = "", over = false;
+    req.on("data", (c) => { if (over) return; body += c; if (body.length > limit) { over = true; resolve(null); } });
+    req.on("end", () => { if (!over) resolve(new URLSearchParams(body)); });
+    req.on("error", () => resolve(null));
+  });
+}
+
+async function handleLogin(req, res, url) {
+  if (req.method === "GET") {
+    if (!auth.enabled || auth.userOf(req)) {
+      res.writeHead(302, { Location: safeNext(url.searchParams.get("next")) }).end();
+      return;
+    }
+    res.writeHead(200, HTML_HEADERS).end(loginPage({ next: url.searchParams.get("next") || "/" }));
+    return;
+  }
+  if (req.method !== "POST") { res.writeHead(405, { Allow: "GET, POST" }).end(); return; }
+  const ip = auth.clientIp(req);
+  const form = await readForm(req);
+  const name = form ? form.get("username") || "" : "";
+  const next = form ? form.get("next") : "/";
+  if (auth.tooManyFails(ip)) {
+    res.writeHead(429, HTML_HEADERS).end(loginPage({ error: "Too many attempts. Wait fifteen minutes and try again.", next, user: name }));
+    return;
+  }
+  if (!form || !(await auth.verifyPassword(name, form.get("password")))) {
+    auth.noteFail(ip);
+    console.warn("sign-in failed for", JSON.stringify(String(name).slice(0, 80)), "from", ip);
+    res.writeHead(401, HTML_HEADERS).end(loginPage({ error: "That username and password do not match.", next, user: name }));
+    return;
+  }
+  console.log("signed in:", name.trim().toLowerCase(), "from", ip);
+  res.writeHead(303, { Location: safeNext(next), "Set-Cookie": auth.cookieHeader(req, auth.issue(name), auth.sessionMs), "Cache-Control": "no-store" }).end();
+}
+
+const server = http.createServer(async (req, res) => {
+  let urlPath, url;
   try {
-    urlPath = decodeURIComponent(new URL(req.url, "http://localhost").pathname);
+    url = new URL(req.url, "http://localhost");
+    urlPath = decodeURIComponent(url.pathname);
   } catch {
     res.writeHead(400).end("Bad request");
+    return;
+  }
+
+  if (urlPath === "/login") { await handleLogin(req, res, url); return; }
+  if (urlPath === "/logout") {
+    res.writeHead(303, { Location: "/login", "Set-Cookie": auth.cookieHeader(req, "", 0), "Cache-Control": "no-store" }).end();
     return;
   }
 
@@ -122,6 +181,30 @@ const server = http.createServer((req, res) => {
     return;
   }
 
+  if (urlPath === "/robots.txt") {
+    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
+    res.end("User-agent: *\nDisallow: /\n");
+    return;
+  }
+
+  // Everything below needs a signed-in user once accounts exist.
+  const user = auth.enabled ? auth.userOf(req) : null;
+  if (auth.enabled && !user) {
+    if (urlPath.startsWith("/api/")) {
+      res.writeHead(401, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+      res.end(JSON.stringify({ error: "sign_in_required" }));
+    } else {
+      res.writeHead(302, { Location: "/login?next=" + encodeURIComponent(url.pathname + url.search), "Cache-Control": "no-store" }).end();
+    }
+    return;
+  }
+
+  if (urlPath === "/api/me") {
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(JSON.stringify({ user, auth: auth.enabled }));
+    return;
+  }
+
   const WORKBOOK_ROUTES = {
     "/api/consol.xlsx": "consol",
     "/api/cashflow-79v.xlsx": "v",
@@ -129,12 +212,6 @@ const server = http.createServer((req, res) => {
   };
   if (WORKBOOK_ROUTES[urlPath]) {
     serveWorkbook(res, WORKBOOK_ROUTES[urlPath]);
-    return;
-  }
-
-  if (urlPath === "/robots.txt") {
-    res.writeHead(200, { "Content-Type": "text/plain; charset=utf-8" });
-    res.end("User-agent: *\nDisallow: /\n");
     return;
   }
 
@@ -161,6 +238,7 @@ const server = http.createServer((req, res) => {
       // The dashboard is one HTML file, so without this the browser keeps serving
       // the version it cached and a deploy looks like it did nothing.
       "Cache-Control": ext === ".html" ? "no-cache" : "public, max-age=3600",
+      ...(ext === ".html" ? { "Content-Security-Policy": "frame-ancestors 'none'", "X-Frame-Options": "DENY" } : {}),
     });
     res.end(data);
   });
