@@ -132,7 +132,7 @@ td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .zg{color:var(--ok,#2f7d4f)} .zw{color:#b7791f} .zb{color:var(--bad)}
 .viewpick{display:inline-flex;align-items:center;gap:8px;font-weight:600}
 .viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:300px;cursor:pointer}
-.stmt{padding:18px 18px 8px;min-width:0;overflow-x:auto} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
+.stmt{padding:18px 18px 8px;min-width:0} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
 .stmt .sub2{font-size:12px;color:var(--muted);margin:0 0 10px}
 /* Fixed widths, and the table only as wide as its columns: dragging the divider then moves
    the figures with it instead of stretching the gap between name and number. */
@@ -896,7 +896,7 @@ function renderCip(){
     gen:'Directly attributable cost of bringing the warehouse into use.'};
   const T={bal:0,cap:0,exp:0,inv:0}; I.alloc.forEach(a=>{ T.bal+=a.bal; T.cap+=a.cap; T.exp+=a.exp; T.inv+=a.inv; });
   h+=`<div class="stmt"><h3 style="font-size:13px">2. Allocation of CIP balance as at ${asAt(I.j0)}</h3>
-   <div style="overflow:auto"><table><thead><tr class="m"><th class="acct">CIP sub-account</th><th class="gstart" style="text-align:right">Balance</th><th class="gstart" style="text-align:left">Treatment</th><th class="gstart" style="text-align:left">Asset category</th><th class="gstart" style="text-align:right">Capitalise</th><th class="gstart" style="text-align:right">Expense (P&amp;L)</th><th class="gstart" style="text-align:right">To inventory</th><th class="gstart" style="text-align:left">Basis</th></tr></thead><tbody>`;
+   <div><table><thead><tr class="m"><th class="acct">CIP sub-account</th><th class="gstart" style="text-align:right">Balance</th><th class="gstart" style="text-align:left">Treatment</th><th class="gstart" style="text-align:left">Asset category</th><th class="gstart" style="text-align:right">Capitalise</th><th class="gstart" style="text-align:right">Expense (P&amp;L)</th><th class="gstart" style="text-align:right">To inventory</th><th class="gstart" style="text-align:left">Basis</th></tr></thead><tbody>`;
   const catSel=a=>Math.abs(a.cap)>0.004?`<select data-cip-cat="${esc(a.l)}" style="${inpS};max-width:220px">${CIPCATS.map(([n])=>`<option${n===a.cat?' selected':''}>${esc(n)}</option>`).join('')}</select>`:'<span class="hint">–</span>';
   I.alloc.forEach(a=>{ h+=`<tr class="in1"><td class="acct">${esc(a.l)}</td>${cell(a.bal)}<td class="gstart" style="padding:4px 8px">${ctl(a)}</td><td class="gstart" style="padding:4px 8px">${catSel(a)}</td>${cell(a.cap)}${cell(a.exp)}${cell(a.inv)}<td class="gstart hint" style="font-size:11.5px;white-space:normal;min-width:240px">${BASIS[a.kind]}</td></tr>`; });
   h+=`<tr class="tot"><td class="acct">Total</td>${cell(T.bal)}<td class="gstart"></td><td class="gstart"></td>${cell(T.cap)}${cell(T.exp)}${cell(T.inv)}<td class="gstart"></td></tr>`;
@@ -915,7 +915,7 @@ function renderCip(){
   const fy=y=>sched.filter(x=>x.yr===y).reduce((s,x)=>s+x.d,0); const nbv26=totCost-fy(2026);
   const dsLbl=(()=>{ const yr=2026+Math.floor(ds/12), mi=ds%12; const last=new Date(yr,mi+1,0).getDate(); return last+' '+MON_EN[mi]+' '+yr; })();
   h+=`<div class="stmt"><h3 style="font-size:13px">3. Depreciation by asset category</h3><p class="sub2">Straight line · starts ${dsLbl} · RM</p>
-   <div style="overflow:auto"><table><thead><tr class="m"><th class="acct">Asset category</th><th class="gstart" style="text-align:right">Cost</th><th class="gstart" style="text-align:right">Useful life</th><th class="gstart" style="text-align:right">Rate</th><th class="gstart" style="text-align:right">Annual</th><th class="gstart" style="text-align:right">Monthly</th></tr></thead><tbody>
+   <div><table><thead><tr class="m"><th class="acct">Asset category</th><th class="gstart" style="text-align:right">Cost</th><th class="gstart" style="text-align:right">Useful life</th><th class="gstart" style="text-align:right">Rate</th><th class="gstart" style="text-align:right">Annual</th><th class="gstart" style="text-align:right">Monthly</th></tr></thead><tbody>
    ${cats.map(k=>`<tr class="in1"><td class="acct">${esc(k.n)}</td>${cell(k.cost)}<td class="num gstart">${k.life} yrs</td><td class="num gstart">${(100/k.life).toFixed(2)}%</td>${cell(k.cost/k.life)}${cell(monOf(k))}</tr>`).join('')}
    <tr class="tot"><td class="acct">Total</td>${cell(totCost)}<td class="gstart"></td><td class="gstart"></td>${cell(mon*12)}${cell(mon)}</tr></tbody></table></div>
    <table style="margin-top:10px"><tbody>
@@ -1336,7 +1336,7 @@ function renderFC(){
      <label style="display:block;margin-top:6px">Tab (blank = latest "Nth draft") <input id="fcTab" value="${esc(fcSt.tab||'')}" style="width:260px"></label></details>
    </div>
    <div class="seg" role="group" aria-label="Forecast tab" style="margin:6px 0 10px;flex-wrap:wrap">${FC_TABS.map(([k,l])=>`<button data-fct="${k}" aria-pressed="${fcView===k}">${l}</button>`).join('')}</div>
-   <div style="overflow:auto"><table><thead>${head}</thead><tbody>`;
+   <div><table><thead>${head}</thead><tbody>`;
   if(fcView==='pl'||fcView==='cf'){ h+=(fcView==='pl'?fcPLTable:fcCFTable)(R,head,tot,h1,h2); h+='</tbody></table></div>'; $('tablebox').innerHTML=h; fcWire(R); const lg=$('fcLag'); if(lg) lg.addEventListener('change',ev=>{ fcSt.lag=+ev.target.value; fcSave(); renderFC(); }); return; }
   if(fcView!=='sum'){ h+=fcBreakdown(R,fcView,cell,row,TS,tot,h1,h2,secTot); h+='</tbody></table></div>'; $('tablebox').innerHTML=h; fcWire(R); return; }
   // Sales
@@ -1662,7 +1662,7 @@ function renderBank(){
     if(gaps.length) h+='<p class="sub2">No figure to compare against for: '+gaps.map(x=>esc(x.a.l)+' ('+ent(x)+', '+ms(x.miss)+')').join('; ')+'.</p>';
   }
   h+='</div>';
-  h+='<div style="overflow:auto"><table class="rz"><thead><tr class="m"><th class="acct" style="text-align:left">Account · RM</th>'+months.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')+'</tr></thead><tbody>';
+  h+='<div><table class="rz"><thead><tr class="m"><th class="acct" style="text-align:left">Account · RM</th>'+months.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')+'</tr></thead><tbody>';
   const C=months.length;
   const tot={v:{b:new Array(12).fill(0),s:new Array(12).fill(0),miss:new Array(12).fill(false)},a:{b:new Array(12).fill(0),s:new Array(12).fill(0),miss:new Array(12).fill(false)}};
   for(const e of ['v','a']){ const list=accts.filter(a=>a.e===e); if(!list.length) continue;
@@ -1838,7 +1838,7 @@ function renderBudget(){
       <tr class="in1"><td class="acct">Net margin target (%)</td><td>${inp('targets.np',bud.targets.np,'',80)}</td></tr>
       <tr class="in1"><td class="acct">Minimum cash balance (RM)</td><td>${inp('targets.minCash',bud.targets.minCash,'',140)}</td></tr></tbody></table></div>`;
     h+=`<div class="stmt"><h3 style="font-size:13px">B. Sales: units × average price by model</h3><p class="sub2">Enter units per month and the average selling price. Leave blank to use the 2026 run-rate line below instead.</p>
-      <div style="overflow:auto"><table><thead><tr class="m"><th class="acct">Model</th><th class="gstart" style="text-align:right">Avg price</th>${MONTHS.map(m=>`<th class="gstart" style="text-align:right">${m}</th>`).join('')}<th class="gstart cc" style="text-align:right">Units</th><th class="gstart cc" style="text-align:right">Revenue</th></tr></thead><tbody>
+      <div><table><thead><tr class="m"><th class="acct">Model</th><th class="gstart" style="text-align:right">Avg price</th>${MONTHS.map(m=>`<th class="gstart" style="text-align:right">${m}</th>`).join('')}<th class="gstart cc" style="text-align:right">Units</th><th class="gstart cc" style="text-align:right">Revenue</th></tr></thead><tbody>
       ${BUD_MODELS.map(m=>`<tr class="in1"><td class="acct">${m}</td><td class="gstart">${inp('models.'+m+'.price',md(m).price,'',100)}</td>${MONTHS.map((_,j)=>`<td class="gstart">${inp('models.'+m+'.u.'+j,(md(m).u||{})[j],'',52,1)}</td>`).join('')}<td class="num gstart cc">${f0(tot(X.units[m]))}</td><td class="num gstart cc">${f0(tot(X.units[m])*(+md(m).price||0))}</td></tr>`).join('')}
       <tr class="tot"><td class="acct">Cabin revenue from models</td><td></td>${X.modelRev.map(x=>`<td class="num gstart">${f0(x)}</td>`).join('')}<td class="num gstart cc">${f0(tot(X.unitsTot))}</td><td class="num gstart cc">${f0(tot(X.modelRev))}</td></tr></tbody></table></div>
       <table style="width:auto;margin-top:8px"><tbody>
@@ -1880,12 +1880,12 @@ function renderBudget(){
       <table style="width:auto"><thead><tr class="m"><th class="acct">CAPEX item</th><th class="gstart">Month (1–12)</th><th class="gstart">Amount (RM)</th><th></th></tr></thead><tbody>
       ${(bud.capex||[]).map((c,i)=>`<tr class="in1"><td><input data-capex="${i}.d" value="${esc(c.d||'')}" style="${inS};text-align:left;width:220px" ${L?'disabled':''}></td><td><input data-capex="${i}.m" type="number" min="1" max="12" value="${c.m||''}" style="${inS};width:60px" ${L?'disabled':''}></td><td><input data-capex="${i}.amt" type="number" value="${c.amt||''}" style="${inS};width:120px" ${L?'disabled':''}></td><td>${L?'':`<button data-delcapex="${i}">✕</button>`}</td></tr>`).join('')}
       </tbody></table>${L?'':'<button id="budAddCapex" style="margin-top:6px">+ Add CAPEX</button>'}
-      <div style="overflow:auto;margin-top:10px"><table><thead><tr class="m"><th class="acct">RM</th>${MONTHS.map(m=>`<th class="gstart" style="text-align:right">${m}</th>`).join('')}</tr></thead><tbody>
+      <div style="margin-top:10px"><table><thead><tr class="m"><th class="acct">RM</th>${MONTHS.map(m=>`<th class="gstart" style="text-align:right">${m}</th>`).join('')}</tr></thead><tbody>
       <tr class="in1"><td class="acct">New financing / capital in</td>${MONTHS.map((_,j)=>`<td class="gstart">${inp('finIn.'+j,(bud.finIn||{})[j],'',80)}</td>`).join('')}</tr>
       <tr class="in1"><td class="acct">Dividends paid</td>${MONTHS.map((_,j)=>`<td class="gstart">${inp('div.'+j,(bud.div||{})[j],'',80)}</td>`).join('')}</tr></tbody></table></div></div>`;
   }
   else if(budView==='pl'){
-    h+=`<div style="overflow:auto"><table><thead>${head}</thead><tbody>`+sec('BUDGET PROFIT &amp; LOSS 2027');
+    h+=`<div><table><thead>${head}</thead><tbody>`+sec('BUDGET PROFIT &amp; LOSS 2027');
     if(tot(X.unitsTot)>0) h+=`<tr class="pct"><td class="acct">Units sold</td>${X.unitsTot.map(u=>`<td class="num gstart">${u?u.toFixed(0):''}</td>`).join('')}<td class="num gstart cc">${tot(X.unitsTot).toFixed(0)}</td><td></td><td></td><td></td></tr>`;
     h+=row('Cabin sales (models)',X.modelRev,'',1)+row('Other / run-rate sales',X.other,'',1)+row('Transportation income',X.trans,'',1)+row('Revenue',X.sales,'tot');
     h+=row('Materials',X.mat,'',1,1)+row('Direct labour',X.lab,'',1,1)+row('Site operations &amp; tools',X.site,'',1,1)+row('Cost of Sales',X.cos,'tot',0,1);
@@ -1899,7 +1899,7 @@ function renderBudget(){
   }
   else if(budView==='cf'){
     const low=X.close.map((x,j)=>x<(+bud.targets.minCash||0)?MONTHS[j]:null).filter(Boolean);
-    h+=`<div style="overflow:auto"><table><thead>${head}</thead><tbody>`+sec('BUDGET CASH FLOW 2027 (direct method)');
+    h+=`<div><table><thead>${head}</thead><tbody>`+sec('BUDGET CASH FLOW 2027 (direct method)');
     h+=`<tr class="tot"><td class="acct">Opening cash</td>${X.close.map((x,j)=>`<td class="num gstart">${f0(j?X.close[j-1]:X.opening)}</td>`).join('')}<td colspan="4"></td></tr>`;
     h+=row('Receipts from customers',X.coll,'',1)+row('Other income received',X.oi,'',1)+row('Payments: cost of sales',X.payCos,'',1,1)+row('Payments: operating expenses',X.payOpex,'',1,1)+row('Tax paid (CP204 instalments)',X.cp204,'',1,1);
     h+=row('Net cash from operating activities',X.opCF,'tot');
@@ -2069,7 +2069,7 @@ function renderBM(){
      <span class="hint">${bmSt.vals?`Loaded from ${esc(bmSt.title)} · ${dt(bmSt.at)}`:'Internal benchmark not loaded yet'}</span>
      <button id="hlReset">Use suggested thresholds</button></div>
    <p style="margin:8px 0 4px"><b>Overall health: <span class="${overall[1]}">${overall[0]}</span></b> · <span class="zg">${zc.g} healthy</span> · <span class="zw">${zc.w} watch</span> · <span class="zb">${zc.b} danger</span>${bmSt.vals?` &nbsp;|&nbsp; <b>Internal benchmark:</b> ${nI-nIbad} of ${nI} lines on or better than target`:''}</p></div>
-   <div style="overflow:auto"><table><thead>
+   <div><table><thead>
      <tr class="m"><th class="acct" rowspan="2" style="text-align:left;vertical-align:bottom">% of sales</th><th class="gstart cc" rowspan="2" style="text-align:right;vertical-align:bottom">Actual YTD<br><span class="hint" style="font-weight:400">Jan–${MONTHS[M]}</span></th>
        <th class="gstart" colspan="3" style="text-align:center">Internal benchmark</th><th class="gstart" colspan="4" style="text-align:center">Industry &amp; health</th>
        <th class="gstart" rowspan="2" style="text-align:right;vertical-align:bottom">Full year<br><span class="hint" style="font-weight:400">forecast</span></th><th class="gstart" colspan="${ms.length}" style="text-align:center">Actual by month</th></tr>
@@ -2134,7 +2134,7 @@ function hlHtml(){
   let h=`<div class="stmt"><h3>FINANCIAL HEALTH: MARGINS, PAYROLL &amp; CASH</h3>
    <p class="sub2">Year to date Jan–${MONTHS[D.M]} 2026, consolidated, on the books basis (direct labour in cost of sales, as in QuickBooks). Industry ranges are the prefab / modular builder ranges from the <i>Margin vs Industry</i> view (editable there). Thresholds are editable below.</p>
    <p style="margin:6px 0 10px"><b>Overall: <span class="${overall[1]}">${overall[0]}</span></b> · <span class="zg">${nG} healthy</span> · <span class="zw">${nW} watch</span> · <span class="zb">${nB} danger</span></p>
-   <div style="overflow:auto"><table><thead><tr class="m"><th class="acct">KPI</th><th class="gstart cc" style="text-align:right">Actual YTD</th><th class="gstart" style="text-align:right">Industry</th><th class="gstart">vs industry</th><th class="gstart" style="text-align:right">Healthy</th><th class="gstart" style="text-align:right">Danger</th><th class="gstart">Zone</th><th class="gstart">Basis</th></tr></thead><tbody>
+   <div><table><thead><tr class="m"><th class="acct">KPI</th><th class="gstart cc" style="text-align:right">Actual YTD</th><th class="gstart" style="text-align:right">Industry</th><th class="gstart">vs industry</th><th class="gstart" style="text-align:right">Healthy</th><th class="gstart" style="text-align:right">Danger</th><th class="gstart">Zone</th><th class="gstart">Basis</th></tr></thead><tbody>
    ${D.rows.map((r,i)=>{ if(r.grp) return `<tr class="hd sec"><td class="acct">${r.grp}</td><td colspan="7"></td></tr>`; const zz=z[i]; const t=hlCfg[r.k]; const op=r.hi?'≥':'≤', op2=r.hi?'<':'>';
      return `<tr class="in1"><td class="acct">${r.l}</td><td class="num gstart cc" style="font-weight:700">${fv(r)}</td><td class="num gstart">${indTxt(r)}</td><td class="gstart hint">${indCmp(r)}</td>
        <td class="gstart" style="white-space:nowrap;text-align:right">${op} <input data-hl="${r.k}.g" type="number" step="any" value="${t.g}" style="${inS}"></td>
@@ -2220,7 +2220,7 @@ function renderFin(){
   let h=`<div class="stmt"><h3>FINANCING READINESS</h3>
    <p class="sub2">Ratios and checks that banks and financiers (banks, PUNB, SME Bank, TEKUN, MBSB) use to assess an application. Year to date Jan–${MONTHS[D.M]} 2026, consolidated 79V + Arabina, balance sheet at ${D.j!=null?asAt(D.j):'–'}. Thresholds are typical lender guides and can be edited.</p>
    <p style="margin:8px 0;font-size:15px"><b>Readiness score: ${score}% · <span class="${lvl[1]}">${lvl[0]}</span></b> &nbsp;<span class="hint">Ratios: <span class="zg">${zc.g} strong</span> · <span class="zw">${zc.w} borderline</span> · <span class="zb">${zc.b} weak</span> · Records: ${autoOk} of ${D.auto.filter(a=>a.ok!=null).length} OK · Documents: ${manOk} of ${FR_MANUAL.length} ready</span></p></div>`;
-  h+=`<div style="overflow:auto"><table><thead><tr class="m"><th class="acct" style="text-align:left">1. Financial ratios</th><th class="gstart cc" style="text-align:right">Actual</th><th class="gstart" style="text-align:right">Strong</th><th class="gstart" style="text-align:right">Weak</th><th class="gstart">Assessment</th><th class="gstart">Basis</th><th class="gstart">Why the bank looks at it</th></tr></thead><tbody>
+  h+=`<div><table><thead><tr class="m"><th class="acct" style="text-align:left">1. Financial ratios</th><th class="gstart cc" style="text-align:right">Actual</th><th class="gstart" style="text-align:right">Strong</th><th class="gstart" style="text-align:right">Weak</th><th class="gstart">Assessment</th><th class="gstart">Basis</th><th class="gstart">Why the bank looks at it</th></tr></thead><tbody>
    ${D.rows.map((r,i)=>{ const z=zs[i], t=frCfg[r.k]; return `<tr class="in1"><td class="acct">${r.l}</td><td class="num gstart cc" style="font-weight:700">${fv(r)}</td>
      <td class="gstart" style="white-space:nowrap;text-align:right">${r.hi?'≥':'≤'} <input data-fr="${r.k}.g" type="number" step="any" value="${t.g}" style="${inS}"></td>
      <td class="gstart" style="white-space:nowrap;text-align:right">${r.hi?'<':'>'} <input data-fr="${r.k}.b" type="number" step="any" value="${t.b}" style="${inS}"></td>
@@ -2282,7 +2282,7 @@ function renderNIC(){
     const cell=(x,isD)=>{ if(isD){ const b=Math.abs(x)>NI_TOL; return `<td class="num gstart ${b?'bad':'good'}">${b?fmt(x):'✓ '+(Math.abs(x)>0.004?fmt(x):'0')}</td>`; } return `<td class="num gstart${x<-0.004?' neg':''}">${fmt(x)}</td>`; };
     const row=(l,a,cls,isD)=>`<tr class="${cls||'in1'}"><td class="acct">${l}</td>${ms.map(j=>cell(a[j],isD)).join('')}</tr>`;
     h+=`<div class="stmt"><h3>${nm[e]}: NET EARNINGS (P&amp;L) vs NET INCOME (BALANCE SHEET)</h3><p class="sub2">Year to date at each month end · RM · tolerance RM${NI_TOL} for rounding</p>
-     <div style="overflow:auto"><table><thead><tr class="m"><th class="acct">RM</th>${ms.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')}</tr></thead><tbody>`;
+     <div><table><thead><tr class="m"><th class="acct">RM</th>${ms.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')}</tr></thead><tbody>`;
     h+=row('Net Earnings for the month (P&amp;L)',X.ne);
     h+=row('Net Earnings year to date (P&amp;L, cumulative)',X.cum,'tot');
     h+=row('Net Income per balance sheet (year to date)',X.bs,'tot');
@@ -3111,7 +3111,7 @@ function commonSize(e,ms){
   const isZero=r=>ms.every(j=>Math.abs(r.val[e][j])<0.005);
   let h=`<h3 style="font-size:15px;margin:26px 0 4px">Costs as % of revenue (each account)</h3>
     <div class="hint" style="margin-bottom:8px">Each Cost of Sales, Expenses and Other Expenses account is divided by Total Income for the same month. Darker colour = higher percentage. Zero rows are hidden.</div>
-    <div style="overflow:auto"><table class="betable cs"><thead><tr class="m"><th class="acct">Account</th>${ms.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]}</th>`).join('')}<th class="gstart cc" style="text-align:right">${MONTHS[state.from]}–${MONTHS[state.to]}</th><th class="gstart" style="text-align:right">RM ${MONTHS[state.from]}–${MONTHS[state.to]}</th></tr></thead><tbody>`;
+    <div><table class="betable cs"><thead><tr class="m"><th class="acct">Account</th>${ms.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]}</th>`).join('')}<th class="gstart cc" style="text-align:right">${MONTHS[state.from]}–${MONTHS[state.to]}</th><th class="gstart" style="text-align:right">RM ${MONTHS[state.from]}–${MONTHS[state.to]}</th></tr></thead><tbody>`;
   h+=`<tr class="tot key"><td class="acct">Revenue (Total Income)</td>${ms.map(j=>`<td class="num gstart">100%</td>`).join('')}<td class="num gstart cc">100%</td><td class="num gstart">${fmt(tInc)}</td></tr>`;
   let pendingHdr=[];
   for(const r of rows){
@@ -3156,7 +3156,7 @@ function renderMG(){
   h+=mgChart(d,ms);
   h+=`<div class="belegend"><span><i style="background:var(--cons);height:3px;vertical-align:3px"></i>Actual GP margin</span><span><i style="background:var(--ar);height:3px;vertical-align:3px"></i>Actual net margin</span><span><i style="background:var(--cons);opacity:.25"></i>Industry GP range</span><span><i style="background:var(--ar);opacity:.3"></i>Industry net range</span></div>`;
   const pc=x=>isFinite(x)?x.toFixed(1)+'%':'–';
-  h+=`<div style="overflow:auto"><table class="betable"><thead><tr class="m"><th class="acct">Item</th>${ms.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')}<th class="gstart cc" style="text-align:right">${MONTHS[state.from]}–${MONTHS[state.to]}</th></tr></thead><tbody>`;
+  h+=`<div><table class="betable"><thead><tr class="m"><th class="acct">Item</th>${ms.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')}<th class="gstart cc" style="text-align:right">${MONTHS[state.from]}–${MONTHS[state.to]}</th></tr></thead><tbody>`;
   const totProf=(e==='v' && Math.abs(tInc)>0.5 && S(d.mfi)/tInc>0.5)?'svc':'prefab';
   h+=`<tr class="tot key"><td class="acct">Revenue</td>${ms.map(j=>`<td class="num gstart">${fmt(d.inc[j])}</td>`).join('')}<td class="num gstart cc">${fmt(tInc)}</td></tr>`;
   if(e==='v') h+=`<tr><td class="acct">Benchmark used</td>${ms.map(j=>`<td class="num gstart" style="font-family:var(--sans);font-size:11px">${d.prof[j]==='svc'?'Management':'Prefab'}</td>`).join('')}<td class="num gstart cc" style="font-family:var(--sans);font-size:11px">${totProf==='svc'?'Management':'Prefab'}</td></tr>`;
@@ -3234,7 +3234,7 @@ function renderBE(){
     <div><span>Months at or above breakeven</span><b>${above} / ${n}</b></div></div>`;
   h+=beChart(d,ms);
   h+=`<div class="belegend"><span><i style="background:var(--cons)"></i>Revenue ≥ breakeven</span><span><i style="background:var(--bad)"></i>Revenue &lt; breakeven</span><span><i style="background:var(--ar);height:3px;vertical-align:3px"></i>Breakeven (COS + Expenses)</span><span><i style="background:var(--v79);height:3px;vertical-align:3px"></i>Full breakeven (NE = 0)</span></div>`;
-  h+=`<div style="overflow:auto"><table class="betable"><thead><tr class="m"><th class="acct">Item</th>${ms.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')}<th class="gstart cc" style="text-align:right">Total</th><th class="gstart" style="text-align:right">Average</th></tr></thead><tbody>`;
+  h+=`<div><table class="betable"><thead><tr class="m"><th class="acct">Item</th>${ms.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')}<th class="gstart cc" style="text-align:right">Total</th><th class="gstart" style="text-align:right">Average</th></tr></thead><tbody>`;
   const row=(lab,arr,cls,opt)=>{ opt=opt||{}; let s=`<tr class="${cls||''}"><td class="acct">${lab}${opt.note?`<span class="note hint" style="display:block;font-weight:400">${opt.note}</span>`:''}</td>`;
     const c=x=>{ let k='num gstart'; if(opt.sign) k+=x>=0?' pos':' negv'; else if(x<-0.004) k+=' neg'; return opt.pct?`<td class="${k}">${isFinite(x)?x.toFixed(0)+'%':'–'}</td>`:`<td class="${k}">${fmt(x)}</td>`; };
     ms.forEach(j=>s+=c(arr[j]));
@@ -3259,8 +3259,8 @@ function renderBE(){
 }
 
 function renderTable(){
-  if(state.view==='mg'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderMG(); }
-  if(state.view==='be'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; if(state.res) $('csv').hidden=false; $('tablebox').style.maxHeight='none'; return renderBE(); }
+  if(state.view==='mg'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight=''; return renderMG(); }
+  if(state.view==='be'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; if(state.res) $('csv').hidden=false; $('tablebox').style.maxHeight=''; return renderBE(); }
   const isTax=state.view==='tax';
   $('rangeCtl').style.display=isTax?'none':'contents';
   $('legend').hidden=isTax||!state.res; if(state.res) $('csv').hidden=isTax;
