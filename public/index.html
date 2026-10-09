@@ -134,9 +134,11 @@ td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:300px;cursor:pointer}
 .stmt{padding:18px 18px 8px;min-width:0;overflow-x:auto} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
 .stmt .sub2{font-size:12px;color:var(--muted);margin:0 0 10px}
-.stmt table{min-width:0;width:100%;table-layout:fixed} .stmt td.num{min-width:120px}
-/* The divider between the names and the figures is draggable; --labw is its position. */
-.stmt th.acct,.stmt td.acct{width:var(--labw,44%);min-width:0;max-width:none;white-space:normal}
+/* Fixed widths, and the table only as wide as its columns: dragging the divider then moves
+   the figures with it instead of stretching the gap between name and number. */
+.stmt table{min-width:0;width:auto;table-layout:fixed;max-width:100%} .stmt td.num{min-width:0}
+.stmt th.acct,.stmt td.acct{width:var(--labw,420px);min-width:0;max-width:none;white-space:normal}
+.stmt th:not(.acct),.stmt td:not(.acct){width:var(--numw,140px)}
 .stmt thead th.acct{overflow:visible}
 .colgrip{position:absolute;top:0;right:-6px;width:12px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .colgrip::after{content:"";position:absolute;left:5px;top:2px;bottom:2px;width:2px;border-radius:1px;background:transparent}
@@ -576,9 +578,9 @@ function renderEqBS(elId,noteId){
 // ===== Audit-style statements =====
 // The divider between the account names and the figures can be dragged, because how much
 // room the names need depends on the statement and on who is reading it.
-let labW=(()=>{ const v=parseFloat(store.get('consol.labw')); return isFinite(v)&&v>=15&&v<=80?v:44; })();
+let labW=(()=>{ const v=parseFloat(store.get('consol.labpx')); return isFinite(v)&&v>=160&&v<=900?v:420; })();
 function stmtGrips(){
-  $('tablebox').style.setProperty('--labw',labW+'%');
+  $('tablebox').style.setProperty('--labw',labW+'px');
   $('tablebox').querySelectorAll('.stmt thead th.acct').forEach(th=>{
     if(th.querySelector('.colgrip')) return;
     const g=document.createElement('span');
@@ -587,10 +589,10 @@ function stmtGrips(){
     g.addEventListener('pointerdown',ev=>{
       const tbl=th.closest('table'); if(!tbl) return;
       ev.preventDefault(); g.classList.add('drag'); g.setPointerCapture(ev.pointerId);
-      const box=tbl.getBoundingClientRect();
-      const move=e=>{ labW=Math.min(80,Math.max(15,(e.clientX-box.left)/box.width*100)); $('tablebox').style.setProperty('--labw',labW+'%'); };
+      const left=tbl.getBoundingClientRect().left;
+      const move=e=>{ labW=Math.min(900,Math.max(160,e.clientX-left)); $('tablebox').style.setProperty('--labw',labW+'px'); };
       const up=()=>{ g.classList.remove('drag'); g.removeEventListener('pointermove',move); g.removeEventListener('pointerup',up);
-        store.set('consol.labw',String(Math.round(labW*10)/10)); };
+        store.set('consol.labpx',String(Math.round(labW))); };
       g.addEventListener('pointermove',move); g.addEventListener('pointerup',up);
     });
   });
