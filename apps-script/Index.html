@@ -1817,33 +1817,6 @@ function renderBank(){
     const done=save=>{ if(save){ bk.ovr[k]=bk.ovr[k]||{}; if(inp.value==='') delete bk.ovr[k][j]; else bk.ovr[k][j]=+inp.value; bkSave(); } renderBank(); };
     inp.addEventListener('keydown',ev=>{ if(ev.key==='Enter') done(true); if(ev.key==='Escape') done(false); }); inp.addEventListener('blur',()=>done(true)); }));
 }
-function bkGo(){ document.querySelectorAll('[data-gobk]').forEach(b=>b.addEventListener('click',()=>{
-  $('viewSel').value='bank'; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); })); }
-function bkAlert(){
-  // The other two checks always post a card. This one used to return silently when no statement or
-  // cashflow workbook had been read, which reads as "the bank check is missing" rather than "it has
-  // nothing to compare against" — and since that state lives in this browser's storage, a different
-  // browser, or the artifact, starts empty however many times the balances were loaded elsewhere.
-  if(!bk.scannedAt&&!bk.cfAt&&bkCfErr){
-    addCheck('<div class="icbar"><span><b>\u26a0 Bank check could not run.</b> The cashflow workbooks could not be read: '+esc(bkCfErr)+'</span><button data-gobk>View bank check</button></div>','err');
-    return bkGo();
-  }
-  if(!bk.scannedAt&&!bk.cfAt){
-    addCheck('<div class="icbar"><span><b>Bank check: not run yet.</b> Cash at Bank in the books has not been compared with anything, because no bank statement or cashflow workbook has been read in this browser.</span><button data-gobk>Load bank balances</button></div>','');
-    return bkGo();
-  }
-  const {accts}=bkMatrix();
-  if(!accts.length){
-    addCheck('<div class="icbar"><span><b>Bank check: no bank accounts found.</b> No <i>Cash at Bank</i> accounts were read from the balance sheet tabs, so there is nothing to compare.</span><button data-gobk>View bank check</button></div>','');
-    return bkGo();
-  }
-  const res=state.res0||state.res; const months=(res.bs.v||res.bs.a).months; const last=months[months.length-1];
-  const bad=accts.filter(a=>a.best[last]!=null&&Math.abs(a.book[last]-a.best[last])>0.05);
-  const miss=accts.filter(a=>a.best[last]==null&&Math.abs(a.book[last])>0.005);
-  if(!bad.length&&!miss.length) addCheck(`<div class="icbar"><span><b>Bank check: all bank accounts agree with the statements</b> at ${asAt(last)}.</span><button data-gobk>View bank check</button></div>`,'ok');
-  else addCheck(`<div class="icbar"><span><b>⚠ Bank balances do not all agree with the statements at ${asAt(last)}.</b> ${bad.length?'Difference: '+bad.map(a=>esc(a.l)+' RM'+fmt(a.book[last]-a.best[last])).join('; ')+'. ':''}${miss.length?'No statement: '+miss.map(a=>esc(a.l)).join(', ')+'.':''}</span><button data-gobk>View bank check</button></div>`,'err');
-  bkGo();
-}
 
 // ===== BUDGET 2027 (driver-based, consolidated, inter-co eliminated) =====
 function fcCFData(R){ // same logic as the Cash Flow tab, returned as numbers
@@ -2715,7 +2688,6 @@ function render(){
   if(adjOn&&state.res&&state.res.adjApplied){ const A=adjInfo(state.res0); addMsg('<b>Adjusted view:</b> Investment Property (Wangsa Maju) of RM'+(A?fmt(A.bal[A.months[A.months.length-1]]):'')+' has been removed from the 79V balance sheet and expensed as Professional Fee-Legal Fee in the 79V P&amp;L. Untick <i>Apply legal fee adjustment</i> to return to the books as recorded.','adj'); }
   try{ icAlert(); }catch(e){}
   try{ niAlert(); }catch(e){}
-  try{ bkAlert(); }catch(e){}
   if(bad) addMsg('Checking does not balance: calculated Net Earnings differ from Net Earnings in the source tab. See the Checking rows below the table.','err');
   // status
   const m=state.meta||{};
