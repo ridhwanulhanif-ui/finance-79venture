@@ -2589,8 +2589,10 @@ function renderIndiv(e){
 
 // ================= TAX & CP204 =================
 const TAXDEF={
-  v:{sme:true,exempt:false,est:'',ca:'',pti:'ded',ent:50,gift:50,runN:4,proj:'run',projAmt:0,addb:0,ded:0,zakded:0,cust:''},
-  a:{sme:true,exempt:true,est:'',ca:'',pti:'ded',ent:50,gift:50,runN:4,proj:'run',projAmt:0,addb:0,ded:0,zakded:0,cust:''}};
+  v:{sme:true,exempt:false,est:'',ca:'',pti:'ded',ent:50,gift:50,runN:4,proj:'run',projAmt:0,addb:0,ded:0,zakded:0,cust:'',
+     n27basis:'grow',n27growth:0,n27amt:'',n27share:'',n27ratio:'',n27floor:85},
+  a:{sme:true,exempt:true,est:'',ca:'',pti:'ded',ent:50,gift:50,runN:4,proj:'run',projAmt:0,addb:0,ded:0,zakded:0,cust:'',
+     n27basis:'grow',n27growth:0,n27amt:'',n27share:'',n27ratio:'',n27floor:85}};
 let taxCfg=(()=>{try{const o=JSON.parse(store.get('consol.taxcfg')||'{}');return {v:{...TAXDEF.v,...(o.v||{})},a:{...TAXDEF.a,...(o.a||{})}};}catch(e){return JSON.parse(JSON.stringify(TAXDEF));}})();
 const nrm=s=>String(s||'').toLowerCase().replace(/^[\s\-–]+/,'').replace(/\s+/g,' ').trim();
 function rawVals(e,label){ const r=(state.res.raw[e]||[]).find(x=>x.k!=='H'&&nrm(x.l)===label); return r?r.vals:new Array(12).fill(0); }
@@ -2645,6 +2647,33 @@ function taxCalc(e){
   return {M,R,L,pbtFY,ci,tax,cpY,cur,est,estAuto,paidThru,avg,N};
 }
 
+// ===== CP204 for YA2027 =====
+// The estimate for the coming year has a statutory floor: it may not be below a set share of
+// the current year's estimate (85% under s107C(3)), whatever the projection says.
+function cp204Next(e){
+  const c=taxCfg[e], t=taxCalc(e);
+  let pbt=0, basis='';
+  if(c.n27basis==='manual'){ pbt=+c.n27amt||0; basis='Manual figure'; }
+  else if(c.n27basis==='bud'){
+    let grp=0; try{ const B=budBase(); if(B){ const X=budCompute(B); grp=X.pbt.reduce((s,x)=>s+x,0); } }catch(err){}
+    const tv=taxCalc('v'), ta=taxCalc('a'), tot=tv.pbtFY+ta.pbtFY;
+    const auto=tot>0.5?(e==='v'?tv.pbtFY:ta.pbtFY)/tot:0.5;
+    const share=(c.n27share===''||c.n27share==null)?auto:(+c.n27share)/100;
+    pbt=grp*share;
+    basis='Budget 2027 group profit before tax RM'+fmt(grp)+' × '+(share*100).toFixed(1)+'% share of this company'+(c.n27share===''?' (same split as YA2026)':'');
+  } else {
+    const g=+c.n27growth||0; pbt=t.pbtFY*(1+g/100);
+    basis='YA2026 full-year profit before tax RM'+fmt(t.pbtFY)+(g?' grown by '+g+'%':' with no growth');
+  }
+  const autoRatio=t.pbtFY>0.5?t.ci/t.pbtFY:1;
+  const ratio=(c.n27ratio===''||c.n27ratio==null)?autoRatio:(+c.n27ratio)/100;
+  const ci=Math.max(0,pbt*ratio);
+  const tax=smeTax(ci,c.sme);
+  const floorPct=(c.n27floor===''||c.n27floor==null)?85:+c.n27floor;
+  const floor=Math.max(0,t.est)*floorPct/100;
+  const cp=Math.max(tax,floor);
+  return {pbt,basis,ratio,autoRatio,ci,tax,floor,floorPct,cp,binds:cp>tax+0.005,est26:t.est,inst:cp/12};
+}
 function windowsInfo(){
   const now=new Date(); const y=now.getFullYear(), mo=now.getMonth()+1;
   const W=[6,9,11].map(m=>{ let st; if(y>2026||(y===2026&&mo>m)) st='past'; else if(y===2026&&mo===m) st='open'; else st='future'; return {m,st}; });
@@ -2723,6 +2752,29 @@ function renderTax(){
         h+=`</table><div class="inp" style="margin-top:10px">${inpRow(e,'cust','Try your own revised figure (RM)','number','e.g. 75000')}</div>`;
       } else if(pen0>0) h+=`<div class="verdict bad">All CP204A windows for YA2026 have passed. An estimated penalty of ${fmt(pen0)} will be imposed on assessment.</div>`;
     }
+    {
+      const n=cp204Next(e), exempt=(c.exempt===true||c.exempt==='true');
+      h+='<h3>CP204 for YA2027</h3>';
+      if(exempt) h+='<div class="verdict">This company is marked exempt from CP204 as a new SME. That exemption covers the first two years of assessment only, so check whether YA2027 is still inside it. The estimate below is what would be due once it ends.</div>';
+      h+='<div class="inp">';
+      h+=inpRow(e,'n27basis','Basis for 2027 profit','select',[['grow','YA2026 profit before tax, grown'],['bud','Share of Budget 2027'],['manual','Manual figure']]);
+      if(c.n27basis==='grow') h+=inpRow(e,'n27growth','Growth on YA2026 (%)','number','0');
+      if(c.n27basis==='bud') h+=inpRow(e,'n27share','This company’s share of group profit (%)','number',(n.pbt&&n.ratio?'':'')+'auto','Leave blank to use the same split as YA2026.');
+      if(c.n27basis==='manual') h+=inpRow(e,'n27amt','Projected profit before tax 2027 (RM)','number','0');
+      h+=inpRow(e,'n27ratio','Chargeable income ÷ profit before tax (%)','number',(n.autoRatio*100).toFixed(1),'Leave blank to assume 2027 adjusts like YA2026 (depreciation, capital allowance, entertainment and the rest).');
+      h+=inpRow(e,'n27floor','Minimum vs YA2026 estimate (%)','number','85','The estimate may not fall below this share of the YA2026 estimate (s107C(3)).');
+      h+='</div>';
+      h+=`<table class="tc"><tr><td>Projected profit before tax 2027<span class="note">${esc(n.basis)}</span></td><td class="r">${fmt(n.pbt)}</td></tr>
+      <tr><td>Estimated chargeable income<span class="note">${(n.ratio*100).toFixed(1)}% of profit before tax</span></td><td class="r">${fmt(n.ci)}</td></tr>
+      <tr class="sub"><td>Tax on that income</td><td class="r">${fmt(n.tax)}</td></tr>
+      <tr><td>Floor: ${n.floorPct}% of the YA2026 estimate (${fmt(n.est26)})</td><td class="r">${fmt(n.floor)}</td></tr>
+      <tr class="big"><td>CP204 to submit for YA2027</td><td class="r">${fmt(n.cp)}</td></tr>
+      <tr><td>Monthly instalment × 12<span class="note">15th of each month, 15 Feb 2027 to 15 Jan 2028</span></td><td class="r">${fmt(n.inst)}</td></tr></table>`;
+      h+=n.binds
+        ? `<div class="verdict bad">The ${n.floorPct}% floor decides this estimate, not the projection: tax on projected profit is only ${fmt(n.tax)}. Submitting less than ${fmt(n.floor)} would be below the statutory minimum.</div>`
+        : `<div class="verdict">The projection is above the ${n.floorPct}% floor of ${fmt(n.floor)}, so the projected figure stands.</div>`;
+      h+=`<div class="hint" style="margin-top:6px">Form e-CP204 for YA2027 is due 30 days before the basis period begins — by <b>2 Dec 2026</b> for a year starting 1 Jan 2027. Revisions by e-CP204A in the 6th, 9th and 11th months: Jun, Sep and Nov 2027.</div>`;
+    }
     h+='</div>';
   }
   h+=`</div><p class="taxfoot">Estimates are based on management accounts and YA2026 rates (SME: 15% on the first RM150,000, 17% up to RM600,000, 24% on the remainder). CP204A revisions are allowed in the 6th, 9th and 11th months of the basis period. Penalty under s107C(10): if actual tax exceeds the estimate by more than 30%, 10% is charged on the excess above that limit. This is not tax advice; confirm with your tax agent before submitting e-CP204A. Assumptions are saved in this browser only.</p></div>`;
@@ -2731,7 +2783,10 @@ function renderTax(){
     const e=el.dataset.e,k=el.dataset.k; let v=el.value;
     if(k==='sme'||k==='exempt') v=(v==='true');
     taxCfg[e][k]=v; store.set('consol.taxcfg',JSON.stringify(taxCfg));
-    const sy=$('tablebox').scrollTop; renderTax(); $('tablebox').scrollTop=sy; }));
+    // Redraw after the event finishes: replacing the DOM inside a change handler throws
+    // when the browser is still working with the element that fired it.
+    const sy=$('tablebox').scrollTop;
+    setTimeout(()=>{ renderTax(); $('tablebox').scrollTop=sy; },0); }));
 }
 
 // ================= MARGIN vs INDUSTRI =================
