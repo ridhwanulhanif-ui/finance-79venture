@@ -3750,6 +3750,9 @@ function flowData(){
 // The 2026 budget prepared last year: the % of sales in column Q of the forecast sheet (tab Forecast2), read
 // once and kept in this browser; the same figures Margin vs Internal Benchmark compares against.
 let bodTgtTried=false, bodTgtErr='';
+// The approved 2026 budget as % of sales (Forecast2, column Q; Admin is its year total over sales),
+// used when the budget sheet itself cannot be read, so the column is never left empty.
+const BUD26={'cost of sales':0.51,'gross retail margin':0.5097,'operating expenditure':0.4176,'admin':0.0181,'operation':0.0536,'people':0.1809,'marketing':0.04,'finance':0.0114,'director':0.1135,'net retail margin':0.0922};
 async function bodTargets(){
   if(bmSt.vals||bodTgtTried) return; bodTgtTried=true;
   try{
@@ -3838,7 +3841,7 @@ function renderBOD(){
     const n=js.length, pct=a=>I?(S(a)/I*100).toFixed(1)+'%':'–';
     // Each margin line carries the 2026 budget (forecast sheet) and the healthy line (Margin vs
     // Internal Benchmark thresholds, editable there), and is rated against the healthy line.
-    const BMV=bmSt.vals||{}, TG={'Cost of Sales':['cost of sales','i_cos',0],'Gross Retail Margin':['gross retail margin','i_grm',1],'Operating Expenditure':['operating expenditure','i_opex',0],
+    const BMV=bmSt.vals||BUD26, TG={'Cost of Sales':['cost of sales','i_cos',0],'Gross Retail Margin':['gross retail margin','i_grm',1],'Operating Expenditure':['operating expenditure','i_opex',0],
       'Admin':['admin','i_admin',0],'Operation / supply chain':['operation','i_op',0],'People':['people','i_ppl',0],'Marketing':['marketing','i_mkt',0],'Finance':['finance','i_fin',0],'Director':['director','dirr',0],'Net Retail Margin':['net retail margin','i_nrm',1]};
     const tcell=(l,a)=>{ const g=TG[l]; if(!g) return '<td class="r wide"></td><td class="r wide"></td><td></td>';
       const act=I?S(a)/I*100:null, b=BMV[g[0]], th=hlCfg[g[1]], z=th?bodZone(act,th,!!g[2]):null;
@@ -3854,7 +3857,7 @@ function renderBOD(){
     t+=row('Other Outflow',oout,{cls:'sub'})+row('CAPEX',F.capex,{lvl:1,n:'vehicles, equipment, warehouse, showroom'})+row('Loan repayments',F.principal,{lvl:1,n:'principal only; the interest is in Finance'})+row('Pay to investors',F.investors,{lvl:1})+row('Dividends',F.dividends,{lvl:1});
     t+=row('Free Retail Flow',free,{cls:'big'})+'</table></div>';
     h+=sec(3,'Line by line, as in the forecast sheet',`${t}<p class="bods">Same layout as the board's forecast sheet, with actual figures: direct labour and commission are in People. Other Inflow and Outflow are cash movements read off the balance sheets${js.includes(0)?', so January shows none (there is no December balance to compare it with)':''}. Depreciation is left out because it is not cash.</p>
-      <p class="bods"><b>Budget 2026 (approved)</b> = % of sales in the approved 2026 budget prepared last year (forecast workbook, tab ${esc(bmSt.tab)}, column ${esc(bmSt.col)})${bmSt.vals?'; green where actual is on or better than budget, red where worse':(bodTgtErr?': could not be read ('+esc(bodTgtErr)+')':': loading')}. <b>Healthy</b> = the healthy line in Margin vs Internal Benchmark, where it can be changed; Status rates the actual against it.</p>`); }
+      <p class="bods"><b>Budget 2026 (approved)</b> = % of sales in the approved 2026 budget prepared last year (forecast workbook, tab ${esc(bmSt.tab)}, column ${esc(bmSt.col)})${bmSt.vals?'':'; shown as approved, because the sheet itself cannot be read here'}; green where actual is on or better than budget, red where worse. <b>Healthy</b> = the healthy line in Margin vs Internal Benchmark, where it can be changed; Status rates the actual against it.</p>`); }
   // 4
   const Wn=[];
   const gpT=hlCfg.gpm||{g:40,b:30}, gm=I?(I-S(cos))/I*100:0, gz=bodZone(gm,gpT,true);
