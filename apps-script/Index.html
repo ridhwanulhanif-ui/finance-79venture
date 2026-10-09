@@ -136,9 +136,9 @@ td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .stmt .sub2{font-size:12px;color:var(--muted);margin:0 0 10px}
 /* Fixed widths, and the table only as wide as its columns: dragging the divider then moves
    the figures with it instead of stretching the gap between name and number. */
-.stmt table{min-width:0;width:auto;table-layout:fixed;max-width:100%} .stmt td.num{min-width:0}
-.stmt th.acct,.stmt td.acct{width:var(--labw,420px);min-width:0;max-width:none;white-space:normal}
-.stmt th:not(.acct),.stmt td:not(.acct){width:var(--numw,140px)}
+.stmt table:not(.tc){min-width:0;width:auto;table-layout:fixed;max-width:100%} .stmt td.num{min-width:0}
+.stmt table:not(.tc) th.acct,.stmt table:not(.tc) td.acct{width:var(--labw,420px);min-width:0;max-width:none;white-space:normal}
+.stmt table:not(.tc) th:not(.acct),.stmt table:not(.tc) td:not(.acct){width:var(--numw,140px)}
 .stmt thead th.acct{overflow:visible}
 .colgrip{position:absolute;top:0;right:-6px;width:12px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .colgrip::after{content:"";position:absolute;left:5px;top:2px;bottom:2px;width:2px;border-radius:1px;background:transparent}
@@ -1574,6 +1574,21 @@ function bkStatementCash(){ // consolidated statement balance by month (null if 
   for(let j=0;j<12;j++){ let s=0, ok=accts.length>0; accts.forEach(a=>{ if(Math.abs(a.book[j])<0.005&&a.best[j]==null) return; if(a.best[j]==null) ok=false; else s+=a.best[j]; }); out[j]=ok?s:null; }
   return out;
 }
+// Which accounts disagree, and with which source: the point of the view, so it is stated
+// outright rather than left to be found by scanning the difference rows.
+function bkDiffs(accts,months){
+  const out=[];
+  accts.forEach(a=>{
+    const cf=[], st=[], miss=[];
+    months.forEach(j=>{
+      if(a.cf[j]!=null&&Math.abs(a.book[j]-a.cf[j])>0.05) cf.push({j,d:a.book[j]-a.cf[j]});
+      if(a.stmt[j]!=null&&Math.abs(a.book[j]-a.stmt[j])>0.05) st.push({j,d:a.book[j]-a.stmt[j]});
+      if(a.best[j]==null&&Math.abs(a.book[j])>0.005) miss.push(j);
+    });
+    if(cf.length||st.length||miss.length) out.push({a,cf,st,miss});
+  });
+  return out;
+}
 function renderBank(){
   const res=state.res0||state.res; if(!res||!res.bs){ $('tablebox').innerHTML='<div class="empty">Press Refresh data to load the balance sheets.</div>'; return; }
   const {accts,unmatched,unread}=bkMatrix();
@@ -1599,7 +1614,28 @@ function renderBank(){
      <label><input type="checkbox" id="bkUse" ${bk.useStmt?'checked':''}> Use statement balance as the actual closing cash in the Cash Flow forecast</label>
      <span class="hint" id="bkStatus">${bk.scannedAt?`${Object.keys(bk.files).length} statement files · scanned ${dt(bk.scannedAt)}`:'Not scanned yet'}</span>
    </div>
-   <details><summary style="cursor:pointer">Statement folder</summary><label style="display:block;margin-top:6px">Drive folder link or ID <input id="bkRoot" value="${esc(bk.root)}" style="width:min(520px,100%)"></label></details></div>`;
+   <details><summary style="cursor:pointer">Statement folder</summary><label style="display:block;margin-top:6px">Drive folder link or ID <input id="bkRoot" value="${esc(bk.root)}" style="width:min(520px,100%)"></label></details>`;
+  {
+    const D=bkDiffs(accts,months), ent=x=>x.a.e==='v'?'79V':'Arabina';
+    const ms=l=>l.map(x=>MONTHS[x.j!==undefined?x.j:x]).join(', ');
+    const real=D.filter(x=>x.cf.length||x.st.length);
+    h+='<h3 style="margin-top:14px">Which accounts do not agree</h3>';
+    if(!accts.some(a=>months.some(j=>a.best[j]!=null))) h+='<p class="sub2">Nothing to compare yet. Load the cashflow balances, or scan the statement PDFs.</p>';
+    else if(!real.length) h+=`<div class="verdict">Every account that has a figure to compare agrees with QuickBooks for ${MONTHS[months[0]]}–${MONTHS[months[months.length-1]]} 2026.</div>`;
+    else{
+      h+='<table class="tc" style="max-width:820px"><tbody>';
+      real.forEach(x=>{
+        const bits=[];
+        if(x.cf.length) bits.push('<b>cashflow workbook</b>: '+x.cf.map(d=>MONTHS[d.j]+' '+fmt(d.d)).join(', '));
+        if(x.st.length) bits.push('<b>bank statement</b>: '+x.st.map(d=>MONTHS[d.j]+' '+fmt(d.d)).join(', '));
+        h+=`<tr class="warn"><td>${esc(x.a.l)} <span class="note">${ent(x)}</span></td><td class="r" style="text-align:left;white-space:normal">${bits.join('<br>')}</td></tr>`;
+      });
+      h+='</tbody></table><p class="sub2">Figures are QuickBooks minus that source, so a positive number means the books carry more.</p>';
+    }
+    const gaps=D.filter(x=>x.miss.length);
+    if(gaps.length) h+='<p class="sub2">No figure to compare against for: '+gaps.map(x=>esc(x.a.l)+' ('+ent(x)+', '+ms(x.miss)+')').join('; ')+'.</p>';
+  }
+  h+='</div>';
   h+='<div style="overflow:auto"><table><thead><tr class="m"><th class="acct" style="text-align:left">Account · RM</th>'+months.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')+'</tr></thead><tbody>';
   const C=months.length;
   const tot={v:{b:new Array(12).fill(0),s:new Array(12).fill(0),miss:new Array(12).fill(false)},a:{b:new Array(12).fill(0),s:new Array(12).fill(0),miss:new Array(12).fill(false)}};
