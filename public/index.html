@@ -3508,28 +3508,32 @@ function renderBE(){
 // Margin), filled from the books month by month. On that sheet's basis direct labour and
 // commission sit in People, not in cost of sales. Whatever no category claims is shown as "Other",
 // so Net Retail Margin always equals gross profit less total expenses in the books.
-function homeMarginHTML(all){
+function marginData(){
   const rows=state.res.rows, Z=()=>new Array(12).fill(0);
   const K=k=>{ const r=rows.find(x=>x.k===k); return r?r.val.c.map(x=>x||0):Z(); };
   const Lb=re=>rows.filter(x=>x.t==='D'&&x.s==='EXP'&&re.test(x.l)).reduce((t,x)=>t.map((v,j)=>v+(x.val.c[j]||0)),Z());
   const add=(...a)=>Z().map((_,j)=>a.reduce((t,x)=>t+x[j],0)), neg=x=>x.map(v=>-v);
-  const M=lastActualMonth(), js=[]; for(let j=all?0:state.from;j<=(all?M:Math.min(state.to,M));j++) js.push(j);
-  if(!js.length) return '';
   const dirStat=Lb(/\((directors)\)$/i), dirDev=Lb(/^professional development \(directors\)$/i), dirMeet=Lb(/^director meeting expenses$/i);
   const dirStatOnly=add(dirStat,neg(dirDev));
   const sales=K('INC'), lab=K('LAB'), cos=add(K('COS'),neg(lab)), grm=add(sales,neg(cos));
   const C=[
     ['Admin','office, rental &amp; utilities, subscriptions, IT, consultants',add(K('ADM'),K('OFF'),K('MEM'),K('IT'),K('PRO'))],
-    ['Operation','vehicles, road tax, showroom &amp; hostel upkeep, travel',add(K('GO'),K('TRV'))],
+    ['Operation / supply chain','vehicles, road tax, showroom &amp; hostel upkeep, travel',add(K('GO'),K('TRV'))],
     ['People','direct labour, staff salaries &amp; EPF/SOCSO, commission, training, benefits',add(lab,K('STF'),K('STA'),neg(dirStatOnly),K('TRN'),neg(dirDev),K('EB'),K('REF'),neg(dirMeet),K('COM'))],
     ['Marketing','',K('MKT')],
     ['Finance','audit, secretarial, CP204, bank charges, loan interest',add(K('CMP'),K('BNK'),K('FC'),K('ZAK'))],
     ['Director','allowance, benefits, EPF/SOCSO, development, meetings',add(K('DIR'),K('DB'),dirStatOnly,dirDev,dirMeet)]];
   // Direct labour comes out of cost of sales into People, so it is the one category not in Total for Expenses.
   const exp=K('EXP'), other=add(exp,lab,neg(add(...C.map(c=>c[2]))));
-  if(js.some(j=>Math.abs(other[j])>0.5)) C.push(['Other','not in a category above',other]);
+  if(other.some(v=>Math.abs(v)>0.5)) C.push(['Other','not in a category above',other]);
   const opex=add(...C.map(c=>c[2])), nrm=add(grm,neg(opex));
   const oi=K('OI'), ox=K('OX'), ne=K('NE');
+  return {K,add,neg,sales,lab,cos,grm,C,opex,nrm,oi,ox,ne};
+}
+function homeMarginHTML(all){
+  const M=lastActualMonth(), js=[]; for(let j=all?0:state.from;j<=(all?M:Math.min(state.to,M));j++) js.push(j);
+  if(!js.length) return '';
+  const {K,add,neg,sales,lab,cos,grm,C,opex,nrm,oi,ox,ne}=marginData();
   const S=a=>js.reduce((t,j)=>t+a[j],0), ts=S(sales), pc=x=>Math.abs(ts)>0.5?(x/ts*100).toFixed(1)+'%':'–';
   const cell=(a,j)=>`<td class="r">${fmt0(a[j])}</td>`;
   const line=(l,a,o)=>{ o=o||{}; return `<tr class="${o.cls||''}"><td style="padding-left:${4+(o.lvl||0)*14}px;min-width:150px">${l}${o.n?`<span class="note">${o.n}</span>`:''}</td>${js.map(j=>cell(a,j)).join('')}<td class="r"><b>${fmt0(S(a))}</b></td><td class="r">${o.nop?'':pc(S(a))}</td></tr>`; };
@@ -3565,7 +3569,7 @@ function loansData(){
       const st=R.slice(s+1,i).map((r,k)=>[r,k+s+1]).filter(([r])=>r.l.trim().toLowerCase()===m[1].trim().toLowerCase()).pop();
       const from=st?st[1]:i; const gross=new Array(12).fill(0);
       for(let k=from;k<i;k++){ const r=R[k]; if(/interest payable/i.test(r.l)) continue; r.vals.forEach((v,j)=>{ gross[j]+=v||0; }); }
-      L.push({e,l:m[1],gross}); } }
+      L.push({e,l:m[1],gross,net:R[i].vals.map(v=>v||0)}); } }
   const pay=(g,j)=>{ const d=g[j-1]-g[j]; return d>0.5?d:0; };
   return {B,last,L,pay};
 }
@@ -3627,6 +3631,30 @@ function homeOpexHTML(){
   if(W.length) h+=`<tr><td colspan="4"><span class="note"><b>Worth a look</b> (one-off or avoidable): ${W.map(([l,v])=>l+' RM'+fmt0(v)).join(' · ')}</span></td></tr>`;
   return h+'</table></div>';
 }
+// Cash that moves outside the retail margin, as the forecast sheet's Other Inflow / Other Outflow:
+// read from month-on-month balance sheet movements, so January (no opening month here) shows none.
+function flowData(){
+  const B=state.res.bs, Z=()=>new Array(12).fill(0), out={capital:Z(),financing:Z(),capex:Z(),principal:Z(),investors:Z(),dividends:Z(),invfin:Z()};
+  if(!B) return out;
+  // Only months the balance sheets have reached; past that every balance reads as a fall to zero.
+  const ta=B.v&&B.v.rows.find(r=>/^total for assets$/i.test(r.l)); let last=0; if(ta) ta.vals.forEach((v,j)=>{ if(v!=null&&Math.abs(v)>0.5) last=j; });
+  const mv=(vals,j)=>j>last?0:(vals[j]||0)-(vals[j-1]||0);
+  for(const e of ['v','a']){ const D=B[e]; if(!D) continue; const R=D.rows;
+    // Capex: cost of long-term assets, before depreciation; the investment in the subsidiary is inter-company.
+    const s=R.findIndex(r=>/^(long-term|non-current|fixed) assets$/i.test(r.l)), t=R.findIndex(r=>/^total for (long-term|non-current|fixed) assets$/i.test(r.l));
+    if(s>=0&&t>s) R.slice(s+1,t).forEach(r=>{ if(/^total for /i.test(r.l)||/depreciation/i.test(r.l)||/shares in subsidiary/i.test(r.l)) return;
+      if(r.vals.some(v=>v!=null)) for(let j=1;j<12;j++) out.capex[j]+=mv(r.vals,j); });
+    // Capital from outside the group only: Arabina's share capital held by 79V is eliminated.
+    const sc=R.find(r=>/^total for share capital$/i.test(r.l)), scr=sc?[sc]:R.filter(r=>/^share capital/i.test(r.l)&&!(e==='a'&&/79\s?v/i.test(r.l)));
+    scr.forEach(r=>{ for(let j=1;j<12;j++) out.capital[j]+=mv(r.vals,j); });
+    R.filter(r=>/^dividend/i.test(r.l)).forEach(r=>{ for(let j=1;j<12;j++) out.dividends[j]-=mv(r.vals,j); });
+    const inv=R.find(r=>/^total for investor financing$/i.test(r.l)); if(inv) for(let j=1;j<12;j++) out.invfin[j]+=mv(inv.vals,j); }
+  // Loans: a rise in the net balance is new money borrowed; a fall is principal repaid (the interest is in Finance).
+  const LD=loansData(); if(LD) LD.L.forEach(x=>{ for(let j=1;j<12;j++){ const d=mv(x.net,j); if(d>0) out.financing[j]+=d; else out.principal[j]-=d; } });
+  for(let j=0;j<12;j++){ if(out.invfin[j]>0) out.financing[j]+=out.invfin[j]; else out.principal[j]-=out.invfin[j]; }
+  const pti=state.res.rows.find(x=>/^profit to investors$/i.test(x.l)); if(pti) out.investors=pti.val.c.map(v=>v||0);
+  return out;
+}
 // ===== BOD Summary =====
 // One page for the board: five questions, each answered with one sentence and one figure, from the
 // same calculations as the homepage cards and Tax & CP204, so the page never tells a different story.
@@ -3676,7 +3704,22 @@ function renderBOD(){
     <div class="bodbar1">${seg(cp,'var(--s1)','Cost of sales')}${seg(op,'var(--s2)','Running costs')}${seg(Math.max(0,pp),'var(--s3)','Profit')}</div>
     <div class="bodleg"><span><i style="background:var(--s1)"></i>Cost of sales ${(cp*100).toFixed(0)} sen</span><span><i style="background:var(--s2)"></i>Running costs ${opS} sen</span><span><i style="background:var(--s3)"></i>Profit ${(pp*100).toFixed(0)} sen</span></div>
     <p class="bods" style="margin-top:12px">Biggest running costs: ${top.map(c=>`<b>${c[0]}</b> ${fmtM(c[2])} (${(c[2]/I*100).toFixed(0)} sen)`).join(' · ')}.</p>`);
-  // 3
+  // 3: the forecast sheet's own layout, actual figures
+  { const G=marginData(), F=flowData(), add=G.add;
+    const oin=add(F.capital,F.financing,G.oi), oout=add(F.capex,F.principal,F.investors,F.dividends);
+    const free=G.sales.map((_,j)=>G.nrm[j]+oin[j]-oout[j]);
+    const n=js.length, pct=a=>I?(S(a)/I*100).toFixed(1)+'%':'–';
+    const row=(l,a,o)=>{ o=o||{}; return `<tr class="${o.cls||''}"><td style="padding-left:${4+(o.lvl||0)*14}px">${l}${o.n?`<span class="note">${o.n}</span>`:''}</td><td class="r">${fmt0(S(a))}</td><td class="r">${o.nop?'':pct(a)}</td><td class="r wide">${fmt0(S(a)/n)}</td></tr>`; };
+    let t=`<table class="tc" style="margin-top:6px"><tr class="sub"><td>RM, ${per}</td><td class="r">Total</td><td class="r">% sales</td><td class="r wide">Per month</td></tr>`;
+    t+=row('Sales',G.sales,{cls:'sub',nop:1})+row('Cost of Sales',G.cos,{cls:'sub',n:'materials, logistics, site costs'})+row('Gross Retail Margin',G.grm,{cls:'big'});
+    t+=row('Operating Expenditure',G.opex,{cls:'sub'});
+    G.C.forEach(([l,nn,a])=>{ t+=row(l,a,{lvl:1,n:nn}); });
+    t+=row('Net Retail Margin',G.nrm,{cls:'big'});
+    t+=row('Other Inflow',oin,{cls:'sub'})+row('Capital',F.capital,{lvl:1})+row('Financing',F.financing,{lvl:1,n:'new loans and investor money'})+row('Other income',G.oi,{lvl:1});
+    t+=row('Other Outflow',oout,{cls:'sub'})+row('CAPEX',F.capex,{lvl:1,n:'vehicles, equipment, warehouse, showroom'})+row('Loan repayments',F.principal,{lvl:1,n:'principal only; the interest is in Finance'})+row('Pay to investors',F.investors,{lvl:1})+row('Dividends',F.dividends,{lvl:1});
+    t+=row('Free Retail Flow',free,{cls:'big'})+'</table>';
+    h+=sec(3,'Line by line, as in the forecast sheet',`${t}<p class="bods">Same layout as the board's forecast sheet, with actual figures: direct labour and commission are in People. Other Inflow and Outflow are cash movements read off the balance sheets${js.includes(0)?', so January shows none (there is no December balance to compare it with)':''}. Depreciation is left out because it is not cash.</p>`); }
+  // 4
   const Wn=[];
   const gpT=hlCfg.gpm||{g:40,b:30}, gm=I?(I-S(cos))/I*100:0, gz=bodZone(gm,gpT,true);
   const oxT=hlCfg.opex||{g:35,b:45}, om=I?O.tot/I*100:0, oz=bodZone(om,oxT,false);
@@ -3690,9 +3733,9 @@ function renderBOD(){
   if(loss.length) Wn.push(['w',`${loss.length} loss-making month${loss.length>1?'s':''} in the period (${loss.map(j=>MONTHS[j]).join(', ')}).`]);
   const bad=Wn.filter(x=>x[0]==='b'), watch=Wn.filter(x=>x[0]==='w'), ok=Wn.filter(x=>x[0]==='g');
   const shown=[...bad,...watch].slice(0,4);
-  h+=sec(3,'What needs attention?',`${shown.length?'<ul class="bodl">'+shown.map(([z,t])=>`<li>${chip(z)} <span>${t}</span></li>`).join('')+'</ul>':'<p class="bodh">Nothing is in the watch or danger zone.</p>'}
+  h+=sec(4,'What needs attention?',`${shown.length?'<ul class="bodl">'+shown.map(([z,t])=>`<li>${chip(z)} <span>${t}</span></li>`).join('')+'</ul>':'<p class="bodh">Nothing is in the watch or danger zone.</p>'}
     ${ok.length?`<p class="bods">${chip('g')} ${ok.map(x=>x[1]).join(' ')}</p>`:''}`);
-  // 4
+  // 5
   let c4='';
   const LD=loansData();
   if(LD&&LD.L.length){ const lp=LD.L.reduce((t,x)=>t+LD.pay(x.gross,LD.last),0), lb=LD.L.reduce((t,x)=>t+x.gross[LD.last],0);
@@ -3701,15 +3744,15 @@ function renderBOD(){
   for(const e of ['v','a']){ const c=taxCfg[e], ex=c.exempt===true||c.exempt==='true', P=ex?null:cp204aPlan(e), n=cp204Next(e), nm2=e==='v'?'79V':'Arabina';
     if(P&&P.t.cur>0.5) c4+=`<li><b>${fmtM(P.t.cur)}</b> a month CP204 for ${nm2} now${P.pen0>0||P.t.tax>P.t.est?`, rising to <b>${fmtM(P.full.inst)}</b> for ${P.due.join(' and ')} once revised`:''}.</li>`;
     if(n.cp>0.5) c4+=`<li><b>${fmtM(n.inst)}</b> a month CP204 for ${nm2} in 2027 (${fmtM(n.cp)} for the year)${ex?', if its new-company exemption has ended':''}.</li>`; }
-  h+=sec(4,'What do we have to pay every month?',c4?`<ul class="bodl plain">${c4}</ul>`:'<p class="bods">No loan or tax instalments found.</p>');
-  // 5
+  h+=sec(5,'What do we have to pay every month?',c4?`<ul class="bodl plain">${c4}</ul>`:'<p class="bods">No loan or tax instalments found.</p>');
+  // 6
   const Dn=[], now=new Date();
   for(const e of ['v','a']){ const c=taxCfg[e], ex=c.exempt===true||c.exempt==='true', nm2=e==='v'?'79V':'Arabina';
     if(!ex){ const P=cp204aPlan(e); if(P&&(P.pen0>0||P.t.tax>P.t.est)) Dn.push(`Approve revising ${nm2}'s CP204 estimate from ${fmtM(P.t.est)} to <b>${fmtM(P.full.rev)}</b> (file 1–${P.last} ${MONTHS[P.m-1]} 2026; instalments of ${fmtM(P.full.inst)} on ${P.due.join(' and ')}).`); }
     const n=cp204Next(e); if(n.cp>0.5&&now<=new Date(2026,11,2)) Dn.push(`Approve ${nm2}'s CP204 estimate for 2027 of <b>${fmtM(n.cp)}</b> (${fmtM(n.inst)} a month), to be filed by 2 Dec 2026${ex?', if the exemption has ended':''}.`); }
   if(dz&&dz!=='g') Dn.push(`Review how directors are paid: ${dm.toFixed(1)}% of revenue against a ${drT.g}% healthy line, for example a fixed base with a bonus tied to profit.`);
   if(nz&&nz!=='g') Dn.push(`Agree actions to lift net profit from ${nm.toFixed(1)} sen towards ${npmT.g} sen per RM1.`);
-  h+=sec(5,'What do we need to decide today?',Dn.length?'<ol class="bodl num">'+Dn.map(t=>`<li>${t}</li>`).join('')+'</ol>':'<p class="bods">No decisions are flagged by the figures.</p>');
+  h+=sec(6,'What do we need to decide today?',Dn.length?'<ol class="bodl num">'+Dn.map(t=>`<li>${t}</li>`).join('')+'</ol>':'<p class="bods">No decisions are flagged by the figures.</p>');
   h+=`<p class="hint" style="margin:4px 2px 0">Consolidated, inter-company eliminated, from the books (${per}). Tax figures are estimates from Tax &amp; CP204; confirm them with the tax agent. The other views hold the detail behind every line.</p></div>`;
   $('tablebox').innerHTML=h;
 }
