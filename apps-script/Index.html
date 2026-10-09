@@ -140,6 +140,10 @@ td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .stmt table:not(.tc) th.acct,.stmt table:not(.tc) td.acct{width:var(--labw,420px);min-width:0;max-width:none;white-space:normal}
 .stmt table:not(.tc) th:not(.acct),.stmt table:not(.tc) td:not(.acct){width:var(--numw,140px)}
 .stmt thead th.acct{overflow:visible}
+table.rz{min-width:0;width:max-content;table-layout:fixed}
+table.rz th.acct,table.rz td.acct{width:var(--labw,420px);min-width:0;max-width:none;white-space:normal}
+table.rz th:not(.acct),table.rz td:not(.acct){width:var(--numw,140px)}
+table.rz thead th.acct{overflow:visible}
 .colgrip{position:absolute;top:0;right:-6px;width:12px;height:100%;cursor:col-resize;z-index:5;touch-action:none}
 .colgrip::after{content:"";position:absolute;left:5px;top:2px;bottom:2px;width:2px;border-radius:1px;background:transparent}
 .colgrip:hover::after,.colgrip.drag::after{background:var(--v79)}
@@ -604,7 +608,7 @@ function renderEqBS(elId,noteId){
 let labW=(()=>{ const v=parseFloat(store.get('consol.labpx')); return isFinite(v)&&v>=160&&v<=900?v:420; })();
 function stmtGrips(){
   $('tablebox').style.setProperty('--labw',labW+'px');
-  $('tablebox').querySelectorAll('.stmt thead th.acct').forEach(th=>{
+  $('tablebox').querySelectorAll('.stmt thead th.acct,table.rz thead th.acct').forEach(th=>{
     if(th.querySelector('.colgrip')) return;
     const g=document.createElement('span');
     g.className='colgrip'; g.title='Drag to resize the description column';
@@ -1657,7 +1661,7 @@ function renderBank(){
     if(gaps.length) h+='<p class="sub2">No figure to compare against for: '+gaps.map(x=>esc(x.a.l)+' ('+ent(x)+', '+ms(x.miss)+')').join('; ')+'.</p>';
   }
   h+='</div>';
-  h+='<div style="overflow:auto"><table><thead><tr class="m"><th class="acct" style="text-align:left">Account · RM</th>'+months.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')+'</tr></thead><tbody>';
+  h+='<div style="overflow:auto"><table class="rz"><thead><tr class="m"><th class="acct" style="text-align:left">Account · RM</th>'+months.map(j=>`<th class="gstart" style="text-align:right">${MONTHS[j]} 2026</th>`).join('')+'</tr></thead><tbody>';
   const C=months.length;
   const tot={v:{b:new Array(12).fill(0),s:new Array(12).fill(0),miss:new Array(12).fill(false)},a:{b:new Array(12).fill(0),s:new Array(12).fill(0),miss:new Array(12).fill(false)}};
   for(const e of ['v','a']){ const list=accts.filter(a=>a.e===e); if(!list.length) continue;
@@ -1669,10 +1673,13 @@ function renderBank(){
         if(v==null) return '<td class="num gstart hint">—</td>';
         const d=a.book[j]-v, bad=Math.abs(d)>0.05; return `<td class="num gstart ${bad?'bad':'good'}">${bad?fmt(d):'✓ 0'}</td>`; }).join('')}</tr>`;
       h+=`<tr class="in1"><td class="acct">Book (QuickBooks)</td>${months.map(j=>`<td class="num gstart">${fmt(a.book[j])}</td>`).join('')}</tr>`;
-      if(anyCf){
-        h+=`<tr class="in1"><td class="acct">Cashflow workbook</td>${months.map(j=>{ const v=a.cf[j]; return `<td class="num gstart" title="${esc(a.cfSrc[j]||'')}">${v==null?'<span class="hint">—</span>':fmt(v)}</td>`; }).join('')}</tr>`;
-        h+=diffRow('Difference (book − cashflow)',a.cf);
-      }
+      // The cashflow row used to be dropped whenever it had no figures, so the third source simply
+      // was not there to be seen and the view looked like a two-way comparison. It is always drawn;
+      // the label says why it is empty.
+      const cfTag=bk.cfAt?(anyCf?'':' <span class="tag">no matching block in the workbook</span>')
+                         :' <span class="tag">not loaded yet</span>';
+      h+=`<tr class="in1"><td class="acct">Cashflow workbook${cfTag}</td>${months.map(j=>{ const v=a.cf[j]; return `<td class="num gstart" title="${esc(a.cfSrc[j]||'')}">${v==null?'<span class="hint">—</span>':fmt(v)}</td>`; }).join('')}</tr>`;
+      if(anyCf) h+=diffRow('Difference (book − cashflow)',a.cf);
       h+=`<tr class="in1"><td class="acct">Bank statement</td>${months.map(j=>{ const v=a.stmt[j]; return `<td class="num gstart" data-bk="${esc(a.key)}" data-j="${j}" title="${esc(a.src[j]||'Click to enter')}" style="cursor:text;${a.src[j]==='entered manually'?'color:#1d4ed8;font-weight:600':''}">${v==null?'<span class="hint">—</span>':fmt(v)}</td>`; }).join('')}</tr>`;
       if(anySt) h+=diffRow('Difference (book − statement)',a.stmt);
       months.forEach(j=>{ if(a.best[j]==null&&Math.abs(a.book[j])>0.005) tot[e].miss[j]=true; });
@@ -1690,7 +1697,7 @@ function renderBank(){
   if(unmatched.length) h+=`<div class="msg err" style="margin:12px 18px">Statements found for accounts not in the QuickBooks balance sheet (or named without their account number): ${unmatched.map(u=>`<b>${u.k.split('|')[0]==='a'?'Arabina':'79V'} …${esc(u.k.split('|')[1])}</b> (${Object.keys(u.months).map(m=>MONTHS[m]).join(', ')})`).join('; ')}. Check that the QuickBooks bank account name ends with the correct last four digits.</div>`;
   if(unread.length) h+=`<details style="margin:8px 18px"><summary style="cursor:pointer">${unread.length} file(s) could not be read automatically</summary><ul>${unread.map(f=>`<li>${esc(f.path||f.title)}${f.err?' ('+esc(f.err)+')':f.close==null?' (closing balance not found)':' (statement month not found)'}</li>`).join('')}</ul><p class="hint">Enter these balances by clicking the statement cell.</p></details>`;
   h+=`<p class="sub2" style="margin:8px 18px">A difference means the QuickBooks bank account does not agree with the bank statement at month end: usually unpresented cheques, deposits in transit, bank charges or transfers not yet recorded, or a bank reconciliation not yet done for that month.</p>`;
-  $('tablebox').innerHTML=h;
+  $('tablebox').innerHTML=h; stmtGrips();
   $('bkCf').addEventListener('click',bkCfLoad);
   $('tablebox').querySelectorAll('[data-cfmap]').forEach(s=>s.addEventListener('change',ev=>{
     bk.cfmap[ev.target.dataset.cfmap]=ev.target.value; bkSave(); render(); }));
