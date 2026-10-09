@@ -609,7 +609,19 @@ const XFER={date:'30 Sep 2026', from:8, amt:{
   'inventory logistic cost-cabin':38391.16,
   'inventory logistic-hardware & accessories':17275.25,
   'inventory hardware-danial':15958.26,
-  '__git':51689.84}};
+  '__git':51689.84},
+// What Arabina already held on each line before 79V handed anything over. Only two lines had
+// anything: hardware Danial bought through September, and the PO29A container Arabina ordered
+// direct. The other four accounts were opened for the transfer and started empty.
+own:{
+  'inventory material-cabin':0,
+  'inventory material-hardware & accessories':0,
+  'inventory logistic cost-cabin':0,
+  'inventory logistic-hardware & accessories':0,
+  'inventory hardware-danial':31004.40,
+  '__git':56498.88}};
+const XFER_INV=Object.entries(XFER.amt).filter(([k])=>k!=='__git').reduce((t,[,v])=>t+v,0);
+const XFER_OWN=Object.entries(XFER.own).filter(([k])=>k!=='__git').reduce((t,[,v])=>t+v,0);
 function renderEqBS(elId,noteId){
   const EL=elId||'eq', NOTE=noteId||'eqnote';
   const B=state.res.bs; const j=bsLastMonth();
@@ -620,9 +632,13 @@ function renderEqBS(elId,noteId){
   // Only worth saying on a line 79V has emptied, and only once the transfer has happened:
   // before that the stock is still sitting in its own column.
   const gone=k=>{ const x=XFER.amt[k]; return (x&&j>=XFER.from)?'RM'+fmt0(x)+' transferred '+XFER.date:''; };
+  // The matching question on the other side: how much of this was Arabina's before 79V handed over.
+  const own=k=>{ const o=XFER.own[k]; if(o===undefined||j<XFER.from) return '';
+    return o>0.005?'RM'+fmt0(o)+' Arabina\u2019s own':'all from 79V'; };
   const L=[['Total Assets',tv.ta[j]||0,tA.ta[j]||0,B.c.sum.ta[j]],['Total Liabilities',tlV,tlA,B.c.sum.tl[j]],['Equity',tv.eq[j]||0,tA.eq[j]||0,B.c.sum.eq[j]],['Cash at Bank',tv.cash[j]||0,tA.cash[j]||0,B.c.sum.cash[j]],
     ['Goods in Transit',sv.git,sa.git,Math.round((sv.git+sa.git)*100)/100,
-      {sub:{v:Math.abs(sv.git)<0.005?gone('__git'):''}}]];
+      {sub:{v:Math.abs(sv.git)<0.005?gone('__git'):'',
+            a:j>=XFER.from?'incl. RM'+fmt0(XFER.amt.__git)+' from 79V · RM'+fmt0(XFER.own.__git)+' own':''}}]];
   // Inventory broken out account by account, then totalled: the board asks what the stock is made
   // of, and a single figure cannot answer that. Labels come from whichever company uses the account.
   const names={}; [[B.v,sv],[B.a,sa]].forEach(([D])=>D.rows.forEach(r=>{ if(/^Total/i.test(r.l)||!/^inventory/i.test(r.l)) return;
@@ -630,10 +646,11 @@ function renderEqBS(elId,noteId){
   const keys=Object.keys(names).filter(k=>Math.abs(sv.acc[k]||0)>0.004||Math.abs(sa.acc[k]||0)>0.004)
     .sort((x,y)=>((sv.acc[y]||0)+(sa.acc[y]||0))-((sv.acc[x]||0)+(sa.acc[x]||0)));
   keys.forEach(k=>{ const v=sv.acc[k]||0, a=sa.acc[k]||0;
-    L.push([names[k],v,a,Math.round((v+a)*100)/100,{ind:1,sub:{v:Math.abs(v)<0.005?gone(k):''}}]); });
-  const xv=bsXfer(B.v,j), xa=bsXfer(B.a,j);
+    L.push([names[k],v,a,Math.round((v+a)*100)/100,{ind:1,sub:{v:Math.abs(v)<0.005?gone(k):'',a:own(k)}}]); });
+  const on=j>=XFER.from;
   L.push(['Total inventory',sv.inv,sa.inv,Math.round((sv.inv+sa.inv)*100)/100,
-    {tot:1,sub:{v:xv?'RM'+fmt0(xv)+' billed to Arabina':'', a:xa?'incl. RM'+fmt0(xa)+' transferred from 79V':''}}]);
+    {tot:1,sub:{v:on?'RM'+fmt0(XFER_INV)+' transferred to Arabina':'',
+                a:on?'incl. RM'+fmt0(XFER_INV)+' from 79V · RM'+fmt0(XFER_OWN)+' own':''}}]);
   let h=`<div class="h">As at ${MONTHS[j]} 2026</div><div class="h v" style="text-align:right">79V</div><div class="h a" style="text-align:right">+ Arabina</div><div class="h" style="text-align:right">− Elim. inter-co</div><div class="h c" style="text-align:right">= Consol</div>`;
   L.forEach(([lab,v,a,c,o],i)=>{ const cls=(i===L.length-1?' last':'')+(o&&o.ind?' ind':'')+(o&&o.tot?' tt':'');
     const sb=e=>(o&&o.sub&&o.sub[e])?`<span class="sub">${o.sub[e]}</span>`:'';
@@ -645,7 +662,7 @@ function renderEqBS(elId,noteId){
   $(NOTE).innerHTML='<b>Where these come from:</b> '+esc(wbk)+' \u2014 tab <b>'+esc(cfg.bv||DEF.bv)+'</b> for 79V and <b>'+esc(cfg.ba||DEF.ba)+'</b> for Arabina, column <b>'+MONTHS[j]+' 2026</b>. '
     +'Total Assets = the <i>Total for Assets</i> row. Total Liabilities = <i>Total for Liabilities and Shareholder\u2019s Equity</i> less <i>Total for Shareholders\u2019 Equity</i>, so it covers current and non-current liabilities together. '
     +'Equity = <i>Total for Shareholders\u2019 Equity</i>. Cash at Bank = <i>Total for Cash at Bank</i>. '
-    +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. The indented lines break that total down account by account; the same account is spelled differently in the two companies (<i>Inventory Hardware-Danial</i> against <i>Inventory Hardware - Danial</i>), so they are matched on a normalised name and added together. <i>RM\u2026 transferred 30 Sep 2026</i> is what 79V actually handed over on each account, taken from the transfer journals in QuickBooks (JE 19615, and JE 19628 for goods in transit). These are fixed figures for that date, not live: the balance sheets cannot produce them, because the transfer fell on the month end itself, so the September column already shows the position after it. They total RM236,323.71, which is the inter-co balance below. The figure under the total is the inter-co <i>\u2026 - Inventory Transfer</i> account \u2014 the value billed from 79V to Arabina. It is a balance, not a journal, so it does not fall as the stock is used, and it does fall if the two companies settle in cash; the balance sheets carry no transaction detail, so it cannot be split by inventory account. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
+    +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. The indented lines break that total down account by account; the same account is spelled differently in the two companies (<i>Inventory Hardware-Danial</i> against <i>Inventory Hardware - Danial</i>), so they are matched on a normalised name and added together. <i>RM\u2026 transferred 30 Sep 2026</i> is what 79V actually handed over on each account, taken from the transfer journals in QuickBooks (JE 19615, and JE 19628 for goods in transit). These are fixed figures for that date, not live: the balance sheets cannot produce them, because the transfer fell on the month end itself, so the September column already shows the position after it. They total RM236,323.71, which is the inter-co balance below. <i>Arabina\u2019s own</i> is what Arabina held before receiving anything, from its own ledger: hardware Danial bought through September and the PO29A container Arabina ordered direct. The other four accounts were opened for the transfer and started empty. The figure under the total is the inter-co <i>\u2026 - Inventory Transfer</i> account \u2014 the value billed from 79V to Arabina. It is a balance, not a journal, so it does not fall as the stock is used, and it does fall if the two companies settle in cash; the balance sheets carry no transaction detail, so it cannot be split by inventory account. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
     +'The <b>Consol</b> column is calculated here as 79V + Arabina \u2212 inter-co elimination; it is not a row in the workbook. '
     +'Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '
     +(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
