@@ -2170,22 +2170,38 @@ function renderBudget(){
 let bmSt=(()=>{ try{ return Object.assign({tab:'Forecast2',col:'Q',vals:null,at:null,title:''},JSON.parse(store.get('consol.cobm')||'{}')); }catch(e){ return {tab:'Forecast2',col:'Q',vals:null,at:null,title:''}; } })();
 function bmSave(){ store.set('consol.cobm',JSON.stringify(bmSt)); }
 const bmNorm=s=>String(s==null?'':s).toLowerCase().replace(/\s+/g,' ').trim();
-async function bmLoad(){
-  if(!mcp){ setMsg('Loading the internal benchmark needs the Google Drive connector; open this page on claude.ai.','err'); return; }
+// The forecast workbook comes from the Drive connector inside claude.ai, and from server.js
+// (/api/forecast.xlsx) on the served site, where there is no connector.
+let bmErr='', bmTried=false;
+async function bmLoad(quiet){
   const b=$('bmLoad'); if(b){ b.disabled=true; b.textContent='Loading…'; }
   try{
-    let r; try{ r=await mcp.callTool(SERVER,'download_file_content',{fileId:fcSt.fid},{cache:false}); }
-    catch(e){ await new Promise(s=>setTimeout(s,2000)); r=await mcp.callTool(SERVER,'download_file_content',{fileId:fcSt.fid},{cache:false}); }
-    const p=r.payload||{}; if(!p.content) throw new Error('The Drive response has no file content.');
-    const bin=atob(p.content), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    let u8, title='';
+    if(MODE==='web'){
+      const resp=await fetch('/api/forecast.xlsx',{cache:'no-store'});
+      if(!resp.ok){ let j=null; try{ j=await resp.json(); }catch(e){}
+        throw new Error((j&&j.error==='not_shared')?'the forecast workbook is not shared "anyone with the link", so this server cannot read it.':'the server could not fetch the forecast workbook (HTTP '+resp.status+').'); }
+      u8=new Uint8Array(await resp.arrayBuffer()); title=decodeURIComponent(resp.headers.get('X-Consol-Title')||'');
+    } else {
+      if(!mcp) throw new Error('loading the forecast needs the Google Drive connector; open this page on claude.ai.');
+      let r; try{ r=await mcp.callTool(SERVER,'download_file_content',{fileId:fcSt.fid},{cache:false}); }
+      catch(e){ await new Promise(s=>setTimeout(s,2000)); r=await mcp.callTool(SERVER,'download_file_content',{fileId:fcSt.fid},{cache:false}); }
+      const p=r.payload||{}; if(!p.content) throw new Error('The Drive response has no file content.');
+      const bin=atob(p.content); u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); title=p.title||'';
+    }
     const wb=XLSX.read(u8,{type:'array'});
     const tab=wb.SheetNames.find(n=>n.trim().toLowerCase()===String(bmSt.tab).trim().toLowerCase()); if(!tab) throw new Error('Tab "'+bmSt.tab+'" not found. Available: '+wb.SheetNames.join(' | '));
     const ci=XLSX.utils.decode_col(String(bmSt.col||'Q').toUpperCase());
     const A=XLSX.utils.sheet_to_json(wb.Sheets[tab],{header:1,raw:true,defval:null});
-    const vals={}; A.forEach(row=>{ const l=bmNorm(row&&row[0]); const v=row&&row[ci]; if(l&&typeof v==='number'&&!(l in vals)) vals[l]=v; });
-    bmSt.vals=vals; bmSt.at=Date.now(); bmSt.title=p.title||''; bmSave(); renderBM();
-  }catch(e){ setMsg('Could not load the internal benchmark: '+esc((e&&e.message)||(e&&e.code)||String(e)),'err'); }
+    // Column Q is the % of sales; columns B to M are the monthly forecast itself. A label that
+    // recurs (Salary sits under People and under Director) keeps its first, top-level meaning.
+    const vals={}, mon={}; A.forEach(row=>{ const l=bmNorm(row&&row[0]); if(!l) return; const v=row[ci];
+      if(typeof v==='number'&&!(l in vals)) vals[l]=v;
+      if(!(l in mon)&&row.slice(1,13).some(x=>typeof x==='number')) mon[l]=row.slice(1,13).map(x=>typeof x==='number'?x:0); });
+    bmSt.vals=vals; bmSt.mon=mon; bmSt.at=Date.now(); bmSt.title=title; bmSave(); bmErr='';
+  }catch(e){ bmErr=(e&&e.message)||(e&&e.code)||String(e); if(!quiet) setMsg('Could not load the internal benchmark: '+esc(bmErr),'err'); }
   finally{ const b2=$('bmLoad'); if(b2){ b2.disabled=false; b2.textContent='Reload internal benchmark'; } }
+  if(state.view==='bm') renderBM(); else if(state.view==='home') renderTable();
 }
 function bmActual(){
   const R=fcCompute(); if(!R) return null; const V=R.val, M=R.M, Z=()=>new Array(12).fill(0);
@@ -3550,6 +3566,35 @@ function renderHomeKpi(){
   el.innerHTML=h;
   el.querySelectorAll('[data-hkgo]').forEach(b=>b.addEventListener('click',()=>{ $('viewSel').value=b.dataset.hkgo; $('viewSel').dispatchEvent(new Event('change')); window.scrollTo({top:$('controls').offsetTop-10,behavior:'smooth'}); }));
 }
+// Homepage: the margin forecast the board works from (Forecast2), against the actual months so far,
+// in the forecast's own categories and on its basis (direct labour under People, not cost of sales).
+function homeFcHTML(){
+  const head='<div class="tcard" style="margin-bottom:22px"><h2>Margin forecast vs actual</h2>';
+  if(!bmSt.mon){
+    if(!bmTried&&(mcp||MODE==='web')){ bmTried=true; setTimeout(()=>bmLoad(true),0); }
+    return head+`<p class="hint" style="margin:8px 0">${bmErr?'Could not load tab <b>'+esc(bmSt.tab)+'</b> of the forecast workbook: '+esc(bmErr):'Loading tab <b>'+esc(bmSt.tab)+'</b> of the forecast workbook…'}</p>${bmErr?'<button id="hfcLoad">Try again</button>':''}</div>`;
+  }
+  const A=bmActual(); if(!A) return '';
+  const M=A.M, js=[]; for(let j=state.from;j<=Math.min(state.to,M);j++) js.push(j);
+  if(!js.length) return '';
+  const IL={}; A.L.forEach(([l,a,kind])=>IL[l]={a,kind});
+  const sum=(a,J)=>J.reduce((t,j)=>t+(a[j]||0),0), F=l=>bmSt.mon[bmNorm(l)]||null;
+  const fS=F('Sales'), fsum=fS?sum(fS,js):0, asum=sum(A.sales,js), fy=fS?sum(fS,[...Array(12).keys()]):0;
+  const pc=(x,y)=>Math.abs(y)>0.5?(x/y*100).toFixed(1)+'%':'–';
+  const R=[['Sales',A.sales,'margin',0],['Cost of Sales',null,'cost',0],['Gross Retail Margin',null,'margin',0],['Operating Expenditure',null,'cost',0],
+    ['Admin',null,'cost',1],['Operation',null,'cost',1],['People',null,'cost',1],['Marketing',null,'cost',1],['Finance',null,'cost',1],['Director',null,'cost',1],['Net Retail Margin',null,'margin',0]];
+  const per=MONTHS[js[0]]+(js.length>1?'–'+MONTHS[js[js.length-1]]:'')+' 2026';
+  let h=head+`<div class="hint">${per}, consolidated (inter-co eliminated) · forecast from tab <b>${esc(bmSt.tab)}</b>${bmSt.title?' of '+esc(bmSt.title):''} · forecast basis: direct labour sits in People, not Cost of Sales</div>
+    <table class="tc" style="margin-top:8px"><tr class="sub"><td></td><td class="r wide">Forecast</td><td class="r wide">Actual</td><td class="r">Variance</td><td class="r">Fcst %</td><td class="r">Actual %</td><td class="r wide">FY 2026 fcst</td></tr>`;
+  R.forEach(([l,ser,kind,lvl])=>{ const a=ser||(IL[l]&&IL[l].a), f=F(l); if(!a&&!f) return;
+    const av=a?sum(a,js):0, fv=f?sum(f,js):0, d=av-fv, good=kind==='margin'?d>=0:d<=0, top=lvl===0&&l!=='Sales';
+    const cls=(l==='Gross Retail Margin'||l==='Net Retail Margin')?'big':top?'sub':'';
+    h+=`<tr class="${cls}"><td style="padding-left:${4+lvl*14}px">${l}</td><td class="r wide">${f?fmt0(fv):'–'}</td><td class="r wide">${fmt0(av)}</td>
+      <td class="r" style="color:var(--${Math.abs(d)<0.5?'muted':good?'ok':'bad'})">${f?(d>0?'+':'')+fmt0(d):'–'}</td>
+      <td class="r">${l==='Sales'?'':f?pc(fv,fsum):'–'}</td><td class="r">${l==='Sales'?'':pc(av,asum)}</td><td class="r wide">${f?fmt0(sum(f,[...Array(12).keys()])):'–'}${l!=='Sales'&&f&&fy?`<span class="note">${pc(sum(f,[...Array(12).keys()]),fy)}</span>`:''}</td></tr>`; });
+  h+=`<tr><td colspan="7"><span class="note">Variance: green is better than forecast (more sales or margin, less cost), red is worse. Actual is mapped to the forecast categories the same way as Forecast and Margin vs Benchmark. Loaded ${dt(bmSt.at)}.</span></td></tr></table></div>`;
+  return h;
+}
 // Homepage: where the operating costs go. Built from the workbook's own group totals, with the
 // directors' share pulled out of statutory contributions, training and refreshment so it reads as
 // one figure; anything left unclassified is shown as "Other", so the categories always add up to
@@ -3620,8 +3665,9 @@ function renderTable(){
     $('tablebox').style.maxHeight='none';
     if(state.res) try{ renderHomeKpi(); }catch(e){ $('homekpi').innerHTML=''; }
     $('tablebox').innerHTML=state.res
-      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ try{ return '<div class="taxwrap" style="padding-bottom:0">'+homeOpexHTML()+'</div>'; }catch(e){ return ''; } })()+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
+      ? '<div class="stmt"><h3>OVERVIEW</h3><p class="sub2">The period\u2019s result and the position behind it are above. Pick a view from the list for the detail: statements, reconciliations, tax, zakat, forecast and budget.</p></div>'+(()=>{ let x=''; try{ x+=homeFcHTML(); }catch(e){} try{ x+=homeOpexHTML(); }catch(e){} return '<div class="taxwrap" style="padding-bottom:0">'+x+'</div>'; })()+(()=>{ try{ return state.res.raw?homeTaxHTML():''; }catch(e){ return ''; } })()
       : '<div class="empty">Press Refresh data to load the workbook.</div>';
+    const hb=$('hfcLoad'); if(hb) hb.addEventListener('click',()=>{ bmErr=''; bmLoad(false); });
     return;
   }
   if(state.view==='mg'){ $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight=''; return renderMG(); }
@@ -3639,7 +3685,7 @@ function renderTable(){
   if(state.view==='bank'){ $('legend').hidden=true; $('csv').hidden=true; return renderBank(); }
   if(state.view==='fin'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderFin(); }
   if(state.view==='zk'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderZak(); }
-  if(state.view==='bm'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; if(!bmSt.vals&&mcp) setTimeout(bmLoad,0); return renderBM(); }
+  if(state.view==='bm'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; if(!bmSt.vals&&(mcp||MODE==='web')) setTimeout(bmLoad,0); return renderBM(); }
   if(state.view==='bud'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderBudget(); }
   if(state.view==='fc'){ $('legend').hidden=true; $('csv').hidden=true; $('rangeCtl').style.display='none'; return renderFC(); }
   if(state.view==='sum'){ $('legend').hidden=true; $('csv').hidden=true; return renderSummary(); }

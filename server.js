@@ -23,6 +23,8 @@ const CF_IDS = {
   v: process.env.CF79V_FILE_ID || "1HG-szfIeeKbhgg7k7KD1_9i2UEDLOzPulsDibEXrSUQ",
   a: process.env.CFARABINA_FILE_ID || "1wWDiW5UHSnYx3IeK8US23uBK0cMYq3uXgwckgTzS_Hg",
 };
+// The forecast workbook whose Forecast2 tab is the margin forecast the board works from.
+const FC_ID = process.env.FORECAST_FILE_ID || "1dGsuzK1g5KOAVNdWNm6yf5BI3ETMQEpD";
 const CACHE_MS = 60_000;
 const caches = new Map();
 
@@ -61,7 +63,7 @@ async function fetchWorkbook(id) {
 // key picks the id from the table above, never from the request, so a caller cannot steer the
 // fetch at some other Drive file.
 async function serveWorkbook(res, key) {
-  const id = key === "consol" ? FILE_ID : CF_IDS[key];
+  const id = key === "consol" ? FILE_ID : key === "fc" ? FC_ID : CF_IDS[key];
   if (!id) {
     res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "unknown_workbook" }));
@@ -209,6 +211,7 @@ const server = http.createServer(async (req, res) => {
     "/api/consol.xlsx": "consol",
     "/api/cashflow-79v.xlsx": "v",
     "/api/cashflow-arabina.xlsx": "a",
+    "/api/forecast.xlsx": "fc",
   };
   if (WORKBOOK_ROUTES[urlPath]) {
     serveWorkbook(res, WORKBOOK_ROUTES[urlPath]);
