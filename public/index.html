@@ -2944,7 +2944,7 @@ function renderZak(){
     if(z.nisab==null) h+='<div class="verdict">Enter the nisab to check whether zakat is due at all.</div>';
     else if(z.meets===false) h+=`<div class="verdict">The base of ${fmt(z.zakatable)} is below the nisab of ${fmt(z.nisab)}, so no zakat is due this haul.</div>`;
     else h+=`<div class="verdict">The base of ${fmt(z.zakatable)} is at or above the nisab of ${fmt(z.nisab)}.</div>`;
-    h+=`<div class="hint" style="margin-top:8px">Zakat paid by the company is a rebate against tax under s44(11A), capped at 2.5% of aggregate income. Enter the figure under <i>Company zakat deduction</i> in Tax &amp; CP204 to carry it into the tax computation.</div>`;
+    h+=`<div class="hint" style="margin-top:8px">For a company, zakat paid is a <b>deduction from aggregate income</b> under s44(11A), capped at 2.5% of aggregate income and reported at A13 on Form C — not the full tax rebate a sole proprietorship or partnership receives. Where the zakat exceeds that cap, only the capped amount is deductible. Enter the deductible figure under <i>Company zakat deduction</i> in Tax &amp; CP204.</div>`;
     h+='</div>';
   }
   h+=`</div><p class="taxfoot">Both methods start from the same figure, because current assets − current liabilities equals equity + non-current liabilities − non-current assets. They part only on the adjustments each authority requires. Balances are the QuickBooks balance sheet at ${asAt(bsLastMonth())}, unaudited. Adjustment rules, nisab and the treatment of Muslim ownership differ between state zakat authorities; confirm with your own before paying. Assumptions are saved in this browser only.</p></div>`;
