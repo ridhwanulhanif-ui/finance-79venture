@@ -79,7 +79,7 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .bodl{margin:6px 0 0;padding-left:0;list-style:none;font-size:15px;line-height:1.5}
 .bodl li{padding:6px 0;border-bottom:1px solid var(--rule2)}.bodl li:last-child{border-bottom:0}
 .bodl.num{list-style:decimal;padding-left:22px}
-.bodl .st-g,.bods .st-g{color:var(--ok)}.bodl .st-w,.bods .st-w{color:var(--warn)}.bodl .st-b,.bods .st-b{color:var(--bad)}
+.bod .st-g{color:var(--ok)}.bod .st-w{color:var(--warn,#8A5A10)}.bod .st-b{color:var(--bad)}
 .bodbar:hover path{opacity:.8}
 
 .eqnote details>summary{cursor:pointer;font-weight:600;color:var(--ink);width:max-content;max-width:100%}
@@ -3661,11 +3661,16 @@ let bodTgtTried=false, bodTgtErr='';
 async function bodTargets(){
   if(bmSt.vals||bodTgtTried) return; bodTgtTried=true;
   try{
-    let u8;
+    let u8, wb=null;
     if(MODE==='web'){
-      const r=await fetch('/api/forecast.xlsx',{cache:'no-store'});
-      if(!r.ok){ let j=null; try{ j=await r.json(); }catch(e){} throw new Error(j&&j.error==='not_shared'?'the forecast workbook is not shared "anyone with the link", so this server cannot read it':'the server could not fetch the forecast workbook (HTTP '+r.status+')'); }
-      u8=new Uint8Array(await r.arrayBuffer());
+      // The consolidation workbook is already readable here, so a copy of the budget tab placed in it
+      // is found first; the separate forecast workbook is read only if it is shared.
+      try{ const c=await fetch('/api/consol.xlsx',{cache:'no-store'}); if(c.ok){ const w=XLSX.read(new Uint8Array(await c.arrayBuffer()),{type:'array'});
+        if(w.SheetNames.some(n=>n.trim().toLowerCase()===String(bmSt.tab).trim().toLowerCase())) wb=w; } }catch(e){}
+      if(!wb){
+        const r=await fetch('/api/forecast.xlsx',{cache:'no-store'});
+        if(!r.ok){ let j=null; try{ j=await r.json(); }catch(e){} throw new Error((j&&j.error==='not_shared'?'the forecast workbook is not shared "anyone with the link", so this server cannot read it':'the server could not fetch the forecast workbook (HTTP '+r.status+')')+'. Copy tab '+bmSt.tab+' into the consolidation workbook, or share the forecast workbook, and refresh'); }
+        u8=new Uint8Array(await r.arrayBuffer()); }
     } else {
       if(!mcp) throw new Error('the Google Drive connector is not available here');
       const r=await mcp.callTool(SERVER,'download_file_content',{fileId:fcSt.fid},{cache:false}); const p=payloadOf(r)||{};
@@ -3673,7 +3678,7 @@ async function bodTargets(){
       const bin=atob(p.content); u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
       bmSt.title=p.title||'';
     }
-    const wb=XLSX.read(u8,{type:'array'});
+    if(!wb) wb=XLSX.read(u8,{type:'array'});
     const tab=wb.SheetNames.find(n=>n.trim().toLowerCase()===String(bmSt.tab).trim().toLowerCase()); if(!tab) throw new Error('tab "'+bmSt.tab+'" not found in the forecast workbook');
     const ci=XLSX.utils.decode_col(String(bmSt.col||'Q').toUpperCase());
     // A line the sheet leaves without a % (Admin) gets one from its year total (column N) over sales.
