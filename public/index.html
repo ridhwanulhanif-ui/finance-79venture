@@ -2878,7 +2878,33 @@ function zakRow(e,k,label,type,opts,note){
 }
 function renderZak(){
   if(!state.res||!state.res.bs){ $('tablebox').innerHTML='<div class="empty">Press Refresh data to load the balance sheets.</div>'; return; }
-  let h='<div class="taxwrap"><div class="taxgrid">';
+  let h='<div class="taxwrap">';
+  {
+    const zv=zakCalc('v'), za=zakCalc('a');
+    const same=zv&&za&&Math.abs(zv.mk-zv.mb)<0.05&&Math.abs(za.mk-za.mb)<0.05;
+    h+=`<details class="src" style="margin:0 0 18px;border-top:0;padding-top:0"><summary>How the two methods differ</summary>
+    <div style="max-width:70ch;font-size:13.5px;line-height:1.6;margin-top:10px">
+      <p style="margin:0 0 10px"><b>Working capital</b> (Modal Kerja) takes <i>current assets − current liabilities</i>. It is the method for a company that
+      classifies current and non-current on its balance sheet: Sdn Bhd, Berhad, cooperative, enterprise, trading. Both companies here are Sdn Bhd, so this is the one to use.</p>
+      <p style="margin:0 0 10px"><b>Growth capital</b> (Modal Berkembang) takes <i>equity + non-current liabilities − non-current assets</i>. It is for entities that
+      do not make that split, such as Islamic banks and takaful operators.</p>
+      <p style="margin:0 0 10px"><b>Before adjustments the two give the same number.</b> That is not a coincidence. The balance sheet says assets equal liabilities
+      plus equity, so <i>CA + NCA = CL + NCL + E</i>, and rearranged, <i>CA − CL = (E + NCL) − NCA</i>. The left side is working capital, the right side is growth
+      capital. They are two routes to one figure.</p>
+      ${zv&&za?`<table class="tc" style="max-width:520px;margin:0 0 10px"><tbody>
+        <tr><td></td><td class="r">Working capital</td><td class="r">Growth capital</td></tr>
+        <tr><td>79 Ventures</td><td class="r">${fmt(zv.mk)}</td><td class="r">${fmt(zv.mb)}</td></tr>
+        <tr><td>Arabina</td><td class="r">${fmt(za.mk)}</td><td class="r">${fmt(za.mb)}</td></tr>
+      </tbody></table><p style="margin:0 0 10px">${same?'On this balance sheet they agree to the sen, which also confirms the balance sheet balances.':'They do not agree here, which means the balance sheet is not balancing — check the balance sheet view before relying on either figure.'}</p>`:''}
+      <p style="margin:0 0 10px"><b>So what separates them is the adjustments.</b> Working capital deducts current assets that are not subject to zakat — bad debts,
+      non-productive or non-halal holdings, anything not held for trade. Growth capital adjusts from the fixed-asset and long-term-funding side instead. Because each
+      method removes a different set of items, the answers part company only after that step, never before it.</p>
+      <p style="margin:0"><b>The rate.</b> 2.5% is the figure in the Malaysian state formulas. A rate of 2.577% appears where zakat is computed on a Gregorian year
+      rather than a lunar one, since a solar year is about 11 days longer; the state formulas published here use 2.5%. Which adjustments count, the nisab, and whether
+      the Muslim ownership share applies all differ between state zakat authorities, so confirm the detail with yours.</p>
+    </div></details>`;
+  }
+  h+='<div class="taxgrid">';
   for(const e of ['v','a']){
     const z=zakCalc(e), c=zakCfg[e];
     const NAME={v:'79 Ventures Sdn Bhd',a:'Arabina Eco Tiny Homes Sdn Bhd'}[e];
