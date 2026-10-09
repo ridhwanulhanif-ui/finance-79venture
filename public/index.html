@@ -3508,14 +3508,18 @@ function homeMarginHTML(){
   let h=`<div class="tcard" style="margin-bottom:22px"><h2>Retail margin · ${per}</h2><div class="hint">From the books, consolidated (inter-co eliminated), in the layout of the forecast sheet. Direct labour and commission are in People, as on that sheet, so Cost of Sales here is materials, logistics and site costs.</div>
     <div style="overflow-x:auto;margin-top:8px"><table class="tc" style="min-width:${260+js.length*86}px"><tr class="sub"><td>RM</td>${js.map(j=>`<td class="r">${MONTHS[j]}</td>`).join('')}<td class="r">Total</td><td class="r">% sales</td></tr>`;
   h+=line('Sales',sales,{cls:'sub',nop:1});
-  h+=line('Cost of Sales',cos,{cls:'sub'});
-  h+=line('Gross Retail Margin',grm,{cls:'big'});
+  // Direct labour moves out of cost of sales on this layout, so the two lines differ from the P&L
+  // by exactly that amount; say so on the lines themselves rather than leave the reader to find it.
+  const cosB=add(cos,lab), gpB=K('GP');
+  h+=line('Cost of Sales',cos,{cls:'sub',n:`P&amp;L: RM${fmt0(S(cosB))} less direct labour RM${fmt0(S(lab))}, moved to People`});
+  h+=line('Gross Retail Margin',grm,{cls:'big',n:`P&amp;L Gross Profit: RM${fmt0(S(gpB))} (${pc(S(gpB))})`});
   h+=line('Operating Expenditure',opex,{cls:'sub'});
   C.forEach(([l,n,a])=>{ h+=line(l,a,{lvl:1,n}); });
   h+=line('Net Retail Margin',nrm,{cls:'big'});
   h+=line('Other income',oi,{lvl:1});
   h+=line('Depreciation &amp; profit to investors',neg(ox),{lvl:1});
   h+=line('Net Earnings (per books)',ne,{cls:'sub'});
+  h+=`<tr><td colspan="${js.length+3}"><span class="note"><b>Why Cost of Sales and Gross Retail Margin differ from the P&amp;L:</b> the board's forecast sheet puts direct labour (RM${fmt0(S(lab))}) under People, while the books put it in Cost of Sales. Cost of Sales here is lower and Gross Retail Margin higher by that amount, and Operating Expenditure higher by the same amount, so Net Earnings is unchanged and equals the P&amp;L (RM${fmt0(S(ne))}). The ${pc(S(gpB))} gross margin in the summary above is the books' figure.</span></td></tr>`;
   return h+'</table></div></div>';
 }
 // Homepage: what the loans cost each month, read off the balance sheet. Each loan's gross balance
