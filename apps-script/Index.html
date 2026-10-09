@@ -60,6 +60,8 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .eq .op{position:relative}
 .eq .last{border-bottom:none}
 .eq .sub{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
+.eq .ind{font-weight:400;color:var(--muted)} .eq .lab.ind{padding-left:30px}
+.eq .ind.n{font-size:14px} .eq .tt{border-top:1px solid var(--rule)} .eq .lab.tt,.eq .tt.n{font-weight:700}
 .eqnote{font-size:12px;color:var(--muted);margin:0 0 18px}
 
 .controls{display:flex;flex-wrap:wrap;gap:14px;align-items:center;margin:8px 0 12px}
@@ -573,13 +575,23 @@ function bsLastMonth(){ const B=state.res&&state.res.bs; if(!B) return state.to;
 // Stock gets two lines, not one: goods in transit are paid for but not yet landed, and since the
 // September transfer the two companies hold very different amounts of each.
 const GIT_RE=/^good in transit/i;
+// 79V writes this account "Inventory Hardware-Danial" and Arabina "Inventory Hardware - Danial",
+// so the spacing around the dash cannot be relied on.
 function bsStock(D,j){
-  let git=0, inv=0;
+  let git=0, inv=0; const acc={};
   D.rows.forEach(r=>{ if(/^Total/i.test(r.l)) return; const x=r.vals[j]; if(x==null) return;
-    if(GIT_RE.test(r.l)) git+=x; else if(/^inventory/i.test(r.l)) inv+=x; });
+    if(GIT_RE.test(r.l)){ git+=x; return; }
+    if(!/^inventory/i.test(r.l)) return;
+    inv+=x; const k=stockKey(r.l); acc[k]=(acc[k]||0)+x; });
   const R=x=>Math.round(x*100)/100;
-  return {git:R(git), inv:R(inv)};
+  Object.keys(acc).forEach(k=>acc[k]=R(acc[k]));
+  return {git:R(git), inv:R(inv), acc};
 }
+// The same account is spelled differently in the two companies ("Inventory Hardware-Danial" in 79V,
+// "Inventory Hardware - Danial" in Arabina), so the breakdown matches on a normalised name or the
+// two companies would show as separate lines that never add up.
+function stockKey(l){ return l.toLowerCase().replace(/\s*-\s*/g,'-').replace(/\s+/g,' ').trim(); }
+function stockLabel(l){ return l.replace(/^Inventory\s*/i,'').replace(/\s*-\s*/g,' \u2013 ').trim()||'Inventory'; }
 function renderEqBS(elId,noteId){
   const EL=elId||'eq', NOTE=noteId||'eqnote';
   const B=state.res.bs; const j=bsLastMonth();
@@ -588,9 +600,17 @@ function renderEqBS(elId,noteId){
   const tlV=(()=>{ const t=tv.tle[j]||0, e=tv.eq[j]||0; return t-e; })(), tlA=(tA.tle[j]||0)-(tA.eq[j]||0);
   const sv=bsStock(B.v,j), sa=bsStock(B.a,j);
   const L=[['Total Assets',tv.ta[j]||0,tA.ta[j]||0,B.c.sum.ta[j]],['Total Liabilities',tlV,tlA,B.c.sum.tl[j]],['Equity',tv.eq[j]||0,tA.eq[j]||0,B.c.sum.eq[j]],['Cash at Bank',tv.cash[j]||0,tA.cash[j]||0,B.c.sum.cash[j]],
-    ['Inventory',sv.inv,sa.inv,Math.round((sv.inv+sa.inv)*100)/100],['Goods in Transit',sv.git,sa.git,Math.round((sv.git+sa.git)*100)/100]];
+    ['Goods in Transit',sv.git,sa.git,Math.round((sv.git+sa.git)*100)/100]];
+  // Inventory broken out account by account, then totalled: the board asks what the stock is made
+  // of, and a single figure cannot answer that. Labels come from whichever company uses the account.
+  const names={}; [[B.v,sv],[B.a,sa]].forEach(([D])=>D.rows.forEach(r=>{ if(/^Total/i.test(r.l)||!/^inventory/i.test(r.l)) return;
+    const k=stockKey(r.l); if(!names[k]) names[k]=stockLabel(r.l); }));
+  const keys=Object.keys(names).filter(k=>Math.abs(sv.acc[k]||0)>0.004||Math.abs(sa.acc[k]||0)>0.004)
+    .sort((x,y)=>((sv.acc[y]||0)+(sa.acc[y]||0))-((sv.acc[x]||0)+(sa.acc[x]||0)));
+  keys.forEach(k=>{ const v=sv.acc[k]||0, a=sa.acc[k]||0; L.push([names[k],v,a,Math.round((v+a)*100)/100,{ind:1}]); });
+  L.push(['Total inventory',sv.inv,sa.inv,Math.round((sv.inv+sa.inv)*100)/100,{tot:1}]);
   let h=`<div class="h">As at ${MONTHS[j]} 2026</div><div class="h v" style="text-align:right">79V</div><div class="h a" style="text-align:right">+ Arabina</div><div class="h" style="text-align:right">− Elim. inter-co</div><div class="h c" style="text-align:right">= Consol</div>`;
-  L.forEach(([lab,v,a,c],i)=>{ const cls=i===L.length-1?' last':''; h+=`<div class="lab${cls}">${lab}</div><div class="n e-v${cls}">${fmt0(v)}</div><div class="n e-a${cls}">${fmt0(a)}</div><div class="n${cls}" style="color:var(--muted)">${fmt0(v+a-c)}</div><div class="n c${cls}">${fmt0(c)}</div>`; });
+  L.forEach(([lab,v,a,c,o],i)=>{ const cls=(i===L.length-1?' last':'')+(o&&o.ind?' ind':'')+(o&&o.tot?' tt':''); h+=`<div class="lab${cls}">${lab}</div><div class="n e-v${cls}">${fmt0(v)}</div><div class="n e-a${cls}">${fmt0(a)}</div><div class="n${cls}" style="color:var(--muted)">${fmt0(v+a-c)}</div><div class="n c${cls}">${fmt0(c)}</div>`; });
   $(EL).innerHTML=h;
   // Anyone reading these four figures will eventually ask which rows they came from, so the
   // note names the workbook, the tabs and the exact row label behind each line.
@@ -598,7 +618,7 @@ function renderEqBS(elId,noteId){
   $(NOTE).innerHTML='<b>Where these come from:</b> '+esc(wbk)+' \u2014 tab <b>'+esc(cfg.bv||DEF.bv)+'</b> for 79V and <b>'+esc(cfg.ba||DEF.ba)+'</b> for Arabina, column <b>'+MONTHS[j]+' 2026</b>. '
     +'Total Assets = the <i>Total for Assets</i> row. Total Liabilities = <i>Total for Liabilities and Shareholder\u2019s Equity</i> less <i>Total for Shareholders\u2019 Equity</i>, so it covers current and non-current liabilities together. '
     +'Equity = <i>Total for Shareholders\u2019 Equity</i>. Cash at Bank = <i>Total for Cash at Bank</i>. '
-    +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
+    +'Inventory adds up the <i>Inventory\u2026</i> accounts and Goods in Transit is the <i>Good In Transit</i> row \u2014 shown apart because goods in transit are paid for but have not landed yet. The indented lines break that total down account by account; the same account is spelled differently in the two companies (<i>Inventory Hardware-Danial</i> against <i>Inventory Hardware - Danial</i>), so they are matched on a normalised name and added together. Neither is eliminated: the inter-co inventory transfer sits in the Amount Due From/To balances, not in stock. '
     +'The <b>Consol</b> column is calculated here as 79V + Arabina \u2212 inter-co elimination; it is not a row in the workbook. '
     +'Inter-co elim. = Amount Due From/To balances between 79V and Arabina (incl. Management Fee, COGS, Income, Marketing, assets). '
     +(Math.abs(d)<0.01?'Inter-co balances match this month.':'Unmatched inter-co difference this month: RM'+fmt(d)+'.')+' Amounts in RM.';
