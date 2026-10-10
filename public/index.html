@@ -279,19 +279,8 @@ table.cs td.num{min-width:70px}
     </div>
   </header>
 
-  <div id="msgs"></div>
-  <div id="checks"></div>
-
-  <section aria-label="Period summary" id="eqbox" hidden>
-    <div class="eq" id="eq"></div>
-    <div class="eqnote" id="eqnote"></div>
-    <div id="eqbsbox" hidden>
-      <div class="eq" id="eqbs"></div>
-      <div class="eqnote" id="eqbsnote"></div>
-    </div>
-  </section>
-
-  <div class="controls" id="controls" hidden>
+  <!-- The view picker sits at the top, so a view can be chosen without scrolling past the summary. -->
+  <div class="controls" id="controls" hidden style="margin-top:14px">
     <label class="viewpick">View
       <select id="viewSel" aria-label="Select view">
         <optgroup label="Overview">
@@ -368,6 +357,19 @@ table.cs td.num{min-width:70px}
     <label><input type="checkbox" id="hideZero" checked> Hide empty rows</label>
     </span>
   </div>
+
+
+  <div id="msgs"></div>
+  <div id="checks"></div>
+
+  <section aria-label="Period summary" id="eqbox" hidden>
+    <div class="eq" id="eq"></div>
+    <div class="eqnote" id="eqnote"></div>
+    <div id="eqbsbox" hidden>
+      <div class="eq" id="eqbs"></div>
+      <div class="eqnote" id="eqbsnote"></div>
+    </div>
+  </section>
 
   <div class="tablebox" id="tablebox"><div class="empty" id="empty">
     <div class="skel" style="width:40%;margin:0 auto 10px"></div><div class="skel" style="width:60%;margin:0 auto"></div>
