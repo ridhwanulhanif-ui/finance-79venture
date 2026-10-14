@@ -82,6 +82,10 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .bod .st-g{color:var(--ok)}.bod .st-w{color:var(--warn,#8A5A10)}.bod .st-b{color:var(--bad)}
 .bodbar:hover path{opacity:.8}
 
+.eqbar{display:flex;justify-content:flex-end;margin:14px 0 -14px}
+.eqbar button{font:600 12.5px var(--sans);padding:4px 12px;border:1.5px solid var(--rule);border-radius:6px;background:var(--card);color:var(--muted)}
+#eqbox.shut .eqbar{margin-bottom:6px}
+#eqbox.shut > :not(.eqbar){display:none!important}
 .eqnote details>summary{cursor:pointer;font-weight:600;color:var(--ink);width:max-content;max-width:100%}
 .eqnote details[open]>summary{margin-bottom:4px}
 
@@ -369,6 +373,7 @@ table.cs td.num{min-width:70px}
   <div id="checks"></div>
 
   <section aria-label="Period summary" id="eqbox" hidden>
+    <div class="eqbar"><button type="button" id="eqTog" aria-expanded="true" aria-controls="eqbox">Hide summary</button></div>
     <div class="eq" id="eq"></div>
     <div class="eqnote" id="eqnote"></div>
     <div id="eqbsbox" hidden>
@@ -804,6 +809,7 @@ function renderEqBS(elId,noteId){
   $(NOTE).querySelector('details').addEventListener('toggle',e=>{ eqNoteOpen=e.target.open; });
 }
 let eqNoteOpen=false;
+document.addEventListener('click',ev=>{ if(ev.target&&ev.target.id==='eqTog'){ const shut=!$('eqbox').classList.contains('shut'); store.set('consol.eqhide',shut?'1':'0'); renderEq(); } });
 // ===== Audit-style statements =====
 // The divider between the account names and the figures can be dragged, because how much
 // room the names need depends on the statement and on who is reading it.
@@ -2865,6 +2871,12 @@ function renderEq(){
   // context for whatever is being looked at, not a feature of the P&L views alone.
   // The board page answers its own questions; the dense bands would sit on top of them.
   $('eqbox').hidden=!state.res||state.view==='bod';
+  // The bands can be folded away on the detail views so the table starts at the top; the
+  // homepage is the bands themselves, so they always show there.
+  { let off=false; try{ off=store.get('consol.eqhide')==='1'; }catch(e){}
+    const shut=off&&state.view!=='home', t=$('eqTog');
+    $('eqbox').classList.toggle('shut',shut);
+    if(t){ t.hidden=state.view==='home'; t.textContent=shut?'Show summary (P&L and balance sheet)':'Hide summary'; t.setAttribute('aria-expanded',String(!shut)); } }
   // A balance sheet view already shows these in the main box; everywhere else they
   // ride along underneath, so assets, liabilities and equity are never more than a glance away.
   const onBS=!!(state.view&&state.view.startsWith('bs'));
