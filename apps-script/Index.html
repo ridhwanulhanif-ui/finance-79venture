@@ -3912,7 +3912,7 @@ function homeTaxHTML(){
       <tr><td>Current estimate<span class="note">vs estimated tax YA2026 ${R(P.t.tax)}</span></td><td class="r">${R(P.t.est)}</td></tr>
       <tr><td>Revise to<span class="note">Full estimated tax. The minimum that avoids a penalty is ${R(P.min.rev)} (70%).</span></td><td class="r"><b>${R(P.full.rev)}</b></td></tr>
       <tr><td>Paid to ${mo}<span class="note">including instalments still due at the current ${R(P.t.cur)} a month</span></td><td class="r">${R(P.paid)}</td></tr>
-      <tr><td>New instalment × ${P.rem}<span class="note">pay by ${D(P.due)}</span></td><td class="r"><b>${R(P.full.inst)}</b></td></tr>
+      <tr><td>New instalment, per month<span class="note">${P.rem} instalments: pay ${R(P.full.inst)} by ${P.due.join(', and again by ')} · ${R(P.full.inst*P.rem)} in total</span></td><td class="r"><b>${R(P.full.inst)}</b></td></tr>
       <tr class="${req?'warn':'okr'}"><td>Penalty if not revised</td><td class="r">${R(P.pen0)}</td></tr>`;
     } else h+=`<tr class="sub"><td>CP204A YA2026</td><td class="r">Windows closed</td></tr>`;
     h+=`<tr class="sub"><td>CP204 YA2027${ex?'<span class="note">only if the new-SME exemption has ended; check with the tax agent</span>':''}</td><td class="r"><b>${R(n.cp)}</b></td></tr>
