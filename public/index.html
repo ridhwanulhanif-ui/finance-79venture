@@ -3033,12 +3033,29 @@ function cp204Next(e){
 // What the next CP204A window means in money and dates. Instalments are due on the 15th from the
 // 2nd month of the basis period to the 13th (15 Feb 2026 to 15 Jan 2027); a revision in month m
 // changes the instalments after it, so 13 − m are left, each (revised estimate − paid) ÷ that.
+// Official LHDN instalment schedule (from the latest e-CP204/CP204A submission). When it is here,
+// "paid to" uses the amount that should have been paid per the schedule, as e-CP204A itself does.
+const SCHED204={v:{ref:'e-CP204A pindaan bulan ke-9, submitted 8 Jul 2026',est:22503,
+  pdf:'https://drive.google.com/file/d/1m2mQ3PGDz3o9Jimth122zwO07jFIfUIz/view',
+  inst:[1625,1625,1625,1625,1625,1625,1625,2225,2225,2225,2225,2228]}};
+const schedPaid=(e,m)=>{ const S=SCHED204[e]; return S?S.inst.slice(0,m-1).reduce((a,b)=>a+b,0):null; };
+function schedHTML(e,m,books){
+  const S=SCHED204[e]; if(!S) return '';
+  const R=x=>'RM'+fmt0(x), today=new Date(); let tot=0;
+  const rows=S.inst.map((a,i)=>{ tot+=a; const mi=i+1, d=new Date(mi>11?2027:2026,mi%12,15);
+    const st=mi<=m-1?(d<today?'Due date passed':'Due 15 '+MONTHS[mi%12]):'Replaced if revised';
+    return `<tr${mi===m-1?' style="border-bottom:2px solid var(--ink,#333)"':''}><td>${i+1}</td><td>15 ${MONTHS[mi%12]} ${mi>11?2027:2026}</td><td class="r">${R(a)}</td><td><span class="note" style="margin:0">${st}</span></td></tr>`; }).join('');
+  return `<details style="margin-top:6px"><summary style="cursor:pointer;display:inline-block;font:600 12.5px var(--sans);padding:4px 10px;border:1.5px solid var(--v79);border-radius:6px;color:var(--v79)">View LHDN schedule (12 instalments)</summary>
+  <div style="overflow-x:auto"><table class="tc" style="margin-top:6px;font-size:12px"><tr class="sub"><td>#</td><td>Due</td><td class="r">Amount</td><td></td></tr>${rows}
+  <tr class="sub"><td colspan="2">Total (estimate ${R(S.est)})</td><td class="r">${R(tot)}</td><td></td></tr></table></div>
+  <span class="note">${S.ref}. Instalments 1–${m-1} add up to ${R(schedPaid(e,m))}, the figure e-CP204A deducts.${books!=null&&Math.abs(books-schedPaid(e,m))>1?` The books show ${R(books)} (CP204 booked, plus the instalments still to come); the gap is timing of what was actually paid, e.g. the June catch-up.`:''} <a href="${S.pdf}" target="_blank" rel="noopener">Open the PDF</a></span></details>`;
+}
 function cp204aPlan(e){
   const {nxt}=windowsInfo(); if(!nxt) return null;
-  const t=taxCalc(e), m=nxt.m, rem=13-m, paid=t.paidThru(m);
+  const t=taxCalc(e), m=nxt.m, rem=13-m, books=t.paidThru(m), sp=schedPaid(e,m), paid=sp!=null?sp:books;
   const due=[...MONTHS.slice(m,12).map(x=>'15 '+x+' 2026'),'15 Jan 2027'];
   const plan=rev=>({rev,inst:Math.max(0,(rev-paid)/rem),pen:penalty(t.tax,rev)});
-  return {t,m,st:nxt.st,last:new Date(2026,m,0).getDate(),rem,paid,due,pen0:penalty(t.tax,t.est),
+  return {t,m,st:nxt.st,last:new Date(2026,m,0).getDate(),rem,paid,books,sched:sp!=null,due,pen0:penalty(t.tax,t.est),
     full:plan(t.tax),min:plan(t.tax*0.7)};
 }
 function windowsInfo(){
@@ -3105,12 +3122,12 @@ function renderTax(){
       if(pen0<=0 && ex<=0) h+=`<div class="verdict">The CP204 estimate is sufficient. <b>CP204A is not required</b> (unless you want to reduce instalments).</div>`;
       else if(pen0<=0) h+=`<div class="verdict">The excess is within the 30% limit, so <b>no penalty</b>. CP204A is optional. The balance of ${fmt(ex)} is payable with Form C.</div>`;
       if(nxt){
-        const m=nxt.m, rem=13-m, paid=t.paidThru(m);
+        const m=nxt.m, rem=13-m, books=t.paidThru(m), sp=schedPaid(e,m), paid=sp!=null?sp:books;
         const last=new Date(2026,m,0).getDate();
         const opts=[['Full revision (= estimated tax)',t.tax],['Minimum revision to avoid penalty (70%)',t.tax*0.7]];
         if(c.cust!==''&&c.cust!=null) opts.push(['Your chosen figure',+c.cust]);
         if(pen0>0) h+=`<div class="verdict bad"><b>CP204A required</b> in the month ${m} window: submit e-CP204A on MyTax between 1–${last} ${MONTHS[m-1]} 2026.</div>`;
-        h+=`<table class="tc"><tr><td>Paid to ${MONTHS[m-1]} (estimate)<span class="note">${rem} instalments remaining: ${MONTHS.slice(m,12).join(', ')}, Jan 2027</span></td><td class="r">${fmt(paid)}</td></tr>`;
+        h+=`<table class="tc"><tr><td>Paid to ${MONTHS[m-1]} ${sp!=null?'(LHDN schedule)':'(estimate)'}<span class="note">${rem} instalments remaining: ${MONTHS.slice(m,12).join(', ')}, Jan 2027</span>${schedHTML(e,m,books)}</td><td class="r">${fmt(paid)}</td></tr>`;
         opts.forEach(([lab,rev])=>{ const inst=(rev-paid)/rem, bal=t.tax-rev, p=penalty(t.tax,rev);
           h+=`<tr class="sub"><td>${lab}</td><td class="r">${fmt(rev)}</td></tr>
           <tr><td>Monthly instalment ${MONTHS[m]} 2026–Jan 2027<span class="note">Pay by the 15th</span></td><td class="r">${fmt(Math.max(0,inst))}</td></tr>
@@ -3819,7 +3836,7 @@ function homeTaxHTML(){
       <tr><td>Submit e-CP204A on MyTax</td><td class="r"><b>1–${P.last} ${mo} 2026</b></td></tr>
       <tr><td>Current estimate<span class="note">vs estimated tax YA2026 ${R(P.t.tax)}</span></td><td class="r">${R(P.t.est)}</td></tr>
       <tr><td>Revise to<span class="note">Full estimated tax. The minimum that avoids a penalty is ${R(P.min.rev)} (70%).</span></td><td class="r"><b>${R(P.full.rev)}</b></td></tr>
-      <tr><td>Paid to ${mo}<span class="note">including instalments still due at the current ${R(P.t.cur)} a month</span></td><td class="r">${R(P.paid)}</td></tr>
+      <tr><td>Paid to ${mo}<span class="note">${P.sched?`per the LHDN instalment schedule, instalments 1–${P.m-1}`:`including instalments still due at the current ${R(P.t.cur)} a month`}</span>${schedHTML(e,P.m,P.books)}</td><td class="r">${R(P.paid)}</td></tr>
       <tr><td>New instalment, per month<span class="note">${P.rem} instalments: pay ${R(P.full.inst)} by ${P.due.join(', and again by ')} · ${R(P.full.inst*P.rem)} in total</span></td><td class="r"><b>${R(P.full.inst)}</b></td></tr>
       <tr class="${req?'warn':'okr'}"><td>Penalty if not revised</td><td class="r">${R(P.pen0)}</td></tr>`;
     } else h+=`<tr class="sub"><td>CP204A YA2026</td><td class="r">Windows closed</td></tr>`;
