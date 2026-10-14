@@ -3092,18 +3092,22 @@ function cp204Next(e){
 // "paid to" uses the amount that should have been paid per the schedule, as e-CP204A itself does.
 const SCHED204={v:{ref:'e-CP204A pindaan bulan ke-9, submitted 8 Jul 2026',est:22503,
   pdf:'https://drive.google.com/file/d/1m2mQ3PGDz3o9Jimth122zwO07jFIfUIz/view',
-  inst:[1625,1625,1625,1625,1625,1625,1625,2225,2225,2225,2225,2228]}};
+  inst:[1625,1625,1625,1625,1625,1625,1625,2225,2225,2225,2225,2228],
+  // Payments to LHDN as recorded in QuickBooks (date paid, payment voucher), checked 14 Oct 2026.
+  paid:[['13 Feb 2026',''],['13 Mar 2026',''],['15 Apr 2026',''],['15 May 2026','PVBI0526-086'],['15 Jun 2026','PVBI0626-094'],
+    ['14 Jul 2026','PVBI0726-088'],['14 Aug 2026','PVBI0826-105'],['15 Sep 2026','PVBI0926-082']]}};
 const schedPaid=(e,m)=>{ const S=SCHED204[e]; return S?S.inst.slice(0,m-1).reduce((a,b)=>a+b,0):null; };
 function schedHTML(e,m,books){
   const S=SCHED204[e]; if(!S) return '';
   const R=x=>'RM'+fmt0(x), today=new Date(); let tot=0;
   const rows=S.inst.map((a,i)=>{ tot+=a; const mi=i+1, d=new Date(mi>11?2027:2026,mi%12,15);
-    const st=mi<=m-1?(d<today?'Paid':'Due 15 '+MONTHS[mi%12]):'Replaced if revised';
+    const pd=(S.paid||[])[i];
+    const st=pd?`Paid ${pd[0]}${pd[1]?' · '+pd[1]:' · no PV no.'}`:mi<=m-1?(d<today?'Due date passed · no payment recorded here yet':'Due 15 '+MONTHS[mi%12]):'Replaced if revised';
     return `<tr${mi===m-1?' style="border-bottom:2px solid var(--ink,#333)"':''}><td>${i+1}</td><td>15 ${MONTHS[mi%12]} ${mi>11?2027:2026}</td><td class="r">${R(a)}</td><td><span class="note" style="margin:0">${st}</span></td></tr>`; }).join('');
   return `<details style="margin-top:6px"><summary style="cursor:pointer;display:inline-block;font:600 12.5px var(--sans);padding:4px 10px;border:1.5px solid var(--v79);border-radius:6px;color:var(--v79)">View LHDN schedule (12 instalments)</summary>
   <div style="overflow-x:auto"><table class="tc" style="margin-top:6px;font-size:12px"><tr class="sub"><td>#</td><td>Due</td><td class="r">Amount</td><td></td></tr>${rows}
   <tr class="sub"><td colspan="2">Total (estimate ${R(S.est)})</td><td class="r">${R(tot)}</td><td></td></tr></table></div>
-  <span class="note">${S.ref}. Instalments 1–${m-1} add up to ${R(schedPaid(e,m))}, the figure e-CP204A deducts.${books!=null&&Math.abs(books-schedPaid(e,m))>1?` The books show ${R(books)} (CP204 booked, plus the instalments still to come); the gap is timing of what was actually paid, e.g. the June catch-up.`:''} <a href="${S.pdf}" target="_blank" rel="noopener">Open the PDF</a></span></details>`;
+  <span class="note">${S.ref}. Instalments 1–${m-1} add up to ${R(schedPaid(e,m))}, the figure e-CP204A deducts.${books!=null&&Math.abs(books-schedPaid(e,m))>1?` The books show ${R(books)}, because they book each instalment in the month before it falls due, so their figure runs one instalment ahead.`:''} <a href="${S.pdf}" target="_blank" rel="noopener">Open the PDF</a></span></details>`;
 }
 function cp204aPlan(e){
   const {nxt}=windowsInfo(); if(!nxt) return null;
