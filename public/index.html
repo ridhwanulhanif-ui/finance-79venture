@@ -173,6 +173,11 @@ tr.icd td.num.bad{font-weight:700}
 td.good{color:var(--ok)} td.bad{color:var(--bad)}
 .zg{color:var(--ok,#2f7d4f)} .zw{color:#b7791f} .zb{color:var(--bad)}
 .viewpick{display:inline-flex;align-items:center;gap:8px;font-weight:600;max-width:100%;min-width:0}
+.vsearch{position:relative;flex:0 1 260px;min-width:0}
+.vsearch input{width:100%;font:14px var(--sans);padding:8px 10px;border:1.5px solid var(--rule);border-radius:6px;background:var(--card);color:var(--ink)}
+.vsl{position:absolute;left:0;right:0;top:calc(100% + 4px);z-index:30;background:var(--card);border:1px solid var(--rule);border-radius:6px;box-shadow:0 6px 18px rgba(0,0,0,.14);max-height:320px;overflow:auto;min-width:min(320px,90vw)}
+.vsl div{padding:7px 10px;cursor:pointer;font-size:13.5px}.vsl div small{display:block;font-size:11px;color:var(--muted)}
+.vsl div[aria-selected="true"],.vsl div:hover{background:var(--band)}.vsl .none{cursor:default;color:var(--muted)}
 .viewpick select{font:600 14px var(--sans);padding:8px 34px 8px 12px;border:1.5px solid var(--ink);border-radius:6px;background:var(--card);color:var(--ink);min-width:min(300px,100%);max-width:100%;cursor:pointer}
 .stmt{padding:18px 18px 8px;min-width:0} .stmt h3{font-family:var(--sans);font-size:15px;margin:0 0 2px;letter-spacing:.02em}
 .stmt .sub2{font-size:12px;color:var(--muted);margin:0 0 10px}
@@ -340,6 +345,7 @@ table.cs td.num{min-width:70px}
         </optgroup>
       </select>
     </label>
+    <div class="vsearch"><input type="search" id="viewQ" placeholder="Search views… e.g. tax, BS, zakat" autocomplete="off" aria-label="Search views" aria-controls="viewQl"><div id="viewQl" class="vsl" role="listbox" hidden></div></div>
     <div class="seg" role="group" aria-label="View" hidden>
       <button data-view="home" aria-pressed="true">Homepage</button>
       <button data-view="bod" aria-pressed="false">BOD Summary</button>
@@ -4073,6 +4079,21 @@ function toCSV(){
 // events
 $('refresh').addEventListener('click',()=>refresh(true));
 $('viewSel').addEventListener('change',ev=>{ const b=document.querySelector('.seg button[data-view="'+ev.target.value+'"]'); if(b) b.click(); });
+// Search box beside the view list: every word typed must appear in the view's name or its group.
+(()=>{ const q=$('viewQ'), L=$('viewQl'); if(!q) return; let hits=[], at=0;
+  const all=()=>Array.from($('viewSel').querySelectorAll('option')).map(o=>({v:o.value,t:o.textContent.trim(),g:(o.parentNode.label||'')}));
+  const draw=()=>{ L.innerHTML=hits.length?hits.map((h,k)=>`<div role="option" data-v="${h.v}" aria-selected="${k===at}">${esc(h.t)}<small>${esc(h.g)}</small></div>`).join(''):'<div class="none">No view matches</div>'; L.hidden=false; };
+  const find=()=>{ const w=q.value.toLowerCase().split(/\s+/).filter(Boolean); if(!w.length){ L.hidden=true; return; }
+    hits=all().filter(o=>{ const t=(o.t+' '+o.g).toLowerCase(); return w.every(x=>t.includes(x)); }); at=0; draw(); };
+  const go=v=>{ if(!v) return; $('viewSel').value=v; $('viewSel').dispatchEvent(new Event('change')); q.value=''; L.hidden=true; q.blur(); };
+  q.addEventListener('input',find); q.addEventListener('focus',find);
+  q.addEventListener('keydown',ev=>{ if(L.hidden) return;
+    if(ev.key==='ArrowDown'||ev.key==='ArrowUp'){ ev.preventDefault(); if(hits.length){ at=(at+(ev.key==='ArrowDown'?1:hits.length-1))%hits.length; draw(); } }
+    else if(ev.key==='Enter'){ ev.preventDefault(); if(hits[at]) go(hits[at].v); }
+    else if(ev.key==='Escape'){ L.hidden=true; } });
+  L.addEventListener('mousedown',ev=>{ const d=ev.target.closest('[data-v]'); if(d){ ev.preventDefault(); go(d.dataset.v); } });
+  q.addEventListener('blur',()=>setTimeout(()=>{ L.hidden=true; },150));
+})();
 document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListener('click',()=>{
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
