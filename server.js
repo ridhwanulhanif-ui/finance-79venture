@@ -25,6 +25,8 @@ const CF_IDS = {
 };
 // The forecast workbook whose Forecast2 tab holds the margin targets the board set.
 const FC_ID = process.env.FORECAST_FILE_ID || "1dGsuzK1g5KOAVNdWNm6yf5BI3ETMQEpD";
+// Responses sheet of the petty cash Written Explanation Form (Google Form), shown as printable forms.
+const WEF_ID = process.env.WEF_FILE_ID || "1X5wNONJuO2zK0hijpqpXqMpL7QOhVeRT72hWstN1spE";
 const CACHE_MS = 60_000;
 const caches = new Map();
 
@@ -63,7 +65,7 @@ async function fetchWorkbook(id) {
 // key picks the id from the table above, never from the request, so a caller cannot steer the
 // fetch at some other Drive file.
 async function serveWorkbook(res, key) {
-  const id = key === "consol" ? FILE_ID : key === "fc" ? FC_ID : CF_IDS[key];
+  const id = key === "consol" ? FILE_ID : key === "fc" ? FC_ID : key === "wef" ? WEF_ID : CF_IDS[key];
   if (!id) {
     res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "unknown_workbook" }));
@@ -212,6 +214,7 @@ const server = http.createServer(async (req, res) => {
     "/api/cashflow-79v.xlsx": "v",
     "/api/cashflow-arabina.xlsx": "a",
     "/api/forecast.xlsx": "fc",
+    "/api/explanation-forms.xlsx": "wef",
   };
   if (WORKBOOK_ROUTES[urlPath]) {
     serveWorkbook(res, WORKBOOK_ROUTES[urlPath]);
