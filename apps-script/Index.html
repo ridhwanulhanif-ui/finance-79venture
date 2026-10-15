@@ -94,11 +94,12 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .snav-top b{display:block;font-size:20px;color:var(--cons);letter-spacing:-.01em}.snav-top span{font-size:12px;color:var(--muted)}
 .snav-top button{border:0;background:transparent;font-size:18px;color:var(--muted);padding:0 4px;cursor:pointer}
 .snav-mods{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 12px 4px}
+.snav-mods button:last-child:nth-child(odd){grid-column:1/-1}
 .snav-mods button{font:600 13.5px var(--sans);padding:9px 6px;border:1.5px solid transparent;border-radius:8px;background:var(--band);color:var(--ink);cursor:pointer}
 .snav-mods button[aria-selected="true"]{background:var(--consbg);border-color:var(--cons);color:var(--cons)}
 .snav-q{padding:10px 12px 4px}
 /* The Petty Cash section shows none of the consolidation's checks, notes or adjustments. */
-body.mod-pc #msgs,body.mod-pc #checks,body.mod-pc #legend,body.mod-pc .adjtog,body.mod-pc #srcbox,body.mod-pc #eqbox{display:none!important}.snav-q .vsearch{flex:none;width:100%}
+body.mod-x #msgs,body.mod-x #checks,body.mod-x #legend,body.mod-x .adjtog,body.mod-x #srcbox,body.mod-x #eqbox{display:none!important}.snav-q .vsearch{flex:none;width:100%}
 .snav-list{flex:1;overflow-y:auto;padding:4px 10px 18px}
 .snav-g{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:transparent;padding:14px 8px 6px;font:700 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);cursor:pointer;border-radius:0}
 .snav-g i{font-style:normal;font-size:10px;transition:transform .15s}.snav-g[aria-expanded="false"] i{transform:rotate(-90deg)}
@@ -300,7 +301,7 @@ table.cs td.num{min-width:70px}
 <!-- Side menu: every view, grouped as in the View list, under the BOD Review heading. -->
 <nav class="snav" id="snav" aria-label="Views">
   <div class="snav-top"><div><b>Finance</b><span>79 Ventures &amp; Arabina</span></div><button type="button" id="snavFold" title="Hide menu" aria-label="Hide menu">&laquo;</button></div>
-  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button></div>
+  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button></div>
   <div class="snav-q" id="snavQ"></div>
   <div class="snav-list" id="snavList"></div>
 </nav>
@@ -369,6 +370,9 @@ table.cs td.num{min-width:70px}
         <optgroup label="Petty Cash" data-mod="pc">
           <option value="pc">Petty Cash</option>
         </optgroup>
+        <optgroup label="Asset Management" data-mod="am">
+          <option value="am">Asset Management</option>
+        </optgroup>
       </select>
     </label>
     <div class="vsearch"><input type="search" id="viewQ" placeholder="Search views… e.g. tax, BS, zakat" autocomplete="off" aria-label="Search views" aria-controls="viewQl"><div id="viewQl" class="vsl" role="listbox" hidden></div></div>
@@ -376,6 +380,7 @@ table.cs td.num{min-width:70px}
       <button data-view="home" aria-pressed="true">Homepage</button>
       <button data-view="bod" aria-pressed="false">BOD Summary</button>
       <button data-view="pc" aria-pressed="false">Petty Cash</button>
+      <button data-view="am" aria-pressed="false">Asset Management</button>
       <button data-view="ent" aria-pressed="false">Consol by entity</button>
       <button data-view="con" aria-pressed="false">Consol only</button>
       <button data-view="v" aria-pressed="false">P&amp;L 79V</button>
@@ -2911,7 +2916,7 @@ function renderEq(){
   // The summary stays on every view: the period's result and the position behind it are
   // context for whatever is being looked at, not a feature of the P&L views alone.
   // The board page answers its own questions; the dense bands would sit on top of them.
-  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc';
+  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am';
   // The bands can be folded away on the detail views so the table starts at the top; the
   // homepage is the bands themselves, so they always show there.
   { let off=false; try{ off=store.get('consol.eqhide')==='1'; }catch(e){}
@@ -3911,8 +3916,9 @@ function homeTaxHTML(){
   return h+'</div></div>';
 }
 function renderTable(){
-  if(state.view==='pc'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
-    $('tablebox').innerHTML='<div class="stmt"><h3>PETTY CASH</h3><p class="sub2">This section is being set up. Petty cash automation will live here, separate from the BOD Review views.</p></div>'; return; }
+  const SECT={pc:['PETTY CASH','Petty cash automation'],am:['ASSET MANAGEMENT','Fixed asset register and depreciation']};
+  if(SECT[state.view]){ const [t,d]=SECT[state.view]; if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
+    $('tablebox').innerHTML=`<div class="stmt"><h3>${t}</h3><p class="sub2">This section is being set up. ${d} will live here, separate from the BOD Review views.</p></div>`; return; }
   if(state.view==='bod'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderBOD(); }
   // The two summary bands render above the table on every view, so the homepage is simply those
   // bands with no detail underneath: the position and the period's result, nothing to scroll past.
@@ -4063,7 +4069,7 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 // Side menu, built from the View list so the two always hold the same views.
 const navMod=v=>{ const o=$('viewSel').querySelector('option[value="'+v+'"]'); return (o&&o.parentNode.dataset&&o.parentNode.dataset.mod)||'bod'; };
-function navSync(){ const m=navMod(state.view); document.body.classList.toggle('mod-pc',m==='pc');
+function navSync(){ const m=navMod(state.view); document.body.classList.toggle('mod-x',m!=='bod');
   document.querySelectorAll('#snavMods [data-mod]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.mod===m)));
   document.querySelectorAll('#snavList [data-mod]').forEach(x=>{ x.hidden=x.dataset.mod!==m; });
   if(m==='bod') store.set('consol.lastbod',state.view);
@@ -4158,7 +4164,7 @@ async function exportAllViews(){
   if(!state.res){ setMsg('Load the data first.','err'); return; }
   const b=$('dlall'), label=b.textContent; b.disabled=true;
   const prevView=state.view, used=new Set(), wb=XLSX.utils.book_new();
-  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>o.value!=='pc').map(o=>({v:o.value,t:o.textContent.trim()}));
+  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
   try{
     const info=[['79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd'],['Source workbook',(state.meta&&state.meta.title)||''],
       ['Period','Jan–'+MONTHS[state.to]+' 2026'],['Range shown',MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026'],
