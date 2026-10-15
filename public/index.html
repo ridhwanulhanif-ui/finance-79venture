@@ -4385,6 +4385,13 @@ function wrChecks(rep){
   });
   return out;
 }
+// The receipts behind section 2: each one uploaded more than 24 hours after its receipt day.
+function wrLateHtml(L){
+  if(!L||!L.length) return '';
+  return `<details style="margin:8px 0" open><summary style="cursor:pointer;font-weight:600">${L.length} receipt(s) uploaded more than 24 hours after the receipt date</summary>
+   <div style="overflow-x:auto"><table class="tc" style="min-width:760px;margin-top:6px"><tr class="sub"><td>Staff</td><td>Receipt date</td><td>Uploaded (MYT)</td><td class="r">Hours after receipt day</td><td>Payment to</td><td class="r">RM</td></tr>
+   ${L.map(x=>`<tr><td><b>${esc(x[0])}</b></td><td>${esc(x[1])}</td><td>${esc(x[2])}</td><td class="r zb" style="font-weight:700">${x[3]}</td><td>${esc(x[4]||'–')}</td><td class="r">${fmt(x[5])}</td></tr>`).join('')}</table></div></details>`;
+}
 function renderWR(){
   const W=wrLive||WR_SNAP, reps=wrAll(), i=Math.min(reps.length-1,wrSel==null?reps.length-1:wrSel), R=reps[i];
   const lastEnd=(()=>{ const r=reps[reps.length-1]; const e=r&&String(r.period).split(/\s+to\s+/i)[1]; const d=wrDate(e)||wrDate(r&&r.date); return d; })();
@@ -4413,7 +4420,7 @@ function renderWR(){
   const sum=k=>R.rows.reduce((t,r)=>t+(r[k]||0),0);
   h+=`<tr class="sub"><td>Total</td><td class="r">${F(sum(1))}</td><td class="r">${F(sum(2))}</td><td class="r">${F(sum(3))}</td><td class="r">${F(sum(4))}</td><td class="r">${F(sum(5))}</td><td></td></tr></table></div>`;
   const small=(t,head,rows)=>`<h3 style="font-size:13.5px;margin-top:16px">${t}</h3>`+(rows.length?`<table class="tc" style="max-width:900px"><tr class="sub">${head.map(x=>`<td>${x}</td>`).join('')}</tr>${rows.map(r=>`<tr>${head.map((_,k)=>`<td>${esc(r[k]||'')}</td>`).join('')}</tr>`).join('')}</table>`:'<p class="sub2">None.</p>');
-  h+=small('2. Non-Compliance Summary (48 hrs)',['Staff','Late submission (hours)','Status / action taken'],R.nc);
+  h+=small('2. Non-Compliance Summary (48 hrs)',['Staff','Late submission (hours)','Status / action taken'],R.nc)+wrLateHtml(R.late);
   h+=small('3. Frozen Floats (72 hrs)',['Staff','Reason frozen','Status'],R.frozen);
   h+=small('4. Written Explanation Forms',['Staff','Reason','Form attached'],R.forms);
   // Every week side by side: how each holder's balance and variance moved.
@@ -4434,6 +4441,15 @@ let wrDb=null, wrDbErr=null, wrDraft=null, wrGenBusy=false, wrGenErr=null, dbRef
 const WR_COL='pcweekly';
 const wrIsoToDmy=s=>s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'';
 const wrDmyToIso=s=>{ const d=wrDate(s); return d?pcIso(d):''; };
+// The petty cash app stamps "Date Created" in UTC; receipt dates are Malaysian calendar days.
+const WR_LATE_H=24;
+function wrUtc(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number'&&v>20000){ const d=XLSX.SSF.parse_date_code(v); return d?Date.UTC(d.y,d.m-1,d.d,d.H||0,d.M||0,Math.floor(d.S||0)):null; }
+  const m=String(v).trim().match(/^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})(?:\s+(\d{1,2}):(\d{2}))?/); if(!m) return null;
+  const mo=PC_MON[m[2].toLowerCase()]; return mo?Date.UTC(+m[3],mo-1,+m[1],+(m[4]||0),+(m[5]||0)):null;
+}
+const wrMyt=ms=>{ const d=new Date(ms+8*36e5); return String(d.getUTCDate()).padStart(2,'0')+'/'+String(d.getUTCMonth()+1).padStart(2,'0')+'/'+d.getUTCFullYear()+' '+String(d.getUTCHours()).padStart(2,'0')+':'+String(d.getUTCMinutes()).padStart(2,'0'); };
 function wrDT(v){
   if(v==null||v==='') return null;
   if(typeof v==='number'&&v>20000){ const d=XLSX.SSF.parse_date_code(v); return d?new Date(d.y,d.m-1,d.d,d.H||0,d.M||0):null; }
@@ -4468,7 +4484,8 @@ async function wrGenerate(startIso,endIso){
     const [tA,tV]=await Promise.all([pcTB(ids.a,endIso),pcTB(ids.v,endIso)]);
     const all=wrAll(), prev=[...all].reverse().find(x=>(wrDate(x.date)||0)<(new Date(endIso+'T23:59:59')))||all[all.length-1]||null;
     const prevNames=new Set(prev?prev.rows.map(x=>x[0]):[]);
-    const rows=[], nc=[], st=new Date(startIso+'T00:00:00'), en=new Date(endIso+'T23:59:59');
+    const rows=[], nc=[], late=[], st=new Date(startIso+'T00:00:00'), en=new Date(endIso+'T23:59:59');
+    const stM=Date.parse(startIso+'T00:00:00+08:00'), enM=Date.parse(endIso+'T23:59:59+08:00');
     PC_H.forEach(h=>{ const ws=wb.Sheets[h.tab]; if(!ws) return;
       const A=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null}).slice(1).filter(x=>x&&x.slice(0,10).some(c=>c!=null&&c!=='')&&!/^deleted$/i.test(String(x[18]||'').trim()));
       const sys=pcR2(A.filter(x=>{ const d=pcDate(x[2]); return d&&d<=endIso; }).reduce((t,x)=>t+pcNum(x[8])-pcNum(x[7]),0));
@@ -4477,16 +4494,21 @@ async function wrGenerate(startIso,endIso){
       if(Math.abs(sys)>0.004||Math.abs(qb)>0.004||prevNames.has(name)){
         const v=pcR2(qb-sys), ex=Math.abs(v)>0.004?`QuickBooks ${v>0?'higher':'lower'} by RM${fmt(Math.abs(v))} than system`:'-';
         rows.push([name,sys,sys,qb,sys,v,ex]); }
-      // Late submission: keyed more than 48 hours after the end of the receipt day.
-      let late=0, worst=0;
-      A.forEach(x=>{ const rd=pcDate(x[2]), cr=wrDT(x[3]); if(!rd||!cr||cr<st||cr>en) return;
-        const hrs=(cr-new Date(rd+'T23:59:59'))/36e5; if(hrs>48){ late++; worst=Math.max(worst,hrs); } });
-      if(late) nc.push([name,`${Math.round(worst)} (latest) · ${late} receipt(s)`,'']); });
+      // Late upload: a spending receipt keyed into the app more than 24 hours after the end of its receipt
+      // day (Malaysia time), counted for receipts uploaded during the chosen week. Top-ups are not receipts.
+      const mine=[];
+      A.forEach(x=>{ if(pcNum(x[8])>0||!(pcNum(x[7])>0)) return; const rd=pcDate(x[2]), cr=wrUtc(x[3]); if(!rd||!cr||cr<stM||cr>enM) return;
+        const hrs=(cr-Date.parse(rd+'T23:59:59+08:00'))/36e5;
+        if(hrs>WR_LATE_H) mine.push([name,wrIsoToDmy(rd),wrMyt(cr),Math.round(hrs),String(x[4]||''),pcR2(pcNum(x[7]))]); });
+      if(mine.length){ const worst=Math.max(...mine.map(x=>x[3])), amt=pcR2(mine.reduce((t,x)=>t+x[5],0));
+        nc.push([name,`${worst} hrs (longest) · ${mine.length} receipt(s) · RM${fmt(amt)}`,'Uploaded more than 24 hrs after receipt date: written explanation form required']);
+        late.push(...mine); } });
     if(!wefRows) await wefLoad();
     const forms=prev?(prev.forms||[]).map(x=>x.slice()):[];
     (wefRows||[]).forEach(f=>{ const d=wrDate(f.ts); if(!d||d<st||d>en) return; const why=(f.issue||'')+(f.why?': '+f.why:'')+(f.no?' ('+f.no+')':'');
       if(!forms.some(x=>x[1]===why)) forms.push([String(f.staff||'').toUpperCase(),why,'YES']); });
-    wrDraft={date:wrIsoToDmy(endIso),period:wrIsoToDmy(startIso)+' to '+wrIsoToDmy(endIso),rows,nc,
+    late.sort((a,b)=>b[3]-a[3]);
+    wrDraft={date:wrIsoToDmy(endIso),period:wrIsoToDmy(startIso)+' to '+wrIsoToDmy(endIso),rows,nc,late,
       frozen:prev?(prev.frozen||[]).map(x=>x.slice()):[],forms,
       prep:prev?prev.prep||'':'',appr:prev?prev.appr||'':'',status:'draft',src:'db'};
   }catch(e){ wrGenErr=qdErr(e); }
@@ -4495,7 +4517,7 @@ async function wrGenerate(startIso,endIso){
 async function wrSave(status){
   if(!dbRef||!wrDraft) return;
   const D=wrDraft, id=wrDmyToIso(D.date)||pcIso(new Date());
-  const body={date:D.date,period:D.period,rows:D.rows,nc:D.nc.filter(x=>x.some(Boolean)),frozen:D.frozen.filter(x=>x.some(Boolean)),forms:D.forms.filter(x=>x.some(Boolean)),
+  const body={date:D.date,period:D.period,rows:D.rows,late:D.late||[],nc:D.nc.filter(x=>x.some(Boolean)),frozen:D.frozen.filter(x=>x.some(Boolean)),forms:D.forms.filter(x=>x.some(Boolean)),
     prep:D.prep||'',appr:D.appr||'',status,savedAt:new Date().toISOString(),flow:'open',checked:null,submitted:null,verified:null,returned:D.flow==='returned'?(D.returned||null):null};
   try{ await dbRef.collection(WR_COL).doc(id).set(body); wrDraft=null; wrSel=null; wrGenErr=null; }
   catch(e){ wrGenErr=e&&e.code==='invalid_argument'?'You do not have permission to save reports in this artifact.':'Save failed ('+esc(e&&e.code||'error')+'). Try again.'; }
@@ -4516,6 +4538,7 @@ async function wrDownload(R){
 <p>1. Amount in Petty Cash System vs. Quick Book vs. Cash on Hand vs. Petty Cash Control List</p>
 ${T(['No.','Staff / SV','Amount in System (RM)','Cash on Hand (RM)','Amount in QuickBook (RM)','Amount in Petty Cash Control List (RM)','Variance (RM)','Variance Explanation (if any)'],R.rows.map(r=>[r[0],F(r[1]),F(r[2]),F(r[3]),F(r[4]),F(r[5]),r[6]||'-']))}
 <p>2. Non-Compliance Summary (48 hrs)</p>${T(['No.','Staff Name','Late Submission (Hours)','Status / Action Taken'],pad(R.nc||[],2))}
+${(R.late||[]).length?`<p>Receipts uploaded more than 24 hours after the receipt date</p>${T(['No.','Staff Name','Receipt Date','Uploaded (MYT)','Hours After Receipt Day','Payment To','Amount (RM)'],R.late.map(x=>[x[0],x[1],x[2],x[3],x[4],F(x[5])]))}`:''}
 <p>3. Status of Any Frozen Floats (72 hrs)</p>${T(['No.','Staff Name','Reason Frozen','Status (Frozen / Reinstated)'],pad(R.frozen||[],2))}
 <p>4. Written Explanation Forms Attached</p>${T(['No.','Staff Name','Reason (Late Submission/Missing Receipt)','Form Attached (Yes / No)'],pad(R.forms||[],2))}
 <br><table width="100%"><tr><td>Prepared by,<br><br>……………………………….<br>Name: ${esc(R.prep||'')}</td><td>Approved by,<br><br>……………………………….<br>Name: ${esc(R.appr||'')}</td></tr></table></body></html>`;
@@ -4538,7 +4561,7 @@ function renderWRDraft(){
   const grid=(key,t,head,ws)=>{ let s=`<h3 style="font-size:13.5px;margin-top:14px">${t}</h3><table class="tc" style="max-width:1000px"><tr class="sub">${head.map(x=>`<td>${x}</td>`).join('')}<td></td></tr>`;
     D[key].forEach((r,i)=>{ s+=`<tr>${head.map((_,k)=>`<td>${ed(key+'.'+i+'.'+k,r[k]||'',ws[k])}</td>`).join('')}<td><button data-wrdel="${key}.${i}">✕</button></td></tr>`; });
     return s+`</table><button data-wradd="${key}" style="margin-top:6px">+ Add row</button>`; };
-  h+=grid('nc','2. Non-Compliance Summary (48 hrs) <span class="hint" style="font-weight:400">· filled automatically: receipts keyed more than 48 hours after the receipt date during this week</span>',['Staff','Late submission (hours)','Status / action taken'],[160,220,360]);
+  h+=grid('nc','2. Non-Compliance Summary (48 hrs) <span class="hint" style="font-weight:400">· filled automatically: staff who uploaded a receipt more than 24 hours after its receipt date during this week</span>',['Staff','Late submission (hours)','Status / action taken'],[160,260,420])+wrLateHtml(D.late);
   h+=grid('frozen','3. Frozen Floats (72 hrs) <span class="hint" style="font-weight:400">· carried from the previous report</span>',['Staff','Reason frozen','Status'],[160,420,140]);
   h+=grid('forms','4. Written Explanation Forms <span class="hint" style="font-weight:400">· carried from the previous report + Google Form responses this week</span>',['Staff','Reason','Form attached'],[160,420,140]);
   h+=`<p style="margin:14px 0 6px">Prepared by ${ed('prep',D.prep,300)} · Approved by ${ed('appr',D.appr,300)}</p>
