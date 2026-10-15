@@ -116,6 +116,11 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .snav-mods button{font:600 13.5px var(--sans);padding:9px 6px;border:1.5px solid transparent;border-radius:8px;background:var(--band);color:var(--ink);cursor:pointer}
 .snav-mods button[aria-selected="true"]{background:var(--consbg);border-color:var(--cons);color:var(--cons)}
 .snav-q{padding:10px 12px 4px}
+.fp h4{font-size:13.5px;margin:22px 0 6px;padding-bottom:4px;border-bottom:1px solid var(--ink)}
+.fpbar{display:flex;flex-wrap:wrap;gap:10px 14px;align-items:center;margin:8px 0 4px}.fpbar label{font-size:13px;color:var(--muted);display:inline-flex;gap:6px;align-items:center}
+.fpgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,420px),1fr));gap:0 28px}
+.fpk span{display:block;font-size:12px;color:var(--muted)} .fpk b{font-size:19px}
+.fp .st-g{color:var(--ok)}.fp .st-w{color:var(--warn,#8A5A10)}.fp .st-b{color:var(--bad)}
 /* The Petty Cash section shows none of the consolidation's checks, notes or adjustments. */
 body.mod-x #msgs,body.mod-x #checks,body.mod-x #legend,body.mod-x .adjtog,body.mod-x #srcbox,body.mod-x #eqbox{display:none!important}.snav-q .vsearch{flex:none;width:100%}
 .snav-list{flex:1;overflow-y:auto;padding:4px 10px 18px}
@@ -319,7 +324,7 @@ table.cs td.num{min-width:70px}
 <!-- Side menu: every view, grouped as in the View list, under the BOD Review heading. -->
 <nav class="snav" id="snav" aria-label="Views">
   <div class="snav-top"><div><b>Finance</b><span>79 Ventures &amp; Arabina</span></div><button type="button" id="snavFold" title="Hide menu" aria-label="Hide menu">&laquo;</button></div>
-  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button></div>
+  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button><button type="button" role="tab" data-mod="fp">Financing Profile</button></div>
   <div class="snav-q" id="snavQ"></div>
   <div class="snav-list" id="snavList"></div>
 </nav>
@@ -391,6 +396,9 @@ table.cs td.num{min-width:70px}
         <optgroup label="Asset Management" data-mod="am">
           <option value="am">Asset Management</option>
         </optgroup>
+        <optgroup label="Financing Profile" data-mod="fp">
+          <option value="fp">Financing Profile</option>
+        </optgroup>
       </select>
     </label>
     <div class="vsearch"><input type="search" id="viewQ" placeholder="Search views… e.g. tax, BS, zakat" autocomplete="off" aria-label="Search views" aria-controls="viewQl"><div id="viewQl" class="vsl" role="listbox" hidden></div></div>
@@ -399,6 +407,7 @@ table.cs td.num{min-width:70px}
       <button data-view="bod" aria-pressed="false">BOD Summary</button>
       <button data-view="pc" aria-pressed="false">Petty Cash</button>
       <button data-view="am" aria-pressed="false">Asset Management</button>
+      <button data-view="fp" aria-pressed="false">Financing Profile</button>
       <button data-view="ent" aria-pressed="false">Consol by entity</button>
       <button data-view="con" aria-pressed="false">Consol only</button>
       <button data-view="v" aria-pressed="false">P&amp;L 79V</button>
@@ -2971,7 +2980,7 @@ function renderEq(){
   // The summary stays on every view: the period's result and the position behind it are
   // context for whatever is being looked at, not a feature of the P&L views alone.
   // The board page answers its own questions; the dense bands would sit on top of them.
-  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am';
+  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am'||state.view==='fp';
   // The bands can be folded away on the detail views so the table starts at the top; the
   // homepage is the bands themselves, so they always show there.
   { let off=false; try{ off=store.get('consol.eqhide')==='1'; }catch(e){}
@@ -4008,6 +4017,7 @@ function homeTaxHTML(){
   return h+'</div></div>';
 }
 function renderTable(){
+  if(state.view==='fp'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderFP(); }
   const SECT={pc:['PETTY CASH','Petty cash automation'],am:['ASSET MANAGEMENT','Fixed asset register and depreciation']};
   if(SECT[state.view]){ const [t,d]=SECT[state.view]; if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     $('tablebox').innerHTML=`<div class="stmt"><h3>${t}</h3><p class="sub2">This section is being set up. ${d} will live here, separate from the BOD Review views.</p></div>`; return; }
@@ -4161,6 +4171,164 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   renderEq(); renderTable(); }));
 (()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
+// ===== Financing Profile: read live from QuickBooks through the viewer's own connector =====
+// What a bank asks for first: two years of results, the position, existing facilities and what
+// they cost a month, debt service cover, and how much more the company could carry.
+const FP={e:'v',asAt:null,data:{},busy:false,err:null,prog:''};
+const fpNum=v=>{ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/,/g,'')); return isFinite(n)?n:null; };
+async function fpRun(e,input,label){
+  const ids=await qdCompanies(), cid=ids[e]; let rows=[], meta=null, cursor=null, pages=0;
+  for(;;){
+    const inp=cursor?{company_id:cid,cursor}:{company_id:cid,...input,response_mode:'raw',row_page_size:500};
+    let r; try{ r=await mcp.callTool(QBS,'run_report',inp,{cache:false}); }
+    catch(err){ if(err&&err.retryable&&pages<20){ await new Promise(z=>setTimeout(z,1500)); continue; } throw err; }
+    const p=payloadOf(r)||{}, rr=p.raw_report; if(!rr) throw {code:'tool_error',message:(p.error&&p.error.message)||'QuickBooks returned no report.'};
+    if(!meta) meta=rr.metadata; rows=rows.concat(rr.rows||[]); pages++; FP.prog=label+(pages>1?' (page '+pages+')':''); fpStatus();
+    if(p.continuation_cursor&&pages<40) cursor=p.continuation_cursor; else break;
+  }
+  const cols=((meta&&meta.Columns&&meta.Columns.Column)||[]).slice(1).map(c=>c.ColTitle||'');
+  // one flat list: every Data row and every Section, with its values per column
+  const out=rows.map(x=>{ const r=x.row||{}, path=x.path;
+    if(r.ColData) return {path,kind:'d',label:String(r.ColData[0]&&r.ColData[0].value||''),v:r.ColData.slice(1).map(c=>fpNum(c&&c.value)),group:r.group||''};
+    const h=r.Header&&r.Header.ColData, s=r.Summary&&r.Summary.ColData;
+    return {path,kind:'s',label:String((h&&h[0]&&h[0].value)||(s&&s[0]&&s[0].value)||''),hv:h?h.slice(1).map(c=>fpNum(c&&c.value)):[],v:s?s.slice(1).map(c=>fpNum(c&&c.value)):[],slabel:String(s&&s[0]&&s[0].value||''),group:r.group||''}; });
+  return {cols,rows:out};
+}
+const fpKids=(R,p)=>R.rows.filter(x=>x.path.startsWith(p+'/Rows/Row/')&&!x.path.slice(p.length+10).includes('/'));
+const fpSum=(R,re,i,kind)=>R.rows.filter(x=>(!kind||x.kind===kind)&&re.test(x.label)).reduce((a,x)=>a+(x.v[i]||0),0);
+const fpGrp=(R,g,i)=>{ const x=R.rows.find(r=>r.group===g&&r.kind==='s'); return x?(x.v[i]||0):0; };
+const fpSlab=(R,re,i)=>{ const x=R.rows.find(r=>r.kind==='s'&&re.test(r.slabel)); return x?(x.v[i]||0):0; };
+function fpMonthEnd(y,m){ const d=new Date(y,m+1,0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+async function fpLoad(force){
+  if(FP.busy) return; const e=FP.e, key=e+'|'+FP.asAt; if(FP.data[key]&&!force){ renderFP(); return; }
+  FP.busy=true; FP.err=null; renderFP();
+  try{
+    if(MODE!=='claude'||!mcp) throw {code:'not_granted',message:'The Financing Profile reads QuickBooks through your claude.ai connector, so it only works in the artifact on claude.ai.'};
+    const [y,m]=FP.asAt.split('-').map(Number), end=fpMonthEnd(y,m-1), mN=m;
+    const pl=await fpRun(e,{report_type:'profit_and_loss',start_date:(y-1)+'-01-01',end_date:end,summarize_by:'Year',accounting_method:'Accrual'},'Profit and loss');
+    const bs=await fpRun(e,{report_type:'balance_sheet',start_date:(y-1)+'-12-01',end_date:end,summarize_by:'Month',accounting_method:'Accrual'},'Balance sheet by month');
+    const ar=await fpRun(e,{report_type:'aged_receivables',as_of_date:end},'Receivables ageing');
+    const ap=await fpRun(e,{report_type:'aged_payables',as_of_date:end},'Payables ageing');
+    const cs=await fpRun(e,{report_type:'customer_sales',start_date:y+'-01-01',end_date:end,accounting_method:'Accrual'},'Sales by customer');
+    FP.data[key]={pl,bs,ar,ap,cs,y,mN,end,at:Date.now()};
+  }catch(err){ FP.err=err; }
+  FP.busy=false; renderFP();
+}
+function fpStatus(){ const s=$('fpStat'); if(s) s.textContent=FP.busy?('Reading QuickBooks… '+FP.prog):''; }
+function fpCalc(D){
+  const {pl,bs,ar,ap,cs,mN,y}=D, fi=pl.cols.findIndex(c=>c.includes(String(y-1))), yi=pl.cols.findIndex(c=>c.includes(String(y))&&!/total/i.test(c)), P=i=>({
+    rev:fpGrp(pl,'Income',i), cogs:fpGrp(pl,'COGS',i), gp:fpGrp(pl,'GrossProfit',i), oi:fpGrp(pl,'OtherIncome',i),
+    opex:fpGrp(pl,'Expenses',i), ox:fpGrp(pl,'OtherExpenses',i), ni:fpGrp(pl,'NetIncome',i),
+    fin:fpSlab(pl,/^Total Finance Cost/i,i)+fpSum(pl,/profit to investors/i,i,'d'),
+    dep:fpSum(pl,/depreciation/i,i,'d'), tax:fpSum(pl,/corporate taxation|cp204/i,i,'d') });
+  const fy=P(fi), ytd=P(yi); [fy,ytd].forEach(x=>{ x.pbt=x.ni+x.tax; x.ebitda=x.pbt+x.fin+x.dep; });
+  const ann=12/mN, L=bs.cols.length-1, B=i=>{
+    const leaf=re=>bs.rows.filter(x=>x.kind==='d'&&x.path.startsWith('/Rows/Row/0/')&&re.test(x.label)).reduce((a,x)=>a+(x.v[i]||0),0);
+    return {ta:fpGrp(bs,'NetAssets',i), ca:fpSlab(bs,/^Total Current Assets/i,i), nca:fpSlab(bs,/^Total Long-term assets|^Total Non-current Assets|^Total Fixed Assets/i,i),
+      cash:fpSlab(bs,/^Total Cash at Bank/i,i)+leaf(/fixed deposit|term deposit/i), ar:fpSlab(bs,/^Total Accounts Receivable/i,i),
+      inv:leaf(/inventor|good in transit/i), cl:fpSlab(bs,/^Total Current Liabilities/i,i), ncl:fpSlab(bs,/^Total Non-current Liabilities|^Total Long-term Liabilities/i,i),
+      eq:fpGrp(bs,'TotalShareHoldersEquityNode',i), ap:fpSlab(bs,/^Total Accounts Payable/i,i), dep:fpSlab(bs,/^Total Customer Deposit/i,i),
+      rel:fpSlab(bs,/^Total Due to Related|^Total Amount Due to 79/i,i)}; };
+  const now=B(L), dec=B(0);
+  // Facilities: each financing under non-current liabilities, with the balance still owed including
+  // future profit (the section header) and the principal after unearned interest (its total).
+  const ncl=bs.rows.find(x=>x.kind==='s'&&/^Total Non-current Liabilities|^Total Long-term Liabilities/i.test(x.slabel));
+  const fac=[];
+  if(ncl) fpKids(bs,ncl.path).forEach(x=>{
+    const net=x.v[L]||0; if(Math.abs(net)<1) return;
+    const g=k=>x.kind==='s'&&x.hv[k]!=null?x.hv[k]:(x.v[k]||0);
+    const drops=[]; for(let k=Math.max(1,L-2);k<=L;k++){ const d=g(k-1)-g(k); if(d>1) drops.push(d); }
+    const inst=drops.length?drops.sort((a,b)=>a-b)[Math.floor(drops.length/2)]:0;
+    const gross=g(L), hp=/\b[A-Z]{1,3}\s?\d{3,4}\b/.test(x.label)||/hire purchase|\bHP\b/i.test(x.label);
+    fac.push({name:x.label,type:hp?'Hire purchase':'Term financing',net,gross,inst,left:inst?Math.ceil(gross/inst):null}); });
+  const invS=bs.rows.find(x=>x.kind==='s'&&/investor financing/i.test(x.label));
+  const inv=invS?fpKids(bs,invS.path).filter(x=>Math.abs(x.v[L]||0)>=1).map(x=>({name:x.label.replace(/^Financing\s*-\s*/i,''),amt:x.v[L]})):[];
+  const invTot=inv.reduce((a,x)=>a+x.amt,0), monthly=fac.reduce((a,x)=>a+x.inst,0), debt=fac.reduce((a,x)=>a+x.net,0)+invTot;
+  const ebA=ytd.ebitda*ann, dscr=monthly?ebA/(monthly*12):null;
+  const age=R=>{ const t=R.rows.find(x=>x.group==='GrandTotal'); return t?t.v:[]; };
+  const top=cs.rows.filter(x=>/^\/Rows\/Row\/\d+$/.test(x.path)).map(x=>({name:x.label,amt:x.v[0]||0})).filter(x=>!/^total/i.test(x.name)&&x.amt>0);
+  const csTot=top.reduce((a,x)=>a+x.amt,0), rel=top.filter(x=>/arabina|79\s*ventures/i.test(x.name)).reduce((a,x)=>a+x.amt,0);
+  top.sort((a,b)=>b.amt-a.amt);
+  return {fy,ytd,ann,now,dec,fac,inv,invTot,monthly,debt,ebA,dscr,ar:age(ar),arCols:ar.cols,ap:age(ap),apCols:ap.cols,top,csTot,rel,cols:bs.cols,L};
+}
+function renderFP(){
+  // Outside claude.ai there is no QuickBooks connector, so the page falls back to the workbook's
+  // financing readiness check, which reads the same P&L and balance sheets as the rest of the site.
+  if(MODE!=='claude'){ renderFin();
+    $('tablebox').insertAdjacentHTML('afterbegin','<div class="stmt" style="padding-bottom:0"><h3>FINANCING PROFILE</h3><p class="sub2">The full profile reads QuickBooks live, so it opens in the dashboard on claude.ai. Here it shows the financing readiness check from the consolidation workbook.</p></div>');
+    return; }
+  if(!FP.asAt){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); FP.asAt=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
+  const R=x=>x==null||Math.abs(x)<0.5?'–':'RM'+fmt0(x), P1=x=>x==null||!isFinite(x)?'–':(x*100).toFixed(1)+'%', X=x=>x==null||!isFinite(x)?'–':x.toFixed(2)+'×';
+  const opts=[]; { const d=new Date(); d.setDate(1); for(let k=1;k<=12;k++){ const t=new Date(d.getFullYear(),d.getMonth()-k,1); const v=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0'); opts.push(`<option value="${v}"${v===FP.asAt?' selected':''}>${MONTHS[t.getMonth()]} ${t.getFullYear()}</option>`); } }
+  let h=`<div class="stmt fp"><h3>FINANCING PROFILE</h3><p class="sub2">Prepared from QuickBooks (accrual basis, management accounts, unaudited). Read live through your QuickBooks connector each time it loads.</p>
+  <div class="fpbar"><div class="seg" role="group" aria-label="Company">${[['v','79 Ventures Sdn Bhd'],['a','Arabina Eco Tiny Homes Sdn Bhd']].map(([k,t])=>`<button type="button" data-fpe="${k}" aria-pressed="${FP.e===k}">${t}</button>`).join('')}</div>
+  <label>As at <select id="fpAs">${opts.join('')}</select></label><button type="button" id="fpRe">Refresh from QuickBooks</button><span class="hint" id="fpStat"></span></div>`;
+  const D=FP.data[FP.e+'|'+FP.asAt];
+  if(FP.err) h+=`<div class="msg err">${qdErr(FP.err)}</div>`;
+  if(!D){ h+=FP.busy?'<p class="hint">Reading QuickBooks…</p>':(FP.err?'':'<p class="hint">Loading…</p>'); $('tablebox').innerHTML=h+'</div>'; fpWire(); fpStatus(); if(!FP.busy&&!FP.err) fpLoad(); return; }
+  const C=fpCalc(D), y=D.y, mo=MONTHS[D.mN-1]+' '+y, ytdL=`Jan–${MONTHS[D.mN-1]} ${y}`;
+  const st=(v,ok,warn,hi)=>v==null||!isFinite(v)?'':(hi?(v>=ok?'st-g':v>=warn?'st-w':'st-b'):(v<=ok?'st-g':v<=warn?'st-w':'st-b'));
+  const gear=C.now.eq?C.debt/C.now.eq:null, cr=C.now.cl?C.now.ca/C.now.cl:null, dE=C.ebA?C.debt/C.ebA:null;
+  const room=C.ebA>0?Math.max(0,C.ebA/1.25/12-C.monthly):0;
+  h+=`<p class="hint" style="margin:6px 0 12px">As at ${D.end.split('-').reverse().join('/')} · read ${new Date(D.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}. Year to date is ${ytdL}; annualised figures scale it to twelve months.</p>
+  <div class="bekpi fpk">
+    <div><span>Revenue FY${y-1}</span><b>${R(C.fy.rev)}</b><span>${ytdL}: ${R(C.ytd.rev)}</span></div>
+    <div><span>EBITDA, annualised</span><b>${R(C.ebA)}</b><span>FY${y-1}: ${R(C.fy.ebitda)}</span></div>
+    <div><span>Total borrowings</span><b>${R(C.debt)}</b><span>principal, incl. investor financing</span></div>
+    <div><span>Monthly instalments</span><b>${R(C.monthly)}</b><span>${C.fac.length} facilities</span></div>
+    <div><span>Debt service cover</span><b class="${st(C.dscr,1.5,1.25,1)}">${X(C.dscr)}</b><span>banks look for 1.25× or more</span></div>
+    <div><span>Gearing (debt ÷ equity)</span><b class="${st(gear,1,2)}">${X(gear)}</b><span>equity ${R(C.now.eq)}</span></div>
+    <div><span>Current ratio</span><b class="${st(cr,1.5,1,1)}">${X(cr)}</b><span>cash ${R(C.now.cash)}</span></div>
+    <div><span>Room for new instalments</span><b>${R(room)}</b><span>a month, keeping cover at 1.25×</span></div>
+  </div>`;
+  // results
+  const row=(l,a,b,c,cls,n)=>`<tr${cls?` class="${cls}"`:''}><td>${l}${n?`<span class="note">${n}</span>`:''}</td><td class="r">${a}</td><td class="r">${b}</td><td class="r wide">${c}</td></tr>`;
+  const pr=(l,k,cls,n)=>row(l,R(C.fy[k]),R(C.ytd[k]),R(C.ytd[k]*C.ann),cls,n);
+  const mg=(l,k)=>row(l,P1(C.fy[k]/C.fy.rev),P1(C.ytd[k]/C.ytd.rev),'','', '');
+  h+=`<div class="fpgrid"><div><h4>Results</h4><div style="overflow-x:auto"><table class="tc"><tr class="sub"><td></td><td class="r">FY${y-1}</td><td class="r">${ytdL}</td><td class="r wide">Annualised</td></tr>
+    ${pr('Revenue','rev')}${C.rel?row('of which from the related company','',R(C.rel),'','','inter-company sales, removed on consolidation'):''}
+    ${pr('Cost of sales','cogs')}${pr('Gross profit','gp','sub')}${mg('Gross margin','gp')}
+    ${pr('Other income','oi')}${pr('Operating expenses','opex')}${pr('Other expenses','ox',null,'depreciation, profit to investors')}
+    ${pr('Profit before tax','pbt','sub','CP204 booked as an expense is added back')}${mg('Margin before tax','pbt')}
+    ${pr('Add: finance cost','fin',null,'interest on financing and HP, profit to investors')}${pr('Add: depreciation','dep')}${pr('EBITDA','ebitda','big')}
+  </table></div></div>`;
+  const brow=(l,k,cls,n)=>`<tr${cls?` class="${cls}"`:''}><td>${l}${n?`<span class="note">${n}</span>`:''}</td><td class="r">${R(C.dec[k])}</td><td class="r">${R(C.now[k])}</td></tr>`;
+  h+=`<div><h4>Position</h4><div style="overflow-x:auto"><table class="tc"><tr class="sub"><td></td><td class="r">${(C.cols[0]||'Dec '+(y-1))}</td><td class="r">${mo}</td></tr>
+    ${brow('Cash and deposits','cash')}${brow('Trade receivables','ar')}${brow('Inventory and goods in transit','inv')}${brow('Total current assets','ca','sub')}
+    ${brow('Non-current assets','nca')}${brow('Total assets','ta','sub')}
+    ${brow('Trade payables','ap')}${brow('Customer deposits','dep',null,'cash received ahead of delivery')}${brow('Total current liabilities','cl','sub')}
+    ${brow('Non-current liabilities','ncl',null,'mostly the financing below')}${brow('Equity','eq','big')}
+  </table></div></div></div>`;
+  // facilities
+  h+=`<h4>Existing facilities</h4><div style="overflow-x:auto"><table class="tc"><tr class="sub"><td>Facility</td><td class="wide">Type</td><td class="r">Principal</td><td class="r wide">Balance incl. future profit</td><td class="r">Monthly</td><td class="r wide">Months left</td></tr>
+    ${C.fac.map(f=>`<tr><td>${esc(f.name)}</td><td class="wide">${f.type}</td><td class="r">${R(f.net)}</td><td class="r wide">${R(f.gross)}</td><td class="r">${f.inst?R(f.inst):'–'}</td><td class="r wide">${f.left||'–'}</td></tr>`).join('')}
+    ${C.inv.map(f=>`<tr><td>Investor financing: ${esc(f.name)}<span class="note">profit paid monthly; shown under current liabilities</span></td><td class="wide">Investor</td><td class="r">${R(f.amt)}</td><td class="r wide">–</td><td class="r">–</td><td class="r wide">–</td></tr>`).join('')}
+    <tr class="sub"><td>Total</td><td class="wide"></td><td class="r">${R(C.debt)}</td><td class="r wide"></td><td class="r">${R(C.monthly)}</td><td class="r wide"></td></tr></table></div>
+    <p class="hint">Monthly instalment is how much each balance fell in the latest months, as booked. A facility drawn in the last few months shows none yet; check it against the offer letter.</p>`;
+  // debt service
+  h+=`<h4>Debt service</h4><table class="tc" style="max-width:640px">
+    <tr><td>EBITDA, annualised<span class="note">${ytdL} × 12 ÷ ${D.mN}</span></td><td class="r">${R(C.ebA)}</td></tr>
+    <tr><td>Instalments a year<span class="note">monthly ${R(C.monthly)} × 12, principal and profit; investor profit payments are not included</span></td><td class="r">${R(C.monthly*12)}</td></tr>
+    <tr class="sub"><td>Debt service cover ratio</td><td class="r ${st(C.dscr,1.5,1.25,1)}">${X(C.dscr)}</td></tr>
+    <tr><td>Borrowings ÷ EBITDA<span class="note">years of EBITDA to repay; banks are comfortable under 3–4</span></td><td class="r">${dE==null?'–':dE.toFixed(1)+' yrs'}</td></tr>
+    <tr class="sub"><td>Room for new instalments at 1.25× cover<span class="note">≈ RM${fmt0(room*(1-Math.pow(1+0.04/12,-60))/(0.04/12))} over 5 years at about 4% a year, before the bank's own tests</span></td><td class="r">${R(room)} a month</td></tr></table>`;
+  // working capital
+  const ag=(cols,v)=>cols.map((c,i)=>`<td class="r">${R(v[i])}</td>`).join('');
+  h+=`<h4>Receivables and payables ageing</h4><div style="overflow-x:auto"><table class="tc"><tr class="sub"><td></td>${C.arCols.map(c=>`<td class="r">${esc(c)}</td>`).join('')}</tr>
+    <tr><td>Receivables</td>${ag(C.arCols,C.ar)}</tr><tr><td>Payables</td>${ag(C.apCols,C.ap)}</tr></table></div>`;
+  // customers
+  if(C.top.length){ const ext=C.csTot-C.rel, t5=C.top.filter(x=>!/arabina|79\s*ventures/i.test(x.name)).slice(0,5);
+    h+=`<h4>Customers, ${ytdL}</h4><p class="hint">${C.top.length} customers billed. ${ext>0?`The five largest outside the group take ${P1(t5.reduce((a,x)=>a+x.amt,0)/ext)} of external sales.`:''}</p>
+    <table class="tc" style="max-width:640px">${t5.map(x=>`<tr><td>${esc(x.name)}</td><td class="r">${R(x.amt)}</td><td class="r">${P1(x.amt/ext)}</td></tr>`).join('')}</table>`; }
+  h+=`<p class="hint" style="margin-top:14px">These are QuickBooks figures for one company, before the consolidation adjustments in BOD Review, so they can differ from the consolidated views. Confirm facility balances and instalments against bank statements before sending to a bank.</p></div>`;
+  $('tablebox').innerHTML=h; fpWire(); fpStatus();
+}
+function fpWire(){
+  document.querySelectorAll('[data-fpe]').forEach(b=>b.addEventListener('click',()=>{ FP.e=b.dataset.fpe; FP.err=null; renderFP(); }));
+  const s=$('fpAs'); if(s) s.addEventListener('change',()=>{ FP.asAt=s.value; FP.err=null; renderFP(); });
+  const r=$('fpRe'); if(r) r.addEventListener('click',()=>{ FP.err=null; fpLoad(true); });
+}
+
 // Side menu, built from the View list so the two always hold the same views.
 const navMod=v=>{ const o=$('viewSel').querySelector('option[value="'+v+'"]'); return (o&&o.parentNode.dataset&&o.parentNode.dataset.mod)||'bod'; };
 function navSync(){ const m=navMod(state.view); document.body.classList.toggle('mod-x',m!=='bod');
@@ -4258,7 +4426,7 @@ async function exportAllViews(){
   if(!state.res){ setMsg('Load the data first.','err'); return; }
   const b=$('dlall'), label=b.textContent; b.disabled=true;
   const prevView=state.view, used=new Set(), wb=XLSX.utils.book_new();
-  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
+  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am','fp'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
   try{
     const info=[['79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd'],['Source workbook',(state.meta&&state.meta.title)||''],
       ['Period','Jan–'+MONTHS[state.to]+' 2026'],['Range shown',MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026'],
