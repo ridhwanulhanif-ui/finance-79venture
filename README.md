@@ -36,6 +36,28 @@ The default workbook is `02.10.2026_Consol+Mgmt Fee_2026.xlsx` (Drive ID in `DEF
 `3. Latest 79V P&L-Mthly`, `3.1 79V BS`, `4. Latest Arabina PNL-Mthly`, `4.1 Arabina BS`. Change these under **Data source**
 on the page. Tax assumptions, forecast and budget inputs and thresholds are saved in the browser's local storage.
 
+## Asset Management
+
+The **Asset Management** section reads the asset master data workbook (`Asset Management-Master Data.xlsx`, tabs
+`Asset Register` and `Category Rates`) and works out the fixed asset register, monthly depreciation, the fixed asset
+schedule, low value assets and data checks for the chosen financial year. A copy of the register as at 15 Oct 2026
+is embedded in the page as the fallback when the workbook cannot be read.
+
+- On claude.ai and the Apps Script version it reads the workbook from Drive directly.
+- On Railway it reads `/api/assets.xlsx`, which `server.js` fetches from Drive. The file ID is `ASSETS_FILE_ID` in Railway
+  Variables, defaulting to the master data workbook. Like the consolidation workbook, this needs the file shared
+  "Anyone with the link – Viewer"; until it is, use **Open Excel file…** in the section.
+
+Depreciation follows the workbook's own formulas: straight-line from the purchase month at the category rate, capped at
+the opening net book value, up to and including the disposal month. Purchases from 1 January 2026 under RM1,000 are low
+value assets, expensed at purchase. Opening NBV at 1 January 2026 is taken from column P of the Asset Register when it
+holds a number (the workbook's estimate, or the audited figure typed over it).
+
+New purchases are added on claude.ai under **New Purchase**: upload the invoice (image or PDF), Claude reads the lines,
+finance checks them and saves. Saved assets, edits and disposals live in the artifact's database and are merged with the
+workbook rows (same Asset ID = edit of that row). **Download master data (Excel)** gives the combined register in the
+workbook's layout. On Railway the section is read-only.
+
 ## Deploy the Apps Script web app
 
 Deploy from a **`@79ventures.biz` account** — a personal gmail account has no Workspace domain, so the domain restriction

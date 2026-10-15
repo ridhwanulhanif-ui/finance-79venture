@@ -4824,9 +4824,537 @@ function renderPC(){
   } else $('pcGo').addEventListener('click',()=>pcLoad());
 }
 
+// ===== ASSET MANAGEMENT: fixed asset register, depreciation, new purchases =====
+// The master data starts from the "Asset Management-Master Data" workbook in Drive (tab Asset Register,
+// read live through the viewer's Drive connector, this snapshot otherwise). New purchases and changes
+// made here are kept in this artifact's database, one document per asset, keyed by the asset's ID: a
+// document whose key matches a register row overrides that row, any other is a new asset. Depreciation
+// follows the workbook's own formulas: straight line at the category rate, a full month in the month of
+// purchase and in the month of disposal, nothing below nil, and from 2026 a purchase under RM1,000 is a
+// Low Value Asset (expensed, 0%). Opening NBV at 1 Jan 2026 comes from the workbook's column P.
+const AM_FILE='1L3S_2owmKweiF0ctIf9zgW8fW1KERoi3';
+const AM_BASE=2026, AM_LVA=1000, AM_COL='amassets';
+const AM_DEPTS=['Operation','Sales','Account','HR','Marketing','Hostel','Showroom','Finance','Management'];
+const AM_SNAP={at:"2026-10-15T21:20:00+08:00",title:"Asset Management-Master Data.xlsx",rates:{"Computer and Software": 0.2, "Motor Vehicles": 0.2, "Furniture and Fitting": 0.1, "Air-Conditioner": 0.1, "Signboard": 0.1, "Office Equipment": 0.1, "Showroom": 0.1, "Hostel Equipment": 0.1, "Machinery Equipment": 0.1, "Low Value Asset": 0},
+ // [No, Asset ID, Category, Description, Serial No, Purchase Date, Cost, PIC, Department, Status, Date Disposed, Remarks, Opening NBV 1-Jan-2026 (col P)]
+ assets:[
+  [1, "A-001", "Computer and Software", "3 Unit Laptop", "", "2023-10-01", 4221, "", "", "Dispose", "2026-01-02", "2026", 2321.55],
+  [2, "A-002", "Computer and Software", "1 Unit Laptop Computer Windows 11", "", "2024-11-09", 990, "", "", "Dispose", "2026-01-02", "2026", 775.5],
+  [3, "A-003", "Computer and Software", "1 Unit HP Laptop 15", "", "2025-05-06", 1771.32, "NUR NAJWA SYAFIA BT ANUAR", "", "Existing", null, "", 1564.666],
+  [4, "79V-LAPTOP-2026-006", "Computer and Software", "1 Unit HP Laptop 15 AMD Ryzen", "SN 5CD5446DZ0", "2025-06-17", 1809.72, "MUHAMMAD SYAZANI BIN MOHD RADHUAN", "Operation", "Existing", null, "", 1628.748],
+  [5, "79V-LAPTOP-2025-001+", "Computer and Software", "1 Unit Laptop HP 15", "FC0445AU-GOLD R8", "2025-08-25", 1864.82, "NOR AMIN BIN MUSA", "Sales", "Existing", null, "Last User: JULIANA", 1740.498667],
+  [6, "79V-LAPTOP-2026-005", "Computer and Software", "1 Unit Laptop Dell", "VASTRO3400", "2025-12-30", 1215.53, "SHAHRUL HISHAM BIN IDRIS", "Operation", "Existing", null, "", 1215.53],
+  [7, "79V-LAPTOP-2026-004", "Computer and Software", "1 Unit Laptop Dell", "VASTRO3399", "2025-12-30", 1215.53, "SITI HAJAR BINTI MAT HASSAN", "Sales", "Existing", null, "", 1215.53],
+  [8, "79V-LAPTOP-2025-002", "Computer and Software", "1 Unit HP Laptop 15", "FC0445AU-GOLD R7", "2026-01-30", 1778.06, "AHMAD FAUZI BIN AHMAD JAIS", "Operation", "New", null, "", 1778.06],
+  [9, "79V-LAPTOP-2026-007", "Computer and Software", "1 Unit HP Laptop 15 Gold", "SN5CD54455X3", "2026-03-08", 1712.47, "SITI SARAH BINTI YAHYA", "HR", "New", null, "", 1712.47],
+  [10, "A-010", "Furniture and Fitting", "1 Unit Meja Meeting", "", "2023-10-01", 350, "", "", "Existing", null, "", 271.25],
+  [11, "A-011", "Furniture and Fitting", "8 Unit Kerusi Office", "", "2023-10-01", 1319, "", "", "Existing", null, "", 1022.225],
+  [12, "A-012", "Furniture and Fitting", "4 Unit Meja Office", "", "2023-10-01", 1710, "", "", "Existing", null, "", 1325.25],
+  [13, "A-013", "Furniture and Fitting", "2 Unit Rak Fail", "", "2023-10-01", 1875, "", "", "Existing", null, "", 1453.125],
+  [14, "A-014", "Furniture and Fitting", "10 Unit Meja Banquet", "", "2025-11-24", 570, "", "", "Existing", null, "Under recognized 2025", 565.25],
+  [15, "A-015", "Furniture and Fitting", "1 Unit Meja Meeting", "", "2026-01-11", 172.03, "", "", "New", null, "", 172.03],
+  [16, "A-016", "Furniture and Fitting", "6 Unit Kerusi Office", "", "2026-01-12", 1813, "", "", "New", null, "", 1813],
+  [17, "A-017", "Furniture and Fitting", "4 Unit High Bar Stool", "", "2026-02-22", 151.7, "", "", "New", null, "", 151.7],
+  [18, "A-018", "Air-Conditioner", "2 Unit Air-Conditioner", "", "2023-10-01", 1899, "", "", "Existing", null, "", 1471.725],
+  [19, "A-019", "Air-Conditioner", "1 Unit Air-Conditioner", "", "2024-08-30", 1180, "", "", "Existing", null, "", 1022.666667],
+  [20, "A-020", "Air-Conditioner", "1 Unit Air-Conditioner Hisense 1HP", "", "2025-05-31", 692.03, "", "", "Existing", null, "", 651.661583],
+  [21, "A-021", "Air-Conditioner", "1 Unit Air-Conditioner Hisense 1HP", "", "2025-07-23", 669.36, "", "", "Existing", null, "", 641.47],
+  [22, "A-022", "Air-Conditioner", "1 Unit Air-Conditioner Hisense 1.5HP", "", "2025-08-28", 869.35, "", "", "Existing", null, "", 840.371667],
+  [23, "A-023", "Air-Conditioner", "1 Unt Air-Conditioner Hisense 1HP", "", "2025-05-31", 692.03, "", "", "Existing", null, "Under recognized 2025", 651.661583],
+  [24, "A-024", "Air-Conditioner", "1 Unit Air-Conditioner Hisense 1HP", "", "2025-07-23", 669.36, "", "", "Existing", null, "Under recognized 2025", 641.47],
+  [25, "A-025", "Air-Conditioner", "1 Unit Air-Conditioner Hisense 1HP", "", "2025-08-28", 869.35, "", "", "Existing", null, "Under recognized 2025", 840.371667],
+  [26, "A-026", "Air-Conditioner", "1 Unit Air-Conditioner", "", "2025-10-14", 627.14, "", "", "Existing", null, "", 616.687667],
+  [27, "A-027", "Air-Conditioner", "1 Unit Air-Conditioner 1.0 ", "", "2026-01-01", 413.51, "", "", "New", null, "", 413.51],
+  [28, "A-028", "Air-Conditioner", "1 Unit Air-Conditioner 1.5", "", "2026-01-02", 931.69, "", "", "New", null, "", 931.69],
+  [29, "A-029", "Signboard", "1 Unit Signage Showroom", "", "2025-07-16", 113.38, "", "", "Existing", null, "", 108.655833],
+  [30, "A-030", "Signboard", "1 Unit Signboard Showroom", "", "2025-09-18", 420, "", "", "Existing", null, "", 409.5],
+  [31, "A-031", "Signboard", "1 Unit 3D PVC Signboard 10MM", "", "2025-10-29", 910, "", "", "Existing", null, "", 894.833333],
+  [32, "A-032", "Hostel Equipment", "1 Unit Almari Dapur + Sink", "", "2024-12-25", 524.39, "", "", "Existing", null, "", 471.951],
+  [33, "A-033", "Hostel Equipment", "1 Unit Chest Freezer", "", "2024-12-25", 550, "", "", "Existing", null, "", 495],
+  [34, "A-034", "Hostel Equipment", "1 Unit Mesin Basuh", "", "2025-09-01", 499.81, "", "Hostel", "Existing", null, "", 483.149667],
+  [35, "A-035", "Hostel Equipment", "2 Unit Katil Double Decker", "", "2026-03-02", 232.64, "", "Hostel", "New", null, "", 232.64],
+  [36, "A-036", "Office Equipment", "2 Unit Kipas Siling", "", "2023-10-01", 261, "", "", "Existing", null, "", 202.275],
+  [37, "A-037", "Office Equipment", "1 Unit Whiteboard Besar", "", "2023-10-01", 134.9, "", "", "Existing", null, "", 104.5475],
+  [38, "79V-PH-2026-018", "Office Equipment", "1 Unit Iphone 14", "", "2024-09-04", 2499, "NOR AMIN BIN MUSA", "Sales", "Existing", null, "Last User: Kamal", 2186.625],
+  [39, "A-039", "Office Equipment", "1 Unit Infinix Hot 50 5G", "", "2024-10-29", 554, "", "", "Dispose", "2026-01-02", "DISPOSE 2026", 489.366667],
+  [40, "79V-PH-2025-004", "Office Equipment", "1 Unit Samsung A56", "R5CY23HL5WN", "2025-04-08", 1999, "SITI HAJAR BINTI MAT HASSAN", "Sales", "Existing", null, "Last User: Atiqah", 1865.733333],
+  [41, "A-041", "Office Equipment", "1 Unit Samsung S23 Ultra", "", "2025-04-08", 2799, "MOHAMMAD RIDHWANUL HANIF BIN ZULKARNAIN", "", "Existing", null, "", 2612.4],
+  [42, "A-042", "Office Equipment", "1 Unit Samsung S23", "", "2025-05-12", 2499, "ATIQAH BINTI YAHYA", "", "Existing", null, "", 2353.225],
+  [43, "79V-PH-2025-005", "Office Equipment", "1 Unit Oppo Reno12", "86a029076749273", "2025-06-26", 1199, "ZAINAL BIN ABIDIN", "Operation", "Existing", null, "", 1139.05],
+  [44, "79V-PH-2025-006", "Office Equipment", "1 Unit Honor 200 Pro", "AE6RUT4611018213", "2025-08-19", 1649, "MUHAMMAD SHAFIQ BIN SULIMAN", "Sales", "Existing", null, "", 1594.033333],
+  [45, "79V-PH-2026-012", "Office Equipment", "1 Unit Honor 200 Pro", "864202071923004", "2025-08-19", 1649, "NOR HAFIZAH BINTI OMAR", "Sales", "Existing", null, "", 1594.033333],
+  [46, "79V-PH-2026-011", "Office Equipment", "1 Unit Honor 200 Lite", "AJ4UVB4611039239", "2025-09-02", 929, "NURFARAHIN BINTI ZAKARIA", "Sales", "Existing", null, "", 905.775],
+  [47, "A-047", "Office Equipment", "1 Unit Honor 200", "", "2025-09-02", 1149, "FAIZAH", "Sales", "Existing", null, "", 1120.275],
+  [48, "A-048", "Office Equipment", "1 Unit Drone DJI Mini 4", "", "2025-11-10", 2639, "", "Marketing", "Existing", null, "", 2617.008333],
+  [49, "79V-PH-2026-003", "Office Equipment", "1 Unit Vivo Y39", "10AF4J0Z2Y0031Q", "2025-12-03", 759, "MUHAMMAD SYAZANI BIN MOHD RADHUAN", "Operation", "Existing", null, "", 759],
+  [50, "79V-PH-2026-009/79V-PH-2025-007", "Office Equipment", "2 Unit Vivo Y04", "869818083784327/869818087521469", "2025-12-16", 798, "", "Operation", "Existing", null, "Hezry/Alif", 798],
+  [51, "A-052", "Office Equipment", "1 Unit Vivo Y04", "869818087228602", "2025-12-16", 399, "MOHD RUZI SULAIMAN BIN KAMARUDIN", "Operation", "Existing", null, "", 399],
+  [52, "79V-TABLET-2026-001/79V-TABLET-2026-003", "Office Equipment", "2 Unit Tablet Redmi", "", "2025-12-29", 1322.37, "", "Sales", "Existing", null, "Shafiq/Farah", 1322.37],
+  [53, "79V-PH-2026-010", "Office Equipment", "1 Unit Vivo Y04", "SN10HFB5FGAR000QU", "2026-01-02", 394, "SHAHRUL HISHAM BIN IDRIS", "Operation", "New", null, "Under recognized in 2025", 394],
+  [54, "A-056", "Office Equipment", "CK Excel Aluminium - Partition Office", "", "2025-08-29", 2498, "", "", "Existing", null, "", 2414.733333],
+  [55, "79V-TV-2026-002", "Office Equipment", "1 Unit TV ", "", "2026-01-24", 982.72, "", "Sales", "New", null, "", 982.72],
+  [56, "79V-PRINTER-2026-003", "Office Equipment", "1 Unit Printer Epson L3250", "", "2026-01-15", 470.63, "", "Sales", "New", null, "", 470.63],
+  [57, "79V-WLD-2024-001", "Machinery Equipment", "1 Unit Welding Machine", "", "2024-01-08", 1645.5, "", "Operation", "Existing", null, "", 1330.1125],
+  [58, "79V-CPCTR-2024-001", "Machinery Equipment", "1 Unit Compactor", "", "2024-04-23", 1418.81, "", "Operation", "Existing", null, "", 1182.341667],
+  [59, "79V-WLD-2024-002", "Machinery Equipment", "1 Unit Welding Machine", "", "2024-07-13", 2750, "", "Operation", "Existing", null, "", 2360.416667],
+  [60, "79V-WLD-2025-003", "Machinery Equipment", "1 Unit Welding Set", "", "2025-03-08", 1915, "", "Operation", "Existing", null, "", 1771.375],
+  [61, "79V-WLD-2025-004", "Machinery Equipment", "1 Unit Welding Machine", "", "2025-05-27", 1720, "", "Operation", "Existing", null, "", 1619.666667],
+  [62, "79V-WLD-2025-005", "Machinery Equipment", "1 Unit Welding Machine", "", "2025-09-06", 999, "", "Operation", "Existing", null, "", 974.025],
+  [63, "79V-CNSW-2025-001", "Machinery Equipment", "1 Unit Chainsaw", "", "2025-09-17", 363, "", "Operation", "Existing", null, "", 353.925],
+  [64, "79V-GRDR-2025-001", "Machinery Equipment", "1 Set Angle Grinder", "", "2025-10-25", 668.3, "", "Operation", "Existing", null, "", 657.161667],
+  [65, "A-073", "Machinery Equipment", "1 Set Jadever Tools P20s Battery", "", "2025-09-20", 706.51, "", "Operation", "Existing", null, "Under recognized 2025", 688.84725],
+  [66, "79V-WLD-2026-006", "Machinery Equipment", "1 Unit Welding Machinery", "", "2026-01-26", 1500, "", "Operation", "New", null, "", 1500],
+  [67, "A-075", "Machinery Equipment", "3 Unit Jadever Angle Grinder \n4 Unit Jadever Brushless Motor ", "", "2026-01-27", 1154.27, "", "Operation", "New", null, "", 1154.27],
+  [68, "79V-RT.HMR-2026-001\n79V-RT.HMR-2026-002\n79V-RT.HMR-2026-003", "Machinery Equipment", "1 Unit Total Brushless Impact Wrench \n2 Unit Total Angle Grinder \n3 Unit Total Corde Rotary Hammer ", "", "2026-01-27", 1943.49, "", "Operation", "New", null, "", 1943.49],
+  [69, "BHG5352", "Motor Vehicles", "1 Unit Lori BHG5352", "", "2024-06-27", 18000, "", "Operation", "Existing", null, "", 12600],
+  [70, "WST7150", "Motor Vehicles", "1 Unit Nissan Xtrail 2.5 AT", "", "2025-07-09", 13000, "", "Operation", "Existing", null, "", 11916.666667],
+  [71, "BHK7464", "Motor Vehicles", "1 Unit Honda CRV", "", "2025-11-03", 8800, "", "Operation", "Existing", null, "", 8653.333333],
+  [72, "BNT9789", "Motor Vehicles", "1 Unit Nissan Navara", "", "2025-12-01", 78750, "", "Operation", "Existing", null, "", 77437.5],
+  [73, "A-081", "Showroom", "SHOWROOM 1", "", "2023-09-22", 24624.65, "", "Sales", "Existing", null, "", 19084.10375],
+  [74, "A-082", "Showroom", "Showroom Scandi", "", "2025-09-18", 2000, "", "Sales", "Existing", null, "", 1950],
+  [75, "A-083", "Showroom", "SHOWROOM & HOSTEL", "", "1905-07-16", 59433.26, "", "Sales", "Existing", null, "", 0],
+  [76, "A-084", "Showroom", "1 Unit Eco Cabin - Additional Hostel", "", "2025-08-16", 5520, "", "Hostel", "Existing", null, "", 5336],
+  [77, "A-085", "Showroom", "1 Unit Scandi Eco Cabin - Showroom", "", "2025-08-20", 6175, "", "Sales", "Existing", null, "", 5969.166667],
+  [78, "A-086", "Showroom", "1 Unit Single Slope 10x20ft - Showroom", "", "2025-08-13", 5520, "", "Sales", "Existing", null, "", 5336],
+  [79, "A-087", "Showroom", "1 Unit Double Slope 10x20ft - Showroom", "", "2025-09-17", 6170, "", "Sales", "Existing", null, "", 6015.75],
+  [80, "A-088", "Showroom", "Glass Door Showroom Single Slope - Showroom (TAT HOE)", "", "2025-09-18", 2950, "", "Sales", "Existing", null, "", 2876.25],
+  [81, "A-089", "Showroom", "Showroom Hardware", "", "2025-09-18", 13333.7, "", "Sales", "Existing", null, "", 13000.3575],
+  [82, "79V-TABLET-2026-002", "Office Equipment", "1 Unit Tablet Redmi", "", "2026-02-12", 599, "MUHAMMAD AINUL AIFAA BIN KAMARUDDIN", "Sales", "New", null, "", 599],
+  [83, "79V-LAPTOP-2025-003", "Computer and Software", "1 Unit Laptop HP ", "FC0445AU-GOLD R7", "2026-02-01", 1667.11, "FAIQAH", "Sales", "New", null, "Last User: Shaza", 1667.11],
+  [84, "79V-PH-2026-019", "Office Equipment", "1 Unit Samsung Galaxy A07", "SN R8YYB0KRBER", "2026-03-12", 457.98, "SITI SARAH BINTI YAHYA", "HR", "New", null, "", 457.98],
+  [85, "79V-PH-2026-014", "Office Equipment", "1 Unit Samsung Galaxy A07", "SN R8YY7108G0F", "2026-01-26", 498.27, "MUHAMMAD DANIEL HAKIMI BIN SHAMSULAKMAR", "Operation", "New", null, "", 498.27],
+  [86, "79V-PH-2026-008", "Office Equipment", "1 Unit Samsung Galaxy A07", "SN R8YYB08FW0A", "2026-01-26", 498.27, "AHMAD FARIS B. MOHD AZMAN", "Operation", "New", null, "", 498.27],
+  [87, "A-093", "Office Equipment", "1 Unit Oppo A78 5G", "CPH2483_11", "2026-02-12", 397, "AHMAD FAUZI BIN AHMAD JAIS", "Operation", "New", null, "", 397],
+  [88, "79V-PH-2026-016", "Office Equipment", "1 Unit Oppo V2302", "10AE161DZK002RL", "2026-02-12", 1099, "NOR AMIN BIN MUSA", "Sales", "New", null, "", 1099],
+  [89, "79V-PH-2025-001", "Office Equipment", "1 Unit Oppo A9 2020", "212b16f7", "2026-02-12", 289, "NAJIBAH BINTI JASMI", "Account", "New", null, "", 289],
+  [90, "79V-PH-2025-002", "Office Equipment", "1 Unit Oppo A16", "4HTWCY9945LF9PEM", "2026-02-12", 269, "NUR NAJWA SYAFIA BT ANUAR", "Account", "New", null, "", 269],
+  [91, "79V-PH-2026-013", "Office Equipment", "1 Unit Oppo Reno 10+", "ab39c74d", "2026-01-03", 1213, "FAIQAH", "Sales", "Existing", null, "Last User: SHAZA", 1213],
+  [92, "79V-PH-2026-015", "Office Equipment", "1 Unit Redmi 15", "SN68262/65VH16601", "2026-03-01", 599, "AIN NURFARRA HUSNA", "Sales", "New", null, "", 599],
+  [93, "VAC8901", "Motor Vehicles", "1 Unit Volvo XC90 (2005)", "", null, 8000, "", "Operation", "", null, "To update Reso & PV", null],
+  [94, "WNP7995", "Motor Vehicles", "1 Unit Honda CRV 2.0L I-VTEC (2005)", "", null, 8000, "", "Operation", "", null, "To update Reso & PV", null],
+  [95, "WWC9309", "Motor Vehicles", "1 Unit Volvo XC90 (2004)", "", null, 8000, "", "Operation", "", null, "To update Reso & PV", null],
+  [96, "BGQ6238", "Motor Vehicles", "1 Unit Honda CRV 2.0 AT (2002)", "", null, 8500, "", "Operation", "", null, "", null],
+  [97, "NBU238", "Motor Vehicles", "1 Unit Yamaha Lagenda 110Z (K)", "", null, 2000, "", "Hostel", "", null, "", null],
+  [98, "A-094", "Furniture and Fitting", "Racking Warehouse", "", "2026-03-10", 1158, "", "Operation", "New", null, "", 1158],
+  [99, "79V-PH-2026-020", "Office Equipment", "1 Unit Samsung A17 (8GB + 256GB)", "SN RRGL20BJQTT", "2026-03-26", 650.32, "", "", "New", null, "", 650.32],
+  [100, "79V-PH-2026-021", "Office Equipment", "1 Unit Samsung A17 (8GB + 256GB)", "SN RRGL20BM53Z", "2026-03-27", 648.44, "", "", "New", null, "", 648.44],
+  [101, "79V-PH-2026-022", "Office Equipment", "1 Unit Samsung A17 (8GB + 256GB)", "SN RRGL20BGYND", "2026-03-27", 648.43, "", "", "New", null, "", 648.43],
+  [102, "VQF4829", "Motor Vehicles", "1 Unit Toyota Vellfire DBA-GGH30W", "", "2026-04-26", 132352.56, "MOHAMMAD RIDHWANUL HANIF BIN ZULKARNAIN", "Operation", "New", null, "", 132352.56],
+  [103, "A-095", "Furniture and Fitting", "2 Unit Canopy Pyramid 20x20", "", "2026-03-25", 3900, "", "Operation", "New", null, "", 3900],
+  [104, "A-096", "Showroom", "Decking Lantai Showroom Swedish", "", "2026-01-20", 1508.15, "", "Showroom", "New", null, "", 1508.15],
+  [105, "79V-GNST-2026-001", "Machinery Equipment", "1 Unit Ducar Genset 7.5KW", "DG11050E-25530010", "2026-03-28", 2750, "", "Operation", "New", null, "", 2750],
+  [106, "79V-WLD-2026-007", "Machinery Equipment", "1 Unit MIG Welding Machine ", 2023070511, "2026-03-30", 1500, "", "Operation", "New", null, "", 1500],
+  [107, "79V-LAPTOP-2026-008", "Computer and Software", "1 Unit Laptop 15-FC0445AU Gold", "", "2026-03-30", 1907.32, "NUR ASYIQIN BINTI MOHAMED PAUZI", "Account", "New", null, "", 1907.32],
+  [108, "A096", "Computer and Software", "1 Unit Laptop HP Elitebook 840 G8", "", "2026-04-04", 2058, "SITI HAJAR BINTI MAT HASSAN", "Sales", "New", null, "", 2058],
+  [109, "79-LAPTOP-2026-009", "Computer and Software", "1 Unit Laptop HP 14-EM0215AU", "", "2026-04-13", 1787.69, "NURHANISAH HUSNA BINTI MOHD NORSANI", "HR", "New", null, "", 1787.69],
+  [110, "79V-LAPTOP-2026-010", "Computer and Software", "1 Unit Laptop 15-FC0447AU Silver", "5CD54624NZ", "2026-04-28", 1960.14, "NAJIBAH BINTI JASMI", "Account", "New", null, "", 1960.14],
+  [111, "79V-LAPTOP-2026-011", "Computer and Software", "1 Unit Laptop 15-FC0016AU Gold 24gb", "", "2026-05-08", 2660, "MOHAMMAD RIDHWANUL HANIF BIN ZULKARNAIN", "Operation", "New", null, "", 2660],
+  [112, "79V-LAPTOP-2026-012", "Computer and Software", "1 Unit Laptop Lenovo Yoga 13.3'", "", "2026-04-29", 3196.16, "ATIQAH BINTI YAHYA", "Operation", "New", null, "", 3196.16],
+  [113, "A097", "Machinery Equipment", "1 Unit MIG Welder Machine", "GMAW210PM", "2026-05-19", 1500, "", "Operation", "New", null, "", 1500],
+  [114, "A098", "Office Equipment", "1 Unit Samsung Galaxy A07", 352910124488168, "2026-05-06", 599, "", "Sales", "New", null, "", 599],
+  [115, "A099", "Computer and Software", "1 Unit Acer Wide LED Monitor", "MMA4PSN00352909EA13W01", "2026-05-06", 449, "NUR ASYIQIN BINTI MOHAMED PAUZI", "Account", "New", null, "", 449],
+  [116, "A100", "Office Equipment", "1 Unit Samsung Galaxy A07", "", "2026-05-06", 600.43, "", "", "New", null, "", 600.43],
+  [117, "VEG6081", "Motor Vehicles", "1 Unit Nissan Xtrail 2.5", "", "2026-04-08", 32000, "", "Operation", "New", null, "", 32000],
+  [118, "VAG4082", "Motor Vehicles", "1 Unit Nissan Xtrail 2.0 CVT", "", "2026-04-08", 30000, "", "Operation", "New", null, "", 30000],
+  [119, "A101", "Furniture and Fitting", "3 Unit Meja Tulis Kaki Cappucino", "", "2026-06-10", 1368.57, "", "", "New", null, "", 1368.57],
+  [120, "A102", "Furniture and Fitting", "3 Unit Meja Tulis Kaki", "", "2026-06-10", 1160.67, "", "", "New", null, "", 1160.67],
+  [121, "A103", "Office Equipment", "1 Unit Printer Brother MFC-J2740DW Inkjet ", "", "2026-05-27", 1089.47, "", "Account", "New", null, "", 1089.47],
+  [122, "A104", "Office Equipment", "1 Unit Xiaomi Redmi Tab", "", "2026-06-28", 420.05, "", "Operation", "New", null, "", 420.05],
+  [123, "A105", "Machinery Equipment", "1 Unit Forklift Machine", "", "2026-06-10", 10077.31, "", "Operation", "New", null, "", 10077.31],
+  [124, "A106", "Showroom", "1 Unit Mini House Model", "", "2026-05-09", 2368, "", "Sales", "New", null, "", 2368],
+  [125, "A107", "Low Value Asset", "1 Unit kipas siling SIRIM DEKA Ceiling Fan X-ONE 46\" 56\" 5 Blades DC Motor 24 Speed Remote Control Baby F", "", "2026-07-12", 265.95, "", "", "New", null, "", 265.95],
+  [126, "A108", "Low Value Asset", "1 UNIT INDUSTRIAL WALL FAN 20' 260712FUWF9AK6", "", "2026-07-13", 113.99, "", "", "New", null, "", 113.99],
+  [127, "A109", "Low Value Asset", "1 UNIT INDUSTRIAL WALL FAN 26' 260712FUWF9AK5 - WAREHOUSE USAGE", "", "2026-07-13", 178.92, "", "", "New", null, "", 178.92],
+  [128, "A110", "Low Value Asset", "1 UNIT SPEAKER AMPAUDIO", "", "2026-07-13", 514.2, "", "", "New", null, "", 514.2],
+  [129, "A111", "Low Value Asset", "1 UNIT MEETING CHAIR - DIRECTOR ROOM", "", "2026-07-17", 80.78, "", "", "New", null, "", 80.78],
+  [130, "A112", "Low Value Asset", "2 UNIT MEETING CHAIR - DIRECTOR ROOM", "", "2026-07-17", 156.6, "", "", "New", null, "", 156.6],
+  [131, "A113", "Low Value Asset", "2 UNIT MEETING CHAIR - DIRECTOR ROOM", "", "2026-07-18", 165.87, "", "", "New", null, "", 165.87],
+  [132, "A114", "Low Value Asset", "2 UNIT MEETING CHAIR - DIRECTOR ROOM", "", "2026-07-24", 188.15, "", "", "New", null, "", 188.15],
+  [133, "A115", "Low Value Asset", "2 UNIT MEETING CHAIR - DIRECTOR ROOM", "", "2026-07-24", 195.65, "", "", "New", null, "", 195.65],
+  [134, "A116", "Furniture and Fitting", "1 Set of Kitchen Cabinet for Pantry (Quartz Table Top/Wall Unit/Led Lighting)", "", "2026-07-08", 5539, "", "", "New", null, "", 5539],
+  [135, "A117", "Furniture and Fitting", "1 Set Dining Table 210cm for Pantry", "", "2026-07-15", 1069, "", "", "New", null, "", 1069],
+  [136, "A118", "Office Equipment", "1 Unit DJI Osmo Pocket 3", "", "2026-07-09", 2240.94, "", "", "New", null, "", 2240.94],
+  [137, "A119", "Low Value Asset", "4 Unit Lampu Siling Vintaj", "", "2026-07-07", 114.05, "", "", "New", null, "", 114.05],
+  [138, "A120", "Low Value Asset", "1 Unit 2 Door Midea Inverter Frost Fridge", "", "2026-08-06", 979.69, "", "", "New", null, "", 979.69],
+  [139, "A121", "Low Value Asset", "12 Unit Banquet Table 4ft - Meeting Room", "", "2026-08-11", 860, "", "", "New", null, "", 860],
+  [140, "A122", "Low Value Asset", "1 Unit Billy Glass Bookshelf - Director's Office", "", "2026-08-11", 194.55, "", "", "New", null, "", 194.55],
+  [141, "A123", "Low Value Asset", "1 Unit 2 Door 3 Drawer - Director's Office", "", "2026-08-11", 230.2, "", "", "New", null, "", 230.2],
+  [142, "A124", "Low Value Asset", "6 Unit TP-LINK Deco X10 AX1500 Home Mesh Wifi", "", "2026-08-18", 461.76, "", "", "New", null, "", 461.76],
+  [143, "WWP1831", "Motor Vehicles", "1 Unit Nissan Teana 200 XE (2.0cc) 2012", "", "2026-08-10", 10000, "", "", "New", null, "", 10000],
+  [144, "A119", "Low Value Asset", "1 Unit Seagate External Hard Disk 1TB", "NT1D8Q8M", "2026-09-10", 386.64, "", "", "New", null, "", 386.64]]};
+let amLive=null, amBusy=false, amErr=null, amTried=false;
+let amDb=null, amDbErr=null, amSub=null, amDbRef=null, amAssetsRef, amSampleRef;
+let amTab=store.get('consol.amTab')||'reg', amYear=Math.max(AM_BASE,+store.get('consol.amYear')||new Date().getFullYear());
+let amQ='', amCat='', amSt='', amDraft=null, amXBusy=false, amXErr=null, amXMsg=null, amFile=null;
+const amIso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const amDmy=s=>s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'';
+const amR=x=>Math.round((x||0)*100)/100;
+const AM_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+// ---- master data ----
+function amRates(){ return (amLive||AM_SNAP).rates; }
+function amCats(){ return Object.keys(amRates()).filter(c=>c!=='Low Value Asset'); }
+function amFromRow(r){ return {no:r[0],id:String(r[1]||''),cat:r[2],desc:r[3],sn:r[4],pd:r[5],cost:+r[6]||0,pic:r[7],dept:r[8],st:r[9],disp:r[10],rem:r[11],open:r[12],src:'file'}; }
+// The register rows, each with a stable key: its Asset ID, or ID@No. where the ID is used twice.
+function amBase(){
+  const rows=(amLive||AM_SNAP).assets.map(amFromRow), n={};
+  rows.forEach(a=>{ n[a.id]=(n[a.id]||0)+1; });
+  rows.forEach(a=>{ a.k=(n[a.id]>1||!a.id)?(a.id||'row')+'@'+a.no:a.id; });
+  return rows;
+}
+const amKey=id=>String(id||'').trim().replace(/\//g,'-');
+let amCache=null, amCacheKey='';
+function amAll(){
+  const ck=(amLive?amLive.at:'s')+'|'+(amDb?amDb.length+':'+amDb.map(d=>d.k+(d.savedAt||'')).join(','):'');
+  if(amCache&&ck===amCacheKey) return amCache;
+  const base=amBase(), byK=new Map(base.map(a=>[a.k,a]));
+  let next=base.reduce((m,a)=>Math.max(m,+a.no||0),0);
+  (amDb||[]).forEach(d=>{
+    const f=byK.get(d.k);
+    if(f){ const changed=['pd','cost','cat'].some(x=>x in d&&d[x]!==f[x]); Object.assign(f,d,{src:'edit',open:changed?null:f.open}); }
+    else { const a={...d,src:'db',no:++next,open:null}; byK.set(d.k,a); }
+  });
+  amCache=[...byK.values()]; amCacheKey=ck; amMemo.clear(); return amCache;
+}
+function amIssues(all){
+  const out=[], ids={};
+  all.forEach(a=>{ ids[a.id]=(ids[a.id]||[]).concat(a.no); });
+  const nd=all.filter(a=>!a.pd&&!a.disp);
+  if(nd.length) out.push(`<b>${nd.length} asset(s) have no purchase date, so no depreciation is charged:</b> ${nd.map(a=>`${esc(a.id)} ${esc(a.desc)} (RM${fmt(a.cost)})`).join(' · ')}. Enter the purchase date (Edit).`);
+  const old=all.filter(a=>a.pd&&a.pd<'2000-01-01');
+  if(old.length) out.push(`<b>Purchase date looks wrong:</b> ${old.map(a=>`${esc(a.id)} ${esc(a.desc)} dated ${amDmy(a.pd)} (RM${fmt(a.cost)})`).join(' · ')}. A date of 1905 is what Excel shows when only a year such as 2025 is typed into a date cell; with that date the asset counts as fully depreciated before 2026 and gets no charge.`);
+  const dup=Object.entries(ids).filter(([k,v])=>k&&v.length>1);
+  if(dup.length) out.push(`<b>Asset ID used more than once:</b> ${dup.map(([k,v])=>`${esc(k)} (rows ${v.join(', ')})`).join(' · ')}. Give each asset its own ID.`);
+  const disp=all.filter(a=>/dispos/i.test(a.st||'')&&!a.disp);
+  if(disp.length) out.push(`<b>Marked disposed with no disposal date:</b> ${disp.map(a=>esc(a.id)).join(', ')}; depreciation continues until a date is entered.`);
+  return out;
+}
+
+// ---- depreciation ----
+function amFinal(a){ return a.pd&&a.pd>=AM_BASE+'-01-01'&&(+a.cost||0)<AM_LVA?'Low Value Asset':a.cat; }
+function amRate(a){ const R=amRates(), c=amFinal(a); return c in R?+R[c]||0:0; }
+function amDatedif(a,b){ const [y1,m1,d1]=a.split('-').map(Number), [y2,m2,d2]=b.split('-').map(Number); return Math.max(0,(y2-y1)*12+(m2-m1)-(d2<d1?1:0)); }
+function amOpen2026(a){
+  if(!a.pd) return null;
+  if(a.disp&&a.disp<AM_BASE+'-01-01') return 0;
+  if(a.pd>=AM_BASE+'-01-01') return +a.cost||0;
+  if(a.open!=null&&a.open!=='') return +a.open;
+  const mo=(+a.cost||0)*amRate(a)/12; return Math.max(0,(+a.cost||0)-mo*amDatedif(a.pd,AM_BASE+'-01-01'));
+}
+const amMemo=new Map();
+// NBV at 1 Jan of year Y and the charge for each month of Y.
+function amSched(a,Y){
+  const key=a.k+'|'+Y; if(amMemo.has(key)) return amMemo.get(key);
+  const o0=amOpen2026(a); let out;
+  if(o0==null) out={open:null,m:new Array(12).fill(0),close:null};
+  else {
+    const mo=(+a.cost||0)*amRate(a)/12; let rem=o0, open=o0, m=null;
+    for(let y=AM_BASE;y<=Y;y++){ open=rem; const ms=[];
+      for(let i=0;i<12;i++){ const first=y+'-'+String(i+1).padStart(2,'0')+'-01', eom=amIso(new Date(y,i+1,0));
+        let c=0; if(a.pd<=eom&&(!a.disp||a.disp>=first)) c=Math.max(0,Math.min(mo,rem)); rem-=c; ms.push(c); }
+      m=ms; }
+    const gone=a.disp&&a.disp<=Y+'-12-31';
+    out={open,m,close:gone?0:rem,closeBook:rem};
+  }
+  amMemo.set(key,out); return out;
+}
+const amSum=a=>a.reduce((t,x)=>t+x,0);
+// Fixed Asset Working for year Y: capitalised assets, by category.
+function amFAW(Y,all){
+  const y0=Y+'-01-01', y1=Y+'-12-31', cats={}, lva=[];
+  all.forEach(a=>{
+    // An asset with no purchase date is left out, as in the workbook's own working (flagged on the register).
+    if(!a.pd||(a.disp&&a.disp<y0)||a.pd>y1) return;
+    const f=amFinal(a);
+    if(f==='Low Value Asset'){ if(a.pd&&a.pd>=y0) lva.push(a); return; }
+    const S=amSched(a,Y), before=!a.pd||a.pd<y0, dIn=a.disp&&a.disp>=y0&&a.disp<=y1;
+    const cOpen=before?+a.cost||0:0, add=before?0:+a.cost||0, dsp=dIn?+a.cost||0:0, cEnd=cOpen+add-dsp;
+    const dOpen=before&&S.open!=null?cOpen-S.open:0, chg=amSum(S.m), dEnd=dIn?0:dOpen+chg;
+    (cats[f]=cats[f]||[]).push({a,f,rate:amRate(a),cOpen,add,dsp,cEnd,dOpen,chg,dEnd,nbv:cEnd-dEnd,m:S.m});
+  });
+  return {cats,lva};
+}
+
+// ---- loading ----
+async function amLoad(){
+  if(amBusy) return; amBusy=true; amErr=null; amTried=true; if(state.view==='am') renderAM();
+  try{
+    let u8, title=AM_SNAP.title;
+    if(!mcp&&MODE==='web'){
+      // Served version: server.js fetches the workbook from Drive (it must be shared "anyone with the link").
+      const r=await fetch('/api/assets.xlsx',{cache:'no-store'});
+      if(!r.ok){ let c=''; try{ c=(await r.json()).error||''; }catch(e){} throw {code:'tool_error',message:c==='not_shared'?'The asset workbook is not shared "anyone with the link", so the server cannot read it; use "Open Excel file…".':c==='sign_in_required'?'Sign in again to read the asset workbook.':'The server could not read the asset workbook (HTTP '+r.status+').'}; }
+      try{ title=decodeURIComponent(r.headers.get('X-Consol-Title')||'')||title; }catch(e){}
+      u8=new Uint8Array(await r.arrayBuffer());
+    } else {
+      if(!mcp) throw {code:'not_granted',message:'Connectors are not available in this view; use "Open Excel file…" to load the workbook.'};
+      const r=await mcp.callTool(SERVER,'download_file_content',{fileId:AM_FILE},{cache:false});
+      const p=payloadOf(r)||{}, b64=p.content||p.data; if(!b64) throw {code:'tool_error',message:'The asset workbook came back empty from Google Drive.'};
+      const bin=atob(b64); u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); title=p.title||title;
+    }
+    amLive={...amParse(XLSX.read(u8,{type:'array',cellFormula:false,cellStyles:false})),at:new Date().toISOString(),title,live:true};
+    amCache=null;
+  }catch(e){ amErr=errText(e); }
+  amBusy=false; if(state.view==='am') renderAM();
+}
+function amParse(wb){
+  const ws=wb.Sheets['Asset Register']; if(!ws) throw {code:'tool_error',message:'The workbook has no "Asset Register" tab.'};
+  const d=v=>{ if(v==null||v==='') return null; if(typeof v==='number'){ const x=XLSX.SSF.parse_date_code(v); return x?x.y+'-'+String(x.m).padStart(2,'0')+'-'+String(x.d).padStart(2,'0'):null; } return pcDate(v); };
+  const n=v=>{ if(v==null||v==='') return null; const x=typeof v==='number'?v:parseFloat(String(v).replace(/[,\sRM]/g,'')); return isFinite(x)?x:null; };
+  const A=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null}).slice(1).filter(r=>r&&r.slice(0,12).some(c=>c!=null&&c!==''));
+  const assets=A.map((r,i)=>[r[0]||i+1,r[1]||'',r[2]||'',r[3]||'',r[4]||'',d(r[5]),n(r[6])||0,r[7]||'',r[8]||'',r[9]||'',d(r[10]),r[11]==null?'':String(r[11]),n(r[15])]);
+  const rates={}, rs=wb.Sheets['Category Rates'];
+  if(rs) XLSX.utils.sheet_to_json(rs,{header:1,raw:true,defval:null}).slice(1).forEach(r=>{ if(r&&r[0]) rates[String(r[0]).trim()]=+r[1]||0; });
+  return {assets,rates:Object.keys(rates).length?rates:AM_SNAP.rates};
+}
+async function amDbInit(){
+  if(amSub||amDbErr) return;
+  try{ amDbRef=await claude.use('db'); }catch(e){ amDbRef=null; }
+  if(!amDbRef){ amDbErr='Saving is not available in this view (open the artifact on claude.ai and sign in).'; if(state.view==='am') renderAM(); return; }
+  amSub=amDbRef.collection(AM_COL).onSnapshot(s=>{ amDb=s.docs.map(x=>({...x.data(),k:x.id})); amCache=null; if(state.view==='am'&&!amDraft) renderAM(); },
+    e=>{ amDbErr='Could not read the assets saved here ('+esc(e&&e.code||'error')+').'; if(state.view==='am') renderAM(); });
+  try{ amAssetsRef=await claude.use('assets'); }catch(e){ amAssetsRef=null; }
+  try{ amSampleRef=await claude.use('sample'); }catch(e){ amSampleRef=null; }
+  if(state.view==='am'&&!amDraft) renderAM();
+}
+
+// ---- views ----
+function amYears(){ const y=new Date().getFullYear(); const out=[]; for(let i=AM_BASE;i<=Math.max(y+1,AM_BASE+1);i++) out.push(i); return out; }
+function amYearSel(){ return `<label>Year <select id="amYear">${amYears().map(y=>`<option${y===amYear?' selected':''}>${y}</option>`).join('')}</select></label>`; }
+function renderAMReg(){
+  const all=amAll(), Y=amYear, q=amQ.trim().toLowerCase();
+  const rows=all.map(a=>{ const S=amSched(a,Y); return {a,f:amFinal(a),rate:amRate(a),S,chg:amSum(S.m)}; })
+    .filter(x=>(!amCat||x.f===amCat)&&(!amSt||(amSt==='(blank)'?!x.a.st:x.a.st===amSt))&&(!q||[x.a.id,x.a.desc,x.a.sn,x.a.pic,x.a.dept,x.a.rem,x.f].join(' ').toLowerCase().includes(q)));
+  const D=amLive||AM_SNAP, iss=amIssues(all), sts=[...new Set(all.map(a=>a.st||'(blank)'))];
+  const T=k=>rows.reduce((t,x)=>t+(k(x)||0),0), cap=rows.filter(x=>x.f!=='Low Value Asset');
+  let h=`<div class="stmt"><h3>FIXED ASSET REGISTER (MASTER DATA)</h3>
+   <p class="sub2">${all.length} assets: ${all.filter(a=>a.src==='file'||a.src==='edit').length} from <a href="https://docs.google.com/spreadsheets/d/${AM_FILE}/edit" target="_blank" rel="noopener"><i>${esc(D.title||'Asset Management-Master Data.xlsx')}</i></a> (${D.live?'read':'copy'} ${dt(Date.parse(D.at))}), ${all.filter(a=>a.src==='db').length} added here${all.some(a=>a.src==='edit')?`, ${all.filter(a=>a.src==='edit').length} edited here`:''}. Depreciation for ${Y} recalculates as soon as an asset is added or changed.</p>
+   <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center">
+    <button id="amGo"${amBusy?' disabled':''}>${amBusy?'Reading workbook…':'Reload from Drive'}</button><button id="amOpen">Open Excel file…</button><input type="file" id="amOpenIn" accept=".xlsx,.xls" hidden>${amYearSel()}
+    <input id="amQ" value="${esc(amQ)}" placeholder="Search ID, description, PIC, serial…" style="width:240px;font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--card);color:var(--ink)">
+    <label>Category <select id="amCat"><option value="">All</option>${Object.keys(amRates()).map(c=>`<option${c===amCat?' selected':''}>${esc(c)}</option>`).join('')}</select></label>
+    <label>Status <select id="amSt"><option value="">All</option>${sts.map(s=>`<option${s===amSt?' selected':''}>${esc(s)}</option>`).join('')}</select></label>
+    <button class="primary" id="amAdd">+ New purchase</button><button id="amXl">Download master data (Excel)</button></div>`;
+  if(amErr) h+=`<div class="msg err" style="margin:8px 0">${amErr} Showing ${amLive?'the last live read':'the 15 Oct 2026 copy'}.</div>`;
+  if(amXMsg) h+=`<div class="msg ok" style="margin:8px 0">${amXMsg}</div>`;
+  if(iss.length) h+=`<div class="msg" style="margin:8px 0;border-color:#b7791f"><b>▲ Master data to fix (${iss.length})</b><ul style="margin:4px 0 0">${iss.map(x=>`<li>${x}</li>`).join('')}</ul></div>`;
+  h+=`<div class="bekpi"><div><span>Cost (capitalised, shown)</span><b>RM${fmt(T(x=>x.f!=='Low Value Asset'?+x.a.cost:0))}</b></div><div><span>NBV 1 Jan ${Y}</span><b>RM${fmt(cap.reduce((t,x)=>t+(x.S.open||0),0))}</b></div>
+    <div><span>Depreciation ${Y}</span><b>RM${fmt(T(x=>x.chg))}</b></div><div><span>NBV 31 Dec ${Y}</span><b>RM${fmt(cap.reduce((t,x)=>t+(x.S.close||0),0))}</b></div></div></div>`;
+  h+=`<div class="stmt" style="padding-top:0"><div style="overflow-x:auto"><table class="tc" style="min-width:1280px"><tr class="sub"><td>No.</td><td>Asset ID</td><td>Category</td><td>Description</td><td>Serial no.</td><td>Purchased</td><td class="r">Cost</td><td>PIC</td><td>Dept</td><td>Status</td><td>Disposed</td><td class="r">Rate</td><td class="r">NBV 1 Jan ${Y}</td><td class="r">Charge ${Y}</td><td class="r">NBV 31 Dec ${Y}</td><td></td></tr>`;
+  rows.forEach(({a,f,rate,S,chg})=>{ const bad=!a.pd||a.pd<'2000-01-01', est=a.src==='file'&&a.pd&&a.pd<AM_BASE+'-01-01'&&!(a.disp&&a.disp<AM_BASE+'-01-01');
+    h+=`<tr><td>${esc(a.no)}</td><td><b>${esc(a.id)}</b>${a.src==='db'?' <span class="zg" title="Added in this artifact">●</span>':a.src==='edit'?' <span class="zw" title="Edited in this artifact">✎</span>':''}</td><td>${esc(f)}${f!==a.cat&&a.cat?`<span class="note">entered as ${esc(a.cat)}</span>`:''}</td><td>${esc(a.desc)}${a.rem?`<span class="note">${esc(a.rem)}</span>`:''}${a.inv?` <a href="/_blob/${esc(a.inv)}" target="_blank" rel="noopener" class="hint">invoice</a>`:''}</td><td>${esc(a.sn)}</td>
+      <td${bad?' class="zb" style="font-weight:700"':''}>${a.pd?amDmy(a.pd):'missing'}</td><td class="r">${fmt(+a.cost)}</td><td>${esc(a.pic)}</td><td>${esc(a.dept)}</td><td>${esc(a.st)}</td><td>${amDmy(a.disp)}</td><td class="r">${(rate*100).toFixed(0)}%</td>
+      <td class="r"${est&&Y===AM_BASE?' title="Estimated opening NBV in the workbook (column P); verify against the audited closing balance"':''}>${S.open==null?'–':fmt(S.open)}</td><td class="r">${fmt(chg)}</td><td class="r">${S.close==null?'–':fmt(S.close)}</td><td><button data-amed="${esc(a.k)}">Edit</button></td></tr>`; });
+  h+=`<tr class="sub"><td colspan="6">Total (${rows.length})</td><td class="r">${fmt(T(x=>+x.a.cost))}</td><td colspan="5"></td><td class="r">${fmt(T(x=>x.S.open))}</td><td class="r">${fmt(T(x=>x.chg))}</td><td class="r">${fmt(T(x=>x.S.close))}</td><td></td></tr></table></div>
+   <p class="sub2" style="margin-top:8px"><b>Rules (as in the workbook).</b> Straight line at the category rate (Category Rates tab), a full month's charge in the month of purchase and in the month of disposal, never below nil. From 1 Jan 2026 a purchase under RM1,000 is a <i>Low Value Asset</i>: 0%, expensed when bought. Opening NBV at 1 Jan 2026 for older assets is the workbook's column P (an estimate there: verify against the audited balances). ● added here · ✎ edited here.</p></div>`;
+  return h;
+}
+function renderAMDep(){
+  const all=amAll(), Y=amYear, {cats,lva}=amFAW(Y,all), order=Object.keys(amRates()).filter(c=>cats[c]).concat(Object.keys(cats).filter(c=>!(c in amRates())));
+  const G={cOpen:0,add:0,dsp:0,cEnd:0,dOpen:0,chg:0,dEnd:0,nbv:0}, GM=new Array(12).fill(0);
+  let h=`<div class="stmt"><h3>DEPRECIATION ${Y}: FIXED ASSET WORKING</h3><div class="controls" style="margin:6px 0;gap:10px;align-items:center">${amYearSel()}<button id="amXl">Download master data (Excel)</button></div>
+   <p class="sub2">Capitalised assets only (Low Value Assets are expensed at purchase, total below). An asset disposed in ${Y} has its cost, depreciation and NBV brought to nil at year end.</p>
+   <h3 style="font-size:13.5px;margin-top:12px">Monthly charge by category</h3><div style="overflow-x:auto"><table class="tc" style="min-width:1100px"><tr class="sub"><td>Category</td><td class="r">Rate</td>${AM_MON.map(m=>`<td class="r">${m}-${String(Y).slice(2)}</td>`).join('')}<td class="r">Total ${Y}</td></tr>`;
+  order.forEach(c=>{ const M=new Array(12).fill(0); cats[c].forEach(x=>x.m.forEach((v,i)=>M[i]+=v)); M.forEach((v,i)=>GM[i]+=v);
+    h+=`<tr><td><b>${esc(c)}</b></td><td class="r">${((amRates()[c]||0)*100).toFixed(0)}%</td>${M.map(v=>`<td class="r">${fmt(v)}</td>`).join('')}<td class="r"><b>${fmt(amSum(M))}</b></td></tr>`; });
+  h+=`<tr class="sub"><td>Total</td><td></td>${GM.map(v=>`<td class="r">${fmt(v)}</td>`).join('')}<td class="r">${fmt(amSum(GM))}</td></tr></table></div>`;
+  h+=`<h3 style="font-size:13.5px;margin-top:16px">Cost and accumulated depreciation by category</h3><div style="overflow-x:auto"><table class="tc" style="min-width:1000px"><tr class="sub"><td>Category</td><td class="r">Assets</td><td class="r">Cost (opening)</td><td class="r">Addition</td><td class="r">Disposal</td><td class="r">Cost (end of year)</td><td class="r">Depreciation (opening)</td><td class="r">Charge for the year</td><td class="r">Depreciation (end of year)</td><td class="r">NBV</td></tr>`;
+  order.forEach(c=>{ const L=cats[c], s=k=>L.reduce((t,x)=>t+x[k],0); Object.keys(G).forEach(k=>G[k]+=s(k));
+    h+=`<tr><td><details><summary style="cursor:pointer"><b>${esc(c)}</b></summary><table class="tc" style="margin:6px 0;min-width:900px"><tr class="sub"><td>Asset ID</td><td>Description</td><td>Purchased</td><td class="r">Cost (opening)</td><td class="r">Addition</td><td class="r">Disposal</td><td class="r">Dep. (opening)</td><td class="r">Charge</td><td class="r">NBV</td></tr>${L.map(x=>`<tr><td>${esc(x.a.id)}</td><td>${esc(x.a.desc)}</td><td>${amDmy(x.a.pd)||'missing'}</td><td class="r">${fmt(x.cOpen)}</td><td class="r">${fmt(x.add)}</td><td class="r">${fmt(x.dsp)}</td><td class="r">${fmt(x.dOpen)}</td><td class="r">${fmt(x.chg)}</td><td class="r">${fmt(x.nbv)}</td></tr>`).join('')}</table></details></td>
+      <td class="r">${L.length}</td><td class="r">${fmt(s('cOpen'))}</td><td class="r">${fmt(s('add'))}</td><td class="r">${fmt(s('dsp'))}</td><td class="r">${fmt(s('cEnd'))}</td><td class="r">${fmt(s('dOpen'))}</td><td class="r">${fmt(s('chg'))}</td><td class="r">${fmt(s('dEnd'))}</td><td class="r"><b>${fmt(s('nbv'))}</b></td></tr>`; });
+  h+=`<tr class="sub"><td>Grand total</td><td class="r">${order.reduce((t,c)=>t+cats[c].length,0)}</td>${['cOpen','add','dsp','cEnd','dOpen','chg','dEnd','nbv'].map(k=>`<td class="r">${fmt(G[k])}</td>`).join('')}</tr></table></div>
+   <p class="sub2" style="margin-top:8px"><b>Low Value Assets bought in ${Y}</b> (expensed, not capitalised): ${lva.length} item(s), RM${fmt(lva.reduce((t,a)=>t+(+a.cost||0),0))}.</p></div>`;
+  return h;
+}
+// ---- new purchase / edit ----
+function amNextId(all,skip){
+  let n=0; all.concat(skip||[]).forEach(a=>{ const m=String(a.id||'').match(/^A-?(\d+)$/i); if(m) n=Math.max(n,+m[1]); });
+  return 'A'+String(n+1).padStart(3,'0');
+}
+function amBlank(all,taken){ return {id:amNextId(all,taken),cat:'',desc:'',sn:'',pd:amIso(new Date()),cost:'',pic:'',dept:'',st:'New',disp:'',rem:''}; }
+function amNewDraft(){ amDraft={mode:'new',head:{supplier:'',invNo:'',invDate:''},items:[amBlank(amAll())],file:null,reading:false,err:null,note:null}; amFile=null; }
+function amEditDraft(k){
+  const a=amAll().find(x=>x.k===k); if(!a) return;
+  amDraft={mode:'edit',k,src:a.src,head:{supplier:a.supplier||'',invNo:a.invNo||'',invDate:a.invDate||''},items:[{id:a.id,cat:a.cat,desc:a.desc,sn:a.sn,pd:a.pd||'',cost:a.cost,pic:a.pic,dept:a.dept,st:a.st,disp:a.disp||'',rem:a.rem}],inv:a.inv||null,err:null};
+}
+function amPreview(it){
+  const a={k:'_p',pd:it.pd||null,cost:+it.cost||0,cat:it.cat,disp:it.disp||null,open:null}, Y=amYear;
+  amMemo.delete('_p|'+Y); const S=amSched(a,Y); amMemo.delete('_p|'+Y);
+  const f=amFinal(a), r=amRate(a);
+  if(!it.cost||!it.pd) return '<span class="hint">enter date and cost</span>';
+  return f==='Low Value Asset'?`<span class="zw">Low Value Asset · expensed</span>`:`${esc(f)} · ${(r*100).toFixed(0)}% · RM${fmt(a.cost*r/12)}/month · ${Y}: RM${fmt(amSum(S.m))}`;
+}
+function renderAMDraft(){
+  const D=amDraft, inS='font:inherit;padding:3px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)';
+  const inp=(p,v,w,t)=>`<input data-amd="${p}" ${t?`type="${t}"`:''} value="${esc(v==null?'':String(v))}" style="${inS};width:${w}px${t==='number'?';text-align:right':''}">`;
+  const sel=(p,v,opts,w)=>`<select data-amd="${p}" style="${inS};width:${w}px"><option value=""></option>${opts.map(o=>`<option${o===v?' selected':''}>${esc(o)}</option>`).join('')}</select>`;
+  let h=`<div class="stmt"><h3>${D.mode==='edit'?'EDIT ASSET '+esc(D.items[0].id):'NEW ASSET PURCHASE'}</h3>`;
+  if(D.mode==='new'){
+    const canRead=!!amSampleRef;
+    h+=`<div class="anbox" style="margin:8px 0 12px"><b>1. Upload the invoice or receipt</b> <span class="hint">· image or PDF${canRead?'; Claude reads it and fills in the asset lines below':'; reading invoices automatically is not available in this view, fill in the lines by hand'}</span>
+     <div class="controls" style="margin:8px 0 0;gap:10px;flex-wrap:wrap;align-items:center"><input type="file" id="amFileIn" accept="image/*,application/pdf">
+     ${canRead?`<button class="primary" id="amRead"${!amFile||D.reading?' disabled':''}>${D.reading?'Reading invoice…':'Read invoice with Claude'}</button>`:''}${amFile?`<span class="hint">${esc(amFile.name)} · ${(amFile.size/1024).toFixed(0)} KB</span>`:''}</div>
+     ${D.note?`<p class="sub2" style="margin:6px 0 0">${D.note}</p>`:''}</div>
+     <p style="margin:8px 0"><b>2. Check the details</b> · Supplier ${inp('head.supplier',D.head.supplier,220)} · Invoice no. ${inp('head.invNo',D.head.invNo,140)} · Invoice date ${inp('head.invDate',D.head.invDate,140,'date')}</p>`;
+  }
+  if(D.err) h+=`<div class="msg err" style="margin:8px 0">${D.err}</div>`;
+  h+=`<div style="overflow-x:auto"><table class="tc" style="min-width:1250px"><tr class="sub"><td>Asset ID</td><td>Category</td><td>Description</td><td>Serial no.</td><td>Purchase date</td><td class="r">Cost (RM)</td><td>PIC</td><td>Department</td><td>Status</td><td>Date disposed</td><td>Remarks</td><td>Depreciation</td>${D.mode==='new'?'<td></td>':''}</tr>`;
+  D.items.forEach((it,i)=>{ h+=`<tr><td>${inp('items.'+i+'.id',it.id,100)}</td><td>${sel('items.'+i+'.cat',it.cat,amCats(),170)}</td><td>${inp('items.'+i+'.desc',it.desc,230)}</td><td>${inp('items.'+i+'.sn',it.sn,120)}</td><td>${inp('items.'+i+'.pd',it.pd,135,'date')}</td><td>${inp('items.'+i+'.cost',it.cost,100,'number')}</td>
+    <td>${inp('items.'+i+'.pic',it.pic,170)}</td><td>${sel('items.'+i+'.dept',it.dept,AM_DEPTS,120)}</td><td>${sel('items.'+i+'.st',it.st,['New','Existing','Dispose'],95)}</td><td>${inp('items.'+i+'.disp',it.disp,135,'date')}</td><td>${inp('items.'+i+'.rem',it.rem,150)}</td><td style="white-space:nowrap;font-size:12px" id="amPv${i}">${amPreview(it)}</td>${D.mode==='new'?`<td><button data-amdel="${i}">✕</button></td>`:''}</tr>`; });
+  h+=`</table></div>${D.mode==='new'?'<button id="amRow" style="margin-top:6px">+ Add line</button>':''}
+   <p class="sub2">Purchases from 1 Jan 2026 under RM1,000 become Low Value Assets automatically. Asset IDs must be unique; the next free number is suggested.</p>
+   <div class="controls" style="gap:10px;margin:10px 0;align-items:center"><button class="primary" id="amSave"${amDbRef&&!amXBusy?'':' disabled'}>${amXBusy?'Saving…':D.mode==='edit'?'Save changes':'Save to master data'}</button><button id="amCancel">Cancel</button>
+   ${D.mode==='edit'&&D.src==='db'?'<button id="amDelA">Delete this asset</button>':''}${D.mode==='edit'&&D.src==='edit'?'<button id="amUndo">Undo changes made here</button>':''}${amDbRef?'':'<span class="hint">Saving is not available in this view.</span>'}</div></div>`;
+  return h;
+}
+async function amPdfLib(){
+  if(window.pdfjsLib) return;
+  const add=src=>new Promise((res,rej)=>{ const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>rej(new Error('The PDF reader could not be loaded.')); document.head.appendChild(s); });
+  await add('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js');
+  await add('https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js');
+}
+async function amImages(file,max){
+  if(/^image\//.test(file.type)) return [file];
+  if(file.type!=='application/pdf'&&!/\.pdf$/i.test(file.name)) throw new Error('Upload an image (JPG, PNG) or a PDF.');
+  await amPdfLib();
+  const pdf=await pdfjsLib.getDocument({data:new Uint8Array(await file.arrayBuffer())}).promise, out=[];
+  for(let i=1;i<=Math.min(pdf.numPages,max);i++){ const pg=await pdf.getPage(i), vp=pg.getViewport({scale:1.6}), c=document.createElement('canvas');
+    c.width=vp.width; c.height=vp.height; await pg.render({canvasContext:c.getContext('2d'),viewport:vp}).promise;
+    out.push(await new Promise(r=>c.toBlob(r,'image/jpeg',0.9))); }
+  return out;
+}
+async function amRead(){
+  const D=amDraft; if(!amFile||!amSampleRef||D.reading) return;
+  D.reading=true; D.err=null; D.note=null; renderAM();
+  try{
+    let max=3; try{ const L=await amSampleRef.limits(); if(!L||!L.images) throw 0; max=Math.max(1,Math.min(3,L.images.maxCount)); }catch(e){ throw new Error('Reading images is not available for your account here; fill in the lines by hand.'); }
+    const imgs=await amImages(amFile,max), R=amRates();
+    const prompt=`These are pages of a supplier invoice or receipt for a Malaysian company (79 Ventures / Arabina). Extract the fixed-asset purchases for the company's asset register.
+Reply with only one JSON object:
+{"supplier":"", "invoiceNo":"", "invoiceDate":"YYYY-MM-DD", "items":[{"description":"", "serial":"", "qty":1, "amount":0, "category":""}], "notes":""}
+Rules:
+- One item per distinct asset line. "description" in the register's style: "<qty> Unit <item name and model>", e.g. "1 Unit HP Laptop 15 AMD Ryzen" or "2 Unit Aircond Daikin 1.5HP".
+- "amount" is the line's total cost in RM, including its share of SST/tax and of delivery or installation charges (spread them over the lines by value). Discounts reduce the amount.
+- "serial": serial numbers if printed, else "".
+- "category": the best fit from exactly this list: ${Object.keys(R).filter(c=>c!=='Low Value Asset').join(', ')}.
+- Dates are day/month/year on Malaysian invoices; output ISO.
+- "notes": anything a finance person should check (unreadable figures, items that look like expenses not assets, foreign currency). Empty string if none.`;
+    const J=await amSampleRef.json(prompt,{images:imgs,modelTier:'default'});
+    const all=amAll(), taken=[], items=(J&&Array.isArray(J.items)?J.items:[]).map(x=>{ const it=amBlank(all,taken); taken.push(it);
+      return {...it,cat:amCats().includes(x.category)?x.category:'',desc:String(x.description||''),sn:String(x.serial||''),pd:/^\d{4}-\d{2}-\d{2}$/.test(J.invoiceDate||'')?J.invoiceDate:it.pd,cost:Math.round((+x.amount||0)*100)/100}; });
+    if(!items.length) throw new Error('No asset lines could be read from this file. Fill in the lines by hand.');
+    D.head={supplier:String(J.supplier||''),invNo:String(J.invoiceNo||''),invDate:/^\d{4}-\d{2}-\d{2}$/.test(J.invoiceDate||'')?J.invoiceDate:''};
+    D.items=items; D.note=`Read by Claude: ${items.length} line(s), RM${fmt(items.reduce((t,x)=>t+x.cost,0))}. Check every figure against the invoice before saving.${J.notes?' <b>Note:</b> '+esc(J.notes):''}`;
+  }catch(e){ D.err=esc(e&&e.code==='not_granted'?'Reading the invoice needs your permission to use Claude; allow it and try again, or fill in the lines by hand.':e&&e.code?'Claude could not read the invoice ('+e.code+'). Fill in the lines by hand.':(e&&e.message)||String(e)); }
+  D.reading=false; renderAM();
+}
+async function amSave(){
+  const D=amDraft; if(!D||!amDbRef||amXBusy) return;
+  const all=amAll(), clean=D.items.map(it=>({...it,id:String(it.id||'').trim(),cost:+it.cost||0,pd:it.pd||null,disp:it.disp||null}));
+  const errs=[];
+  clean.forEach((it,i)=>{ const n='Line '+(i+1)+': ';
+    if(!it.id) errs.push(n+'Asset ID is required.'); if(!it.desc) errs.push(n+'description is required.'); if(!it.cat) errs.push(n+'choose a category.');
+    if(!it.pd) errs.push(n+'purchase date is required.'); if(!(it.cost>0)) errs.push(n+'cost must be more than 0.');
+    if(it.disp&&it.pd&&it.disp<it.pd) errs.push(n+'disposal date is before the purchase date.');
+    const clash=all.find(a=>a.id===it.id&&(D.mode!=='edit'||a.k!==D.k)); if(clash) errs.push(n+'Asset ID '+esc(it.id)+' is already used ('+esc(clash.desc)+').');
+    if(clean.filter(x=>x.id===it.id).length>1) errs.push(n+'Asset ID '+esc(it.id)+' is repeated in this purchase.'); });
+  if(errs.length){ D.err=[...new Set(errs)].join('<br>'); renderAM(); return; }
+  amXBusy=true; D.err=null; renderAM();
+  try{
+    const u=await wrUserInit(), me=u?await u.id():null, at=new Date().toISOString();
+    let inv=D.inv||null;
+    if(D.mode==='new'&&amFile&&amAssetsRef){ try{ const r=await amAssetsRef.upload(amFile); inv=r.id; }catch(e){ D.note=(D.note||'')+' The invoice file could not be stored ('+esc(e&&e.code||'error')+'); the assets are saved without it.'; } }
+    for(const it of clean){
+      const k=D.mode==='edit'?D.k:amKey(it.id);
+      const body={id:it.id,cat:it.cat,desc:it.desc,sn:it.sn||'',pd:it.pd,cost:it.cost,pic:it.pic||'',dept:it.dept||'',st:it.st||'',disp:it.disp,rem:it.rem||'',
+        supplier:D.head.supplier||'',invNo:D.head.invNo||'',invDate:D.head.invDate||'',inv,savedAt:at,savedBy:me};
+      await amDbRef.collection(AM_COL).doc(k).set(body);
+    }
+    amXMsg=`${D.mode==='edit'?'Saved changes to '+esc(clean[0].id):'Added '+clean.length+' asset(s): '+clean.map(x=>esc(x.id)).join(', ')}. Depreciation is recalculated below; download the master data to update the Excel copy.`;
+    amDraft=null; amFile=null; amTab='reg';
+  }catch(e){ D.err=e&&e.code==='invalid_argument'?'You do not have permission to save assets in this artifact.':'Save failed ('+esc(e&&e.code||'error')+'). Try again.'; }
+  amXBusy=false; renderAM();
+}
+async function amRemove(){
+  const D=amDraft; if(!D||!amDbRef) return;
+  if(!confirm(D.src==='db'?'Delete asset '+D.items[0].id+' from the master data?':'Undo the changes made here to '+D.items[0].id+' and go back to the workbook figures?')) return;
+  try{ await amDbRef.collection(AM_COL).doc(D.k).delete(); amXMsg=(D.src==='db'?'Deleted ':'Restored ')+esc(D.items[0].id)+'.'; amDraft=null; }
+  catch(e){ D.err='Failed ('+esc(e&&e.code||'error')+').'; }
+  renderAM();
+}
+
+// ---- Excel: the register in the workbook's own layout, the working and a monthly summary ----
+function amXlsx(){
+  const all=amAll(), Y=amYear, yy=String(Y).slice(2), wb=XLSX.utils.book_new(), r2=x=>x==null?'':Math.round(x*100)/100;
+  const head=['No.','Asset ID','Category','Description','Serial No','Purchase Date','Cost (RM)','PIC','Department','Status','Date Disposed','Remarks','Threshold Check','Final Category','Depreciation Rate','Opening NBV (1-Jan-'+Y+')',...AM_MON.map(m=>m+'-'+yy),'Total '+Y+' Depreciation','NBV as at 31-Dec-'+Y];
+  const reg=all.map(a=>{ const S=amSched(a,Y), f=amFinal(a);
+    return [a.no,a.id,a.cat,a.desc,a.sn,a.pd?amDmy(a.pd):'',+a.cost||0,a.pic,a.dept,a.st,a.disp?amDmy(a.disp):'',a.rem,!a.pd?'':a.pd>=AM_BASE+'-01-01'&&(+a.cost||0)<AM_LVA?'LVA - 2026 purchase under RM1,000':'Standard',f,amRate(a),r2(S.open),...S.m.map(r2),r2(amSum(S.m)),S.open==null?'':r2((S.open||0)-amSum(S.m))]; });
+  const ws=XLSX.utils.aoa_to_sheet([head,...reg]); ws['!cols']=head.map((h,i)=>({wch:i===3?40:i<2?8:14})); ws['!freeze']={xSplit:2,ySplit:1};
+  XLSX.utils.book_append_sheet(wb,ws,'Asset Register');
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Category','Annual Depreciation Rate'],...Object.entries(amRates())]),'Category Rates');
+  const {cats,lva}=amFAW(Y,all), order=Object.keys(amRates()).filter(c=>cats[c]), F=[['FIXED ASSET WORKING (YEAR ENDED 31 DECEMBER '+Y+')'],['Excludes Low Value Assets (expensed at purchase). Generated from the P&L 2026 – Consol artifact on '+amDmy(amIso(new Date()))+'.'],[]];
+  const G=new Array(8).fill(0);
+  order.forEach(c=>{ const L=cats[c]; F.push([c+'  ('+L.length+' assets)']); F.push(['No.','Asset ID','Category','Description','Date Purchase','Cost (Opening)','Addition','Disposal','Cost (End of Year)','Rate','Depreciation (Opening)','Charge for the Year','Depreciation (End of Year)','NBV',...AM_MON.map(m=>m+'-'+yy)]);
+    const t=new Array(8).fill(0);
+    L.forEach((x,i)=>{ const v=[x.cOpen,x.add,x.dsp,x.cEnd,x.dOpen,x.chg,x.dEnd,x.nbv]; v.forEach((n,j)=>t[j]+=n);
+      F.push([i+1,x.a.id,c,x.a.desc,x.a.pd?amDmy(x.a.pd):'',...v.slice(0,4).map(r2),x.rate,...v.slice(4).map(r2),...x.m.map(r2)]); });
+    t.forEach((n,j)=>G[j]+=n); F.push(['Subtotal — '+c,'','','','',...t.slice(0,4).map(r2),'',...t.slice(4).map(r2)]); F.push([]); });
+  F.push(['GRAND TOTAL (all capitalized categories)','','','','',...G.slice(0,4).map(r2),'',...G.slice(4).map(r2)],[],['Low Value Asset — '+Y+' purchases (expensed, not capitalized)','','','','','',r2(lva.reduce((t,a)=>t+(+a.cost||0),0))]);
+  const fw=XLSX.utils.aoa_to_sheet(F); fw['!cols']=[{wch:6},{wch:14},{wch:20},{wch:38}].concat(new Array(22).fill({wch:13}));
+  XLSX.utils.book_append_sheet(wb,fw,'Fixed Asset Working '+Y);
+  const Sm=[['Category',...AM_MON.map(m=>m+'-'+yy),'Total']], tot=new Array(12).fill(0);
+  order.forEach(c=>{ const M=new Array(12).fill(0); cats[c].forEach(x=>x.m.forEach((v,i)=>M[i]+=v)); M.forEach((v,i)=>tot[i]+=v); Sm.push([c,...M.map(r2),r2(amSum(M))]); });
+  Sm.push(['Total',...tot.map(r2),r2(amSum(tot))]);
+  XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(Sm),'Depreciation Summary '+Y);
+  return new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+}
+async function amDownload(){
+  const name='Asset Management-Master Data '+amIso(new Date())+'.xlsx';
+  try{ await wefSave(name,amXlsx()); }catch(e){ amErr=esc((e&&e.message)||String(e)); renderAM(); }
+}
+
+function renderAM(){
+  if(state.view!=='am') return;
+  const tabs=`<div class="seg" role="group" aria-label="Asset Management" style="margin:14px 18px 0">${[['reg','Asset Register'],['dep','Depreciation'],['add','New Purchase']].map(([k,l])=>`<button data-amt="${k}" aria-pressed="${(amDraft?'add':amTab)===k}">${l}</button>`).join('')}</div>`;
+  amDbInit();
+  if(amTab==='add'&&!amDraft) amNewDraft();
+  $('tablebox').innerHTML=tabs+(amDraft?renderAMDraft():amTab==='dep'?renderAMDep():renderAMReg());
+  $('tablebox').querySelectorAll('[data-amt]').forEach(b=>b.addEventListener('click',()=>{ amTab=b.dataset.amt; store.set('consol.amTab',amTab==='add'?'reg':amTab); if(amTab!=='add') amDraft=null; amXMsg=null; renderAM(); }));
+  const y=$('amYear'); if(y) y.addEventListener('change',()=>{ amYear=+y.value; store.set('consol.amYear',String(amYear)); renderAM(); });
+  const x=$('amXl'); if(x) x.addEventListener('click',amDownload);
+  if(amDraft){
+    const D=amDraft;
+    $('tablebox').querySelectorAll('[data-amd]').forEach(el=>el.addEventListener('change',()=>{ const p=el.dataset.amd.split('.');
+      if(p[0]==='head') D.head[p[1]]=el.value; else { D.items[+p[1]][p[2]]=el.value; const pv=$('amPv'+p[1]); if(pv) pv.innerHTML=amPreview(D.items[+p[1]]); } }));
+    const f=$('amFileIn'); if(f) f.addEventListener('change',()=>{ amFile=f.files[0]||null; D.err=null; renderAM(); });
+    const rd=$('amRead'); if(rd) rd.addEventListener('click',amRead);
+    const rw=$('amRow'); if(rw) rw.addEventListener('click',()=>{ D.items.push(amBlank(amAll(),D.items)); renderAM(); });
+    $('tablebox').querySelectorAll('[data-amdel]').forEach(b=>b.addEventListener('click',()=>{ D.items.splice(+b.dataset.amdel,1); if(!D.items.length) D.items.push(amBlank(amAll())); renderAM(); }));
+    $('amSave').addEventListener('click',amSave);
+    $('amCancel').addEventListener('click',()=>{ amDraft=null; amFile=null; if(amTab==='add') amTab='reg'; renderAM(); });
+    const dl=$('amDelA')||$('amUndo'); if(dl) dl.addEventListener('click',amRemove);
+    return;
+  }
+  if(amTab==='reg'){
+    $('amGo').addEventListener('click',()=>amLoad());
+    $('amOpen').addEventListener('click',()=>$('amOpenIn').click());
+    $('amOpenIn').addEventListener('change',async ev=>{ const f=ev.target.files[0]; if(!f) return;
+      try{ amLive={...amParse(XLSX.read(new Uint8Array(await f.arrayBuffer()),{type:'array',cellFormula:false,cellStyles:false})),at:new Date().toISOString(),title:f.name,live:true}; amCache=null; amErr=null; }
+      catch(e){ amErr=esc((e&&e.message)||'This file could not be read as the asset workbook.'); }
+      renderAM(); });
+    $('amQ').addEventListener('change',ev=>{ amQ=ev.target.value; renderAM(); });
+    $('amCat').addEventListener('change',ev=>{ amCat=ev.target.value; renderAM(); });
+    $('amSt').addEventListener('change',ev=>{ amSt=ev.target.value; renderAM(); });
+    $('amAdd').addEventListener('click',()=>{ amTab='add'; amXMsg=null; amNewDraft(); renderAM(); });
+    $('tablebox').querySelectorAll('[data-amed]').forEach(b=>b.addEventListener('click',()=>{ amXMsg=null; amEditDraft(b.dataset.amed); renderAM(); }));
+  }
+}
+
 function renderTable(){
   if(state.view==='pc'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     if(!pcTried&&mcp) setTimeout(pcLoad,0); return renderPC(); }
+  if(state.view==='am'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
+    if(!amTried&&(mcp||MODE==='web')) setTimeout(amLoad,0); return renderAM(); }
   if(state.view==='fp'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderFP(); }
   const SECT={pc:['PETTY CASH','Petty cash automation'],am:['ASSET MANAGEMENT','Fixed asset register and depreciation']};
   if(SECT[state.view]){ const [t,d]=SECT[state.view]; if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
@@ -4978,8 +5506,8 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view; navSync();
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   // Petty Cash does not need the P&L workbook, so it still opens while that is loading or has failed.
-  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc') renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc'].includes(sv)){ state.view=sv;
+  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc'||state.view==='am'||state.view==='fp') renderTable(); }));
+(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc','am','fp'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 // ===== Financing Profile: read live from QuickBooks through the viewer's own connector =====
 // What a bank asks for first: two years of results, the position, existing facilities and what
@@ -5075,6 +5603,7 @@ function renderFP(){
   <label>As at <select id="fpAs">${opts.join('')}</select></label><button type="button" id="fpRe">Refresh from QuickBooks</button><span class="hint" id="fpStat"></span></div>`;
   const D=FP.data[FP.e+'|'+FP.asAt];
   if(FP.err) h+=`<div class="msg err">${qdErr(FP.err)}</div>`;
+  if(!D&&!mcp&&!FP.err){ $('tablebox').innerHTML=h+'<p class="hint">Connecting to QuickBooks…</p></div>'; fpWire(); return; }
   if(!D){ h+=FP.busy?'<p class="hint">Reading QuickBooks…</p>':(FP.err?'':'<p class="hint">Loading…</p>'); $('tablebox').innerHTML=h+'</div>'; fpWire(); fpStatus(); if(!FP.busy&&!FP.err) fpLoad(); return; }
   const C=fpCalc(D), y=D.y, mo=MONTHS[D.mN-1]+' '+y, ytdL=`Jan–${MONTHS[D.mN-1]} ${y}`;
   const st=(v,ok,warn,hi)=>v==null||!isFinite(v)?'':(hi?(v>=ok?'st-g':v>=warn?'st-w':'st-b'):(v<=ok?'st-g':v<=warn?'st-w':'st-b'));
@@ -5166,7 +5695,7 @@ function navSync(){ const m=navMod(state.view); document.body.classList.toggle('
     if(!v||!$('viewSel').querySelector('option[value="'+v+'"]')) v='home';
     $('viewSel').value=v; $('viewSel').dispatchEvent(new Event('change')); });
   if(store.get('consol.navshut')==='1') document.body.classList.add('navshut');
-  navSync(); if(state.view==='pc') renderTable(); })();
+  navSync(); if(state.view==='pc'||state.view==='am'||state.view==='fp') renderTable(); })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
 $('hideZero').addEventListener('change',renderTable);
@@ -5319,7 +5848,9 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
   const [m,d]=await Promise.all([C.use('mcp').catch(()=>null),C.use('downloads').catch(()=>null)]);
   mcp=m; downloads=d; if(state.res) $('csv').hidden=false;
   if(mcp&&state.view==='pc'&&!pcTried) pcLoad();
+  if(mcp&&state.view==='am'&&!amTried) amLoad();
   wrDbInit();
+  if(mcp&&state.view==='fp'){ FP.err=null; renderTable(); }
   if(!mcp){ if(!state.res) $('tablebox').innerHTML='<div class="empty">Connectors are not available in this view. Open the artifact on claude.ai.</div>'; else addMsg('Connectors are not available in this view; showing last saved data.',''); return; }
   refresh(false);
   // Same reason as on the served page: bank balances live in this browser's storage, so a viewer
@@ -5329,4 +5860,3 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
 </script>
 </body>
 </html>
-
