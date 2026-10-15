@@ -93,7 +93,12 @@ select,input[type=text]{background:var(--card);border:1px solid var(--rule);bord
 .snav-top{display:flex;justify-content:space-between;align-items:flex-start;padding:18px 16px 12px;border-bottom:1px solid var(--rule2)}
 .snav-top b{display:block;font-size:20px;color:var(--cons);letter-spacing:-.01em}.snav-top span{font-size:12px;color:var(--muted)}
 .snav-top button{border:0;background:transparent;font-size:18px;color:var(--muted);padding:0 4px;cursor:pointer}
-.snav-q{padding:10px 12px 4px}.snav-q .vsearch{flex:none;width:100%}
+.snav-mods{display:grid;grid-template-columns:1fr 1fr;gap:8px;padding:12px 12px 4px}
+.snav-mods button{font:600 13.5px var(--sans);padding:9px 6px;border:1.5px solid transparent;border-radius:8px;background:var(--band);color:var(--ink);cursor:pointer}
+.snav-mods button[aria-selected="true"]{background:var(--consbg);border-color:var(--cons);color:var(--cons)}
+.snav-q{padding:10px 12px 4px}
+/* The Petty Cash section shows none of the consolidation's checks, notes or adjustments. */
+body.mod-pc #msgs,body.mod-pc #checks,body.mod-pc #legend,body.mod-pc .adjtog,body.mod-pc #srcbox,body.mod-pc #eqbox{display:none!important}.snav-q .vsearch{flex:none;width:100%}
 .snav-list{flex:1;overflow-y:auto;padding:4px 10px 18px}
 .snav-g{display:flex;justify-content:space-between;align-items:center;width:100%;border:0;background:transparent;padding:14px 8px 6px;font:700 11px var(--sans);letter-spacing:.08em;text-transform:uppercase;color:var(--muted);cursor:pointer;border-radius:0}
 .snav-g i{font-style:normal;font-size:10px;transition:transform .15s}.snav-g[aria-expanded="false"] i{transform:rotate(-90deg)}
@@ -294,7 +299,8 @@ table.cs td.num{min-width:70px}
 <body>
 <!-- Side menu: every view, grouped as in the View list, under the BOD Review heading. -->
 <nav class="snav" id="snav" aria-label="Views">
-  <div class="snav-top"><div><b>BOD Review</b><span>79 Ventures &amp; Arabina</span></div><button type="button" id="snavFold" title="Hide menu" aria-label="Hide menu">&laquo;</button></div>
+  <div class="snav-top"><div><b>Finance</b><span>79 Ventures &amp; Arabina</span></div><button type="button" id="snavFold" title="Hide menu" aria-label="Hide menu">&laquo;</button></div>
+  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button></div>
   <div class="snav-q" id="snavQ"></div>
   <div class="snav-list" id="snavList"></div>
 </nav>
@@ -360,12 +366,16 @@ table.cs td.num{min-width:70px}
           <option value="bm">Margin vs Internal Benchmark, Industry &amp; Health</option>
           <option value="fin">Financing Readiness</option>
         </optgroup>
+        <optgroup label="Petty Cash" data-mod="pc">
+          <option value="pc">Petty Cash</option>
+        </optgroup>
       </select>
     </label>
     <div class="vsearch"><input type="search" id="viewQ" placeholder="Search views… e.g. tax, BS, zakat" autocomplete="off" aria-label="Search views" aria-controls="viewQl"><div id="viewQl" class="vsl" role="listbox" hidden></div></div>
     <div class="seg" role="group" aria-label="View" hidden>
       <button data-view="home" aria-pressed="true">Homepage</button>
       <button data-view="bod" aria-pressed="false">BOD Summary</button>
+      <button data-view="pc" aria-pressed="false">Petty Cash</button>
       <button data-view="ent" aria-pressed="false">Consol by entity</button>
       <button data-view="con" aria-pressed="false">Consol only</button>
       <button data-view="v" aria-pressed="false">P&amp;L 79V</button>
@@ -2901,7 +2911,7 @@ function renderEq(){
   // The summary stays on every view: the period's result and the position behind it are
   // context for whatever is being looked at, not a feature of the P&L views alone.
   // The board page answers its own questions; the dense bands would sit on top of them.
-  $('eqbox').hidden=!state.res||state.view==='bod';
+  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc';
   // The bands can be folded away on the detail views so the table starts at the top; the
   // homepage is the bands themselves, so they always show there.
   { let off=false; try{ off=store.get('consol.eqhide')==='1'; }catch(e){}
@@ -3901,6 +3911,8 @@ function homeTaxHTML(){
   return h+'</div></div>';
 }
 function renderTable(){
+  if(state.view==='pc'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
+    $('tablebox').innerHTML='<div class="stmt"><h3>PETTY CASH</h3><p class="sub2">This section is being set up. Petty cash automation will live here, separate from the BOD Review views.</p></div>'; return; }
   if(state.view==='bod'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderBOD(); }
   // The two summary bands render above the table on every view, so the homepage is simply those
   // bands with no detail underneath: the position and the period's result, nothing to scroll past.
@@ -4050,12 +4062,17 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
 (()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','bank','bud','bm','fin'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 // Side menu, built from the View list so the two always hold the same views.
-function navSync(){ document.querySelectorAll('#snavList .snav-i').forEach(x=>{ if(x.dataset.v===state.view) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current'); }); }
+const navMod=v=>{ const o=$('viewSel').querySelector('option[value="'+v+'"]'); return (o&&o.parentNode.dataset&&o.parentNode.dataset.mod)||'bod'; };
+function navSync(){ const m=navMod(state.view); document.body.classList.toggle('mod-pc',m==='pc');
+  document.querySelectorAll('#snavMods [data-mod]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.mod===m)));
+  document.querySelectorAll('#snavList [data-mod]').forEach(x=>{ x.hidden=x.dataset.mod!==m; });
+  if(m==='bod') store.set('consol.lastbod',state.view);
+  document.querySelectorAll('#snavList .snav-i').forEach(x=>{ if(x.dataset.v===state.view) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current'); }); }
 (()=>{ const L=$('snavList'); if(!L) return; let shut={}; try{ shut=JSON.parse(store.get('consol.navgrp')||'{}')||{}; }catch(e){}
-  let h=''; $('viewSel').querySelectorAll('optgroup').forEach(g=>{ const k=g.label, open=!shut[k];
-    h+=`<button type="button" class="snav-g" aria-expanded="${open}" data-g="${esc(k)}">${esc(k)}<i>&#9662;</i></button><div class="snav-gi"${open?'':' hidden'}>`;
+  let h=''; $('viewSel').querySelectorAll('optgroup').forEach(g=>{ const k=g.label, open=!shut[k], md=g.dataset.mod||'bod';
+    h+=`<div data-mod="${md}"><button type="button" class="snav-g" aria-expanded="${open}" data-g="${esc(k)}">${esc(k)}<i>&#9662;</i></button><div class="snav-gi"${open?'':' hidden'}>`;
     g.querySelectorAll('option').forEach(o=>{ h+=`<button type="button" class="snav-i" data-v="${o.value}">${esc(o.textContent.trim())}</button>`; });
-    h+='</div>'; });
+    h+='</div></div>'; });
   L.innerHTML=h; document.body.classList.add('hasnav');
   const vs=document.querySelector('#controls .vsearch'); if(vs) $('snavQ').appendChild(vs);
   const phone=()=>matchMedia('(max-width:900px)').matches;
@@ -4066,6 +4083,10 @@ function navSync(){ document.querySelectorAll('#snavList .snav-i').forEach(x=>{ 
   $('snavFold').addEventListener('click',()=>{ if(phone()) document.body.classList.remove('navopen'); else setShut(true); });
   $('snavOpen').addEventListener('click',()=>{ if(phone()) document.body.classList.add('navopen'); else setShut(false); });
   $('snavDim').addEventListener('click',()=>document.body.classList.remove('navopen'));
+  $('snavMods').addEventListener('click',ev=>{ const b=ev.target.closest('[data-mod]'); if(!b||navMod(state.view)===b.dataset.mod) return;
+    let v=b.dataset.mod==='bod'?(store.get('consol.lastbod')||'home'):(($('viewSel').querySelector('optgroup[data-mod="'+b.dataset.mod+'"] option')||{}).value);
+    if(!v||!$('viewSel').querySelector('option[value="'+v+'"]')) v='home';
+    $('viewSel').value=v; $('viewSel').dispatchEvent(new Event('change')); });
   if(store.get('consol.navshut')==='1') document.body.classList.add('navshut');
   navSync(); })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
@@ -4137,7 +4158,7 @@ async function exportAllViews(){
   if(!state.res){ setMsg('Load the data first.','err'); return; }
   const b=$('dlall'), label=b.textContent; b.disabled=true;
   const prevView=state.view, used=new Set(), wb=XLSX.utils.book_new();
-  const views=Array.from($('viewSel').querySelectorAll('option')).map(o=>({v:o.value,t:o.textContent.trim()}));
+  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>o.value!=='pc').map(o=>({v:o.value,t:o.textContent.trim()}));
   try{
     const info=[['79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd'],['Source workbook',(state.meta&&state.meta.title)||''],
       ['Period','Jan–'+MONTHS[state.to]+' 2026'],['Range shown',MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026'],
