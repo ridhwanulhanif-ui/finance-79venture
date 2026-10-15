@@ -295,6 +295,16 @@ table.cs td.num{min-width:70px}
   th.acct,td.acct{min-width:170px;max-width:190px}
   .srcgrid{grid-template-columns:1fr}
 }
+/* financing profile */
+.fp-kpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(190px,100%),1fr));gap:1px;background:var(--rule);border:1px solid var(--rule);border-radius:8px;overflow:hidden;margin-bottom:22px}
+.fp-kpi div{background:var(--card);padding:12px 14px;display:grid;gap:3px;align-content:start}
+.fp-kpi span{font-size:11.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.05em}
+.fp-kpi b{font-size:21px;font-variant-numeric:tabular-nums} .fp-kpi b.neg{color:var(--bad)}
+.fp-kpi small{font-size:12px;color:var(--muted)}
+.fp-pill{display:inline-block;font-size:11.5px;font-weight:600;padding:1px 8px;border-radius:10px;border:1px solid var(--rule);color:var(--muted)}
+.fp-pill.ok{color:var(--ok);border-color:var(--ok)} .fp-pill.warn{color:var(--ar);border-color:var(--ar)} .fp-pill.bad{color:var(--bad);border-color:var(--bad)}
+.fp-ck{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(280px,100%),1fr));gap:6px 18px;font-size:13px}
+.fp-ck label{display:flex;gap:8px;align-items:flex-start} .fp-ck input{margin-top:3px;accent-color:var(--cons)}
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
@@ -302,7 +312,7 @@ table.cs td.num{min-width:70px}
 <!-- Side menu: every view, grouped as in the View list, under the BOD Review heading. -->
 <nav class="snav" id="snav" aria-label="Views">
   <div class="snav-top"><div><b>Finance</b><span>79 Ventures &amp; Arabina</span></div><button type="button" id="snavFold" title="Hide menu" aria-label="Hide menu">&laquo;</button></div>
-  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button></div>
+  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button><button type="button" role="tab" data-mod="fp">Financing Profile</button></div>
   <div class="snav-q" id="snavQ"></div>
   <div class="snav-list" id="snavList"></div>
 </nav>
@@ -375,6 +385,9 @@ table.cs td.num{min-width:70px}
         <optgroup label="Asset Management" data-mod="am">
           <option value="am">Asset Management</option>
         </optgroup>
+        <optgroup label="Financing Profile" data-mod="fp">
+          <option value="fp">Financing Profile</option>
+        </optgroup>
       </select>
     </label>
     <div class="vsearch"><input type="search" id="viewQ" placeholder="Search views… e.g. tax, BS, zakat" autocomplete="off" aria-label="Search views" aria-controls="viewQl"><div id="viewQl" class="vsl" role="listbox" hidden></div></div>
@@ -383,6 +396,7 @@ table.cs td.num{min-width:70px}
       <button data-view="bod" aria-pressed="false">BOD Summary</button>
       <button data-view="pc" aria-pressed="false">Petty Cash</button>
       <button data-view="am" aria-pressed="false">Asset Management</button>
+      <button data-view="fp" aria-pressed="false">Financing Profile</button>
       <button data-view="ent" aria-pressed="false">Consol by entity</button>
       <button data-view="con" aria-pressed="false">Consol only</button>
       <button data-view="v" aria-pressed="false">P&amp;L 79V</button>
@@ -3108,7 +3122,7 @@ function renderEq(){
   // The summary stays on every view: the period's result and the position behind it are
   // context for whatever is being looked at, not a feature of the P&L views alone.
   // The board page answers its own questions; the dense bands would sit on top of them.
-  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am';
+  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am'||state.view==='fp';
   // The bands can be folded away on the detail views so the table starts at the top; the
   // homepage is the bands themselves, so they always show there.
   { let off=false; try{ off=store.get('consol.eqhide')==='1'; }catch(e){}
@@ -4784,7 +4798,177 @@ function renderPC(){
   } else $('pcGo').addEventListener('click',()=>pcLoad());
 }
 
+// ===== Financing Profile: a lender's view of one company, read live from QuickBooks through the viewer's own connector =====
+// Every figure comes from the QuickBooks reports at load time; none are kept in this file.
+const fpSt={co:'v',busy:false,err:null,tried:{},data:{},prog:''};
+const FPN={v:'79 Ventures Sdn Bhd',a:'Arabina Eco Tiny Homes Sdn Bhd'};
+const fpF=n=>n==null||!isFinite(n)?'–':(n<0?'(':'')+Math.abs(n).toLocaleString('en-MY',{minimumFractionDigits:2,maximumFractionDigits:2})+(n<0?')':'');
+const fpK=n=>!isFinite(n)?'–':(n<0?'−':'')+(Math.abs(n)>=1e6?'RM'+(Math.abs(n)/1e6).toFixed(2)+'m':'RM'+(Math.abs(n)/1e3).toFixed(1)+'k');
+const fpX=n=>isFinite(n)?n.toFixed(2)+'×':'–';
+const fpP=n=>isFinite(n)?(n*100).toFixed(1)+'%':'–';
+const fpISO=d=>`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;
+async function fpRun(input,keepTotal){
+  for(let k=0;;k++){
+    try{ const p=payloadOf(await mcp.callTool(QBS,'run_report',{...input,response_mode:'summary'},{cache:false}));
+      if(!p||p.ok===false||!p.summary) throw {code:'tool_error',message:(p&&p.error&&p.error.message)||'QuickBooks returned no report summary.'};
+      return fpRep(p.summary,keepTotal); }
+    catch(e){ if(e&&e.retryable&&k<3){ await new Promise(z=>setTimeout(z,1500)); continue; } throw e; }
+  }
+}
+// QuickBooks report summary -> lookups by group or label; values per column (Total column dropped)
+function fpRep(s,keepTotal){
+  const cols=(s.columns||[]).slice(1).map(c=>c.title||''); if(!keepTotal&&cols.length>1&&cols[cols.length-1]==='Total') cols.pop(); const SR=s.summary_rows||[], SH=s.section_headers||[];
+  const vals=r=>cols.map((_,i)=>{ const c=(r.cells||[]).find(x=>x.column_index===i+1); const n=parseFloat(c&&c.value); return isNaN(n)?0:n; });
+  const lab=r=>String(((r.cells||[]).find(x=>x.column_index===0)||{}).value||'');
+  const zero=cols.map(()=>0);
+  return {cols,SR,SH,vals,lab,
+    G:g=>{ const r=SR.find(x=>x.group===g); return r?vals(r):zero; },
+    L:re=>{ const r=SR.find(x=>re.test(lab(x))); return r?vals(r):zero; },
+    sum:re=>SR.filter(x=>re.test(lab(x))).reduce((a,r)=>a.map((v,i)=>v+vals(r)[i]),zero)};
+}
+// Each sub-account under Non-current Liabilities is one facility: its total is the net balance,
+// and the parent's own balance (on the header line) is the gross amount before unexpired interest.
+function fpLoans(B){
+  const t=B.SR.find(x=>x.group==='TotalNonCurLiabilities'); if(!t) return {list:[],total:0};
+  const pre=t.path.replace(/\/Summary$/,''), j=B.cols.length-1;
+  const list=B.SR.filter(x=>x.path.startsWith(pre+'/Rows/Row/')&&/^\/Rows\/Row\/\d+\/Summary$/.test(x.path.slice(pre.length))).map(x=>{
+    const h=B.SH.find(y=>y.path===x.path.replace(/Summary$/,'Header')); const g=h?B.vals(h)[j]:0;
+    return {name:B.lab(x).replace(/^Total\s+/,''),net:B.vals(x)[j],gross:Math.abs(g)>0.004?g:null}; }).filter(x=>Math.abs(x.net)>0.004);
+  return {list,total:B.vals(t)[j]};
+}
+async function fpLoad(){
+  const co=fpSt.co; if(fpSt.busy) return; fpSt.busy=true; fpSt.err=null; fpSt.tried[co]=true; fpSt.prog='Connecting to QuickBooks…'; renderFP();
+  try{
+    if(!mcp) throw {code:'not_granted',message:'Connectors are not available in this view. Open the artifact on claude.ai.'};
+    const cid=(await qdCompanies())[co], now=new Date(), to=fpISO(now), from=(now.getFullYear()-1)+'-01-01';
+    const per={company_id:cid,start_date:from,end_date:to,summarize_by:'Year'}, step=t=>{ fpSt.prog=t; if(state.view==='fp') renderFP(); };
+    step('Reading profit and loss…');   const pl=await fpRun({...per,report_type:'profit_and_loss',accounting_method:'Accrual'});
+    step('Reading balance sheet…');     const bs=await fpRun({...per,report_type:'balance_sheet',accounting_method:'Accrual'});
+    step('Reading cash flow…');         const cf=await fpRun({...per,report_type:'cash_flow'});
+    step('Reading receivables aging…'); const ar=await fpRun({company_id:cid,report_type:'aged_receivables',report_date:to},true);
+    step('Reading payables aging…');    const ap=await fpRun({company_id:cid,report_type:'aged_payables',report_date:to},true);
+    fpSt.data[co]={pl,bs,cf,ar,ap,at:now};
+  }catch(e){ fpSt.err=qdErr(e); }
+  fpSt.busy=false; if(state.view==='fp') renderFP();
+}
+function fpBody(D){
+  const {pl,bs,cf,ar,ap,at}=D;
+  // P&L: one column per year, the last is the year to date
+  const P=pl.cols, n=P.length, yt=n-1;
+  const inc=pl.G('Income'), cos=pl.G('COGS'), gp=pl.G('GrossProfit'), oi=pl.G('OtherIncome'), ex=pl.G('Expenses'), oe=pl.G('OtherExpenses'), ni=pl.G('NetIncome');
+  const fin=pl.L(/^Total Finance Cost/i), stf=pl.L(/^Total Staff Cost$/i), dir=pl.L(/^Total Director/i);
+  const days=Math.max(1,Math.round((at-new Date(at.getFullYear(),0,1))/864e5)+1), ann=inc[yt]*365/days;
+  const live=P.map((_,i)=>Math.abs(inc[i])+Math.abs(ex[i])>0.004);
+  // Balance sheet: last column is today, the one before is the previous year end
+  const j=bs.cols.length-1, k=j-1, at2=(a,i)=>i>=0?a[i]:null;
+  const ta=bs.G('NetAssets'), ca=bs.G('TotalAssetLessCurrentLiabilities'), lta=bs.G('TotalLongTermAssets'), cl=bs.G('TotalLongTermLiabilities'), ncl=bs.G('TotalNonCurLiabilities'), eq=bs.G('TotalShareHoldersEquityNode');
+  const cash=bs.L(/^Total Cash at Bank/i).map((v,i)=>v+bs.L(/^Total Petty Cash/i)[i]), arB=bs.G('AssetsReceivable'), apB=bs.G('AccountsPayable');
+  const dirD=bs.sum(/^Total Amount Due From Directors?/i), rpR=bs.L(/^Total Due from Related/i), rpP=bs.L(/^Total Due to Related/i);
+  const dep=bs.sum(/^Total (Customer Deposits?|Contract Liability)/i), inv=bs.L(/^Total Investor Financing/i);
+  const L=fpLoans(bs), debt=ncl[j]+inv[j], tl=cl[j]+ncl[j], big=L.list.slice().sort((a,b)=>b.net-a.net)[0];
+  const ebit=ni[yt]+Math.abs(fin[yt]);
+  const R={cur:ca[j]/cl[j], quick:(cash[j]+arB[j])/cl[j], gear:debt/eq[j], gearx:big?(debt-big.net)/eq[j]:NaN, nd:debt-cash[j], icov:fin[yt]?ebit/Math.abs(fin[yt]):NaN, npm:ni[yt]/inc[yt], tlta:tl/ta[j]};
+  const ag=x=>{ const r=x.SR.find(y=>y.group==='GrandTotal'); return r?x.vals(r):x.cols.map(()=>0); }, arA=ag(ar), apA=ag(ap);
+  const ap91=apA[apA.length-1]?apA[apA.length-2]/apA[apA.length-1]:0;
+  const oc=cf.G('OperatingActivities'), ic=cf.G('InvestingActivities'), fc=cf.G('FinancingActivities'), dc=cf.G('CashIncrease'), cj=cf.cols.length-1;
+  const loanUp=k>=0?ncl[j]-ncl[k]:0;
+  const pill=(t,c)=>`<span class="fp-pill ${c}">${t}</span>`;
+  const st=(v,g,b,hi)=>!isFinite(v)?pill('n/a',''):(hi?(v>=g?pill('Strong','ok'):v>=b?pill('Watch','warn'):pill('Weak','bad')):(v<=g?pill('Good','ok'):v<=b?pill('Watch','warn'):pill('High','bad')));
+  const asOf=at.toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'});
+  let h=`<div class="taxwrap">`;
+  h+=`<div class="fp-kpi">
+    <div><span>Revenue ${esc(P[yt])}</span><b>${fpK(inc[yt])}</b><small>≈ ${fpK(ann)} annualised</small></div>
+    <div><span>Net profit ${esc(P[yt])}</span><b class="${ni[yt]<0?'neg':''}">${fpK(ni[yt])}</b><small>${fpP(R.npm)} net margin</small></div>
+    <div><span>Cash at bank &amp; in hand</span><b>${fpK(cash[j])}</b><small>${k>=0?'was '+fpK(cash[k])+' ('+esc(bs.cols[k])+')':''}</small></div>
+    <div><span>Borrowings</span><b>${fpK(debt)}</b><small>${L.list.length} facilit${L.list.length===1?'y':'ies'}${inv[j]?' + investor financing':''}</small></div>
+    <div><span>Shareholders' equity</span><b>${fpK(eq[j])}</b><small>${k>=0?'was '+fpK(eq[k]):''}</small></div>
+    <div><span>Debt / equity</span><b>${fpX(R.gear)}</b><small>${big?fpX(R.gearx)+' without '+esc(big.name):''}</small></div></div>`;
+  h+=`<div class="taxgrid">`;
+  // Income statement
+  h+=`<div class="tcard"><h2>Income statement</h2><p class="sub2">QuickBooks Profit &amp; Loss, accrual. ${esc(P[yt])} runs to ${esc(asOf)}.</p><table class="tc"><tr><td></td>${P.map((c,i)=>live[i]?`<td class="r"><b>${esc(c)}</b></td>`:'').join('')}</tr>`;
+  const row=(l,a,c,pct)=>`<tr class="${c||''}"><td>${l}</td>${a.map((v,i)=>live[i]?`<td class="r">${pct?fpP(v):fpF(v)}</td>`:'').join('')}</tr>`;
+  h+=row('Revenue',inc)+row('Cost of goods sold',cos.map(v=>-v))+row('Gross profit',gp,'sub')+row('<span class="note">Gross margin</span>',gp.map((v,i)=>v/inc[i]),'',1)
+    +row('Other income',oi)+row('Operating expenses',ex.map(v=>-v))+row('<span class="note">of which staff cost</span>',stf.map(v=>-v))+row('<span class="note">of which director remuneration</span>',dir.map(v=>-v))
+    +row('<span class="note">of which finance cost</span>',fin.map(v=>-v))+row('Other expenses',oe.map(v=>-v))+row('Net profit',ni,'big')+row('<span class="note">Net margin</span>',ni.map((v,i)=>v/inc[i]),'',1)+`</table></div>`;
+  // Balance sheet
+  const B=(l,a,c)=>`<tr class="${c||''}"><td>${l}</td>${k>=0?`<td class="r">${fpF(at2(a,k))}</td>`:''}<td class="r">${fpF(a[j])}</td></tr>`;
+  const oca=ca.map((v,i)=>v-cash[i]-arB[i]-rpR[i]-dirD[i]), ocl=cl.map((v,i)=>v-apB[i]-dep[i]-inv[i]-rpP[i]);
+  h+=`<div class="tcard"><h2>Balance sheet</h2><p class="sub2">QuickBooks Balance Sheet, accrual.</p><table class="tc"><tr><td></td>${k>=0?`<td class="r"><b>${esc(bs.cols[k])}</b></td>`:''}<td class="r"><b>${esc(asOf)}</b></td></tr>`
+    +B('Cash at bank &amp; petty cash',cash)+B('Trade receivables',arB)+B('Due from related company',rpR)+B('Due from directors',dirD)+B('Other current assets',oca)+B('Total current assets',ca,'sub')
+    +B('Long-term assets',lta)+B('Total assets',ta,'big')+B('Trade payables',apB)+B('Customer deposits &amp; progress billings',dep)+B('Investor financing',inv)+B('Due to related company',rpP)+B('Other current liabilities',ocl)
+    +B('Total current liabilities',cl,'sub')+B('Non-current borrowings',ncl,'sub')+B('Shareholders’ equity',eq,'big')+`</table></div>`;
+  h+=`</div>`;
+  // Facilities
+  const other=L.total-L.list.reduce((a,x)=>a+x.net,0);
+  h+=`<div class="tcard" style="margin-top:22px"><h2>Existing facilities</h2><p class="sub2">Each sub-account under Non-current Liabilities in QuickBooks. Net = balance after unexpired interest/profit; gross = the parent account's own balance. Add tenure, instalment and maturity before submitting: lenders compute DSCR from instalments.</p>
+    <div style="overflow-x:auto"><table class="tc"><tr><td><b>Facility</b></td><td class="r"><b>Gross (RM)</b></td><td class="r"><b>Net outstanding (RM)</b></td><td class="r"><b>Share</b></td><td class="wide" style="width:30%"></td></tr>`;
+  L.list.slice().sort((a,b)=>b.net-a.net).forEach(x=>{ const s=L.total?x.net/L.total:0;
+    h+=`<tr><td>${esc(x.name)}</td><td class="r">${x.gross==null?'–':fpF(x.gross)}</td><td class="r">${fpF(x.net)}</td><td class="r">${fpP(s)}</td><td class="wide"><div class="tc-b"><i style="width:${Math.max(0,Math.min(100,s*100)).toFixed(1)}%;background:var(--cons)"></i></div></td></tr>`; });
+  if(Math.abs(other)>0.5) h+=`<tr><td>Other non-current liabilities (no sub-accounts)</td><td class="r">–</td><td class="r">${fpF(other)}</td><td class="r">${fpP(L.total?other/L.total:0)}</td><td class="wide"></td></tr>`;
+  h+=`<tr class="sub"><td>Total non-current borrowings</td><td class="r">${L.list.some(x=>x.gross!=null)?fpF(L.list.reduce((a,x)=>a+(x.gross==null?x.net:x.gross),0)+(Math.abs(other)>0.5?other:0)):'–'}</td><td class="r">${fpF(L.total)}</td><td></td><td class="wide"></td></tr>`;
+  if(inv[j]) h+=`<tr><td>Investor financing (current liability)</td><td class="r">–</td><td class="r">${fpF(inv[j])}</td><td></td><td class="wide"></td></tr>`;
+  h+=`</table></div></div>`;
+  // Ratios
+  h+=`<div class="taxgrid" style="margin-top:22px"><div class="tcard"><h2>Credit ratios</h2><p class="sub2">Computed from the reports above. Bands are typical Malaysian bank views, not a lender's decision.</p><table class="tc">
+    <tr><td>Current ratio<span class="note">Above 1.25× preferred</span></td><td class="r">${fpX(R.cur)}</td><td class="r">${st(R.cur,1.25,1,1)}</td></tr>
+    <tr><td>Quick ratio (cash + trade receivables)<span class="note">Above 1.0× preferred</span></td><td class="r">${fpX(R.quick)}</td><td class="r">${st(R.quick,1,0.7,1)}</td></tr>
+    <tr><td>Gearing (borrowings / equity)<span class="note">Below 2–3× preferred</span></td><td class="r">${fpX(R.gear)}</td><td class="r">${st(R.gear,2,3)}</td></tr>
+    ${big?`<tr><td>Gearing without ${esc(big.name)}</td><td class="r">${fpX(R.gearx)}</td><td class="r">${st(R.gearx,2,3)}</td></tr>`:''}
+    <tr><td>Net debt (borrowings − cash)</td><td class="r">${fpK(R.nd)}</td><td></td></tr>
+    <tr><td>Interest cover (EBIT / finance cost, ${esc(P[yt])})<span class="note">Above 2× preferred</span></td><td class="r">${fpX(R.icov)}</td><td class="r">${st(R.icov,2,1.25,1)}</td></tr>
+    <tr><td>Total liabilities / total assets<span class="note">Below 70% preferred</span></td><td class="r">${fpP(R.tlta)}</td><td class="r">${st(R.tlta,0.7,0.85)}</td></tr></table></div>`;
+  // Working capital + cash flow
+  const acols=ar.cols;
+  h+=`<div class="tcard"><h2>Working capital</h2><p class="sub2">Aged receivables and payables as at ${esc(asOf)}.</p><div style="overflow-x:auto"><table class="tc"><tr><td></td>${acols.map(c=>`<td class="r"><b>${esc(c)}</b></td>`).join('')}</tr>
+    <tr><td>Receivables</td>${arA.map(v=>`<td class="r">${fpF(v)}</td>`).join('')}</tr><tr><td>Payables</td>${apA.map(v=>`<td class="r">${fpF(v)}</td>`).join('')}</tr></table></div>
+    <h3>Cash flow</h3><table class="tc"><tr><td></td>${cf.cols.map((c,i)=>i<=cj?`<td class="r"><b>${esc(c)}</b></td>`:'').join('')}</tr>
+    <tr><td>Operating activities (as reported)</td>${oc.map(v=>`<td class="r">${fpF(v)}</td>`).join('')}</tr>
+    <tr><td>Investing activities</td>${ic.map(v=>`<td class="r">${fpF(v)}</td>`).join('')}</tr>
+    <tr><td>Financing activities</td>${fc.map(v=>`<td class="r">${fpF(v)}</td>`).join('')}</tr>
+    <tr class="sub"><td>Net change in cash</td>${dc.map(v=>`<td class="r">${fpF(v)}</td>`).join('')}</tr></table></div></div>`;
+  // Points a lender will raise, from the figures
+  const pts=[];
+  if(R.gear>3) pts.push(['bad',`Gearing is ${fpX(R.gear)}`+(big?`, mainly ${esc(big.name)} (${fpK(big.net)}).`:'.')+' Consider a capital injection or converting director/investor funds to equity.']);
+  if(rpR[j]+dirD[j]>0.5) pts.push(['warn',`${fpK(rpR[j])} due from the related company and ${fpK(dirD[j])} due from directors. Banks often deduct these from tangible net worth.`]);
+  const gm=P.map((_,i)=>inc[i]?gp[i]/inc[i]:NaN).filter((v,i)=>live[i]&&isFinite(v));
+  if(gm.length>1&&Math.abs(gm[gm.length-1]-gm[gm.length-2])>0.1) pts.push(['warn',`Gross margin moved from ${fpP(gm[gm.length-2])} to ${fpP(gm[gm.length-1])}. Confirm cost of sales and inventory entries are complete before submitting.`]);
+  if(debt>0&&Math.abs(fin[yt])<debt*0.03*days/365) pts.push(['warn',`Finance cost booked this year is ${fpK(Math.abs(fin[yt]))} against ${fpK(debt)} of borrowings. Interest may not be fully expensed yet, which flatters interest cover.`]);
+  if(loanUp>Math.abs(fc[cj])&&loanUp>0.5&&oc[cj]>loanUp*0.5) pts.push(['warn',`Borrowings rose ${fpK(loanUp)} this year but QuickBooks shows financing activities of only ${fpK(fc[cj])}. The drawdowns sit in operating cash flow; move them to financing before showing it to a lender (operating cash flow ≈ ${fpK(oc[cj]-loanUp)}).`]);
+  if(ap91>0.25) pts.push(['warn',`${fpP(ap91)} of payables (${fpK(apA[apA.length-2])}) are over 90 days. Settle or reconcile before a bank pulls CCRIS/CTOS and trade references.`]);
+  if(k>=0&&dep[k]>0&&dep[j]<dep[k]*0.5) pts.push(['warn',`Customer deposits and progress billings fell from ${fpK(dep[k])} to ${fpK(dep[j])}. Show the forward order book separately.`]);
+  const eqGap=k>=0?(eq[j]-eq[k])-ni[yt]:0; if(k>=0&&Math.abs(eqGap)>1000) pts.push(['warn',`Equity changed by ${fpK(eq[j]-eq[k])} while profit was ${fpK(ni[yt])}: a ${fpK(eqGap)} difference (dividends, drawings or adjustments) to explain.`]);
+  const good=[];
+  if(ni[yt]>0) good.push(`Profitable: ${fpK(ni[yt])} net profit in ${esc(P[yt])} (${fpP(R.npm)}).`);
+  if(R.cur>=1.25) good.push(`Liquidity: current ratio ${fpX(R.cur)} with ${fpK(cash[j])} cash.`);
+  if(L.list.length) good.push(`Existing record with ${L.list.length} lender facilit${L.list.length===1?'y':'ies'}.`);
+  if(k>=0&&eq[j]>eq[k]) good.push(`Equity grew from ${fpK(eq[k])} to ${fpK(eq[j])}.`);
+  h+=`<div class="taxgrid" style="margin-top:22px"><div class="anbox"><b>Strengths</b><ul>${good.map(x=>`<li>${x}</li>`).join('')||'<li>None found in the figures.</li>'}</ul></div>
+    <div class="anbox" style="border-left-color:var(--bad)"><b>Points lenders will raise</b><ul>${pts.map(([c,x])=>`<li${c==='bad'?' style="color:var(--bad)"':''}>${x}</li>`).join('')||'<li>None found in the figures.</li>'}</ul></div></div>`;
+  // Checklist, ticks kept in this browser
+  let ck={}; try{ ck=JSON.parse(store.get('consol.fpck')||'{}')||{}; }catch(e){}
+  const CK=['Audited accounts for the last full year and management accounts year to date','6–12 months of bank statements for all operating accounts','SSM company documents, M&A and board resolution','Facility schedule: limit, tenure, instalment and maturity per lender','Directors’ IC, CCRIS/CTOS consent and personal income statements','Order book and signed customer contracts','Property documents and valuation for financed property','12–24 month cash flow projection including the new facility','Reconciliation of related-party balances','Payables over 90 days settled or explained'];
+  h+=`<div class="tcard" style="margin-top:22px"><h2>Submission checklist</h2><p class="sub2">Ticks are saved in this browser only.</p><div class="fp-ck">${CK.map((t,i)=>`<label><input type="checkbox" data-fpck="${i}"${ck[i]?' checked':''}> ${esc(t)}</label>`).join('')}</div></div>`;
+  h+=`<p class="taxfoot">Source: QuickBooks Online (${esc(FPN[fpSt.co])}), Profit &amp; Loss, Balance Sheet, Cash Flow and AR/AP aging, accrual basis, read ${esc(at.toLocaleString('en-GB',{dateStyle:'medium',timeStyle:'short'}))}. Annualised revenue = year to date × 365/${days} days. Unaudited management figures; ratios are indicative.</p></div>`;
+  return h;
+}
+function renderFP(){
+  const D=fpSt.data[fpSt.co];
+  let h=`<div class="stmt"><h3>FINANCING PROFILE</h3><p class="sub2">Credit snapshot for bank and DFI financing applications, read live from QuickBooks.</p></div>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:0 18px"><div class="seg" role="group" aria-label="Company">${['v','a'].map(c=>`<button data-fpco="${c}" aria-pressed="${fpSt.co===c}">${c==='v'?'79 Ventures':'Arabina'}</button>`).join('')}</div>
+    <button id="fpGo"${fpSt.busy?' disabled':''}>${fpSt.busy?'Reading…':D?'Refresh from QuickBooks':'Load from QuickBooks'}</button>${fpSt.busy?`<span class="hint">${esc(fpSt.prog)}</span>`:''}</div>`;
+  if(fpSt.err) h+=`<div class="msg err" style="margin:12px 18px">${fpSt.err}</div>`;
+  if(D){ try{ h+=fpBody(D); }catch(e){ h+=`<div class="msg err" style="margin:12px 18px">Could not build the profile from the QuickBooks reports: ${esc(e&&e.message||String(e))}</div>`; } }
+  else if(!fpSt.busy&&!fpSt.err) h+=`<div class="empty">Press <b>Load from QuickBooks</b> to build the profile for ${esc(FPN[fpSt.co])}.</div>`;
+  $('tablebox').innerHTML=h;
+  $('fpGo').addEventListener('click',()=>fpLoad());
+  document.querySelectorAll('[data-fpco]').forEach(b=>b.addEventListener('click',()=>{ fpSt.co=b.dataset.fpco; store.set('consol.fpco',fpSt.co); renderFP(); if(!fpSt.data[fpSt.co]&&!fpSt.tried[fpSt.co]&&mcp) fpLoad(); }));
+  document.querySelectorAll('[data-fpck]').forEach(b=>b.addEventListener('change',()=>{ let ck={}; try{ ck=JSON.parse(store.get('consol.fpck')||'{}')||{}; }catch(e){} ck[b.dataset.fpck]=b.checked; store.set('consol.fpck',JSON.stringify(ck)); }));
+}
+(()=>{ const c=store.get('consol.fpco'); if(c==='v'||c==='a') fpSt.co=c; })();
+
 function renderTable(){
+  if(state.view==='fp'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
+    if(!fpSt.tried[fpSt.co]&&mcp) setTimeout(fpLoad,0); return renderFP(); }
   if(state.view==='pc'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     if(!pcTried&&mcp) setTimeout(pcLoad,0); return renderPC(); }
   const SECT={pc:['PETTY CASH','Petty cash automation'],am:['ASSET MANAGEMENT','Fixed asset register and depreciation']};
@@ -4937,8 +5121,8 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view; navSync();
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   // Petty Cash does not need the P&L workbook, so it still opens while that is loading or has failed.
-  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc') renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc'].includes(sv)){ state.view=sv;
+  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc'||state.view==='fp') renderTable(); }));
+(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc','fp'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 // Side menu, built from the View list so the two always hold the same views.
 const navMod=v=>{ const o=$('viewSel').querySelector('option[value="'+v+'"]'); return (o&&o.parentNode.dataset&&o.parentNode.dataset.mod)||'bod'; };
@@ -4967,7 +5151,7 @@ function navSync(){ const m=navMod(state.view); document.body.classList.toggle('
     if(!v||!$('viewSel').querySelector('option[value="'+v+'"]')) v='home';
     $('viewSel').value=v; $('viewSel').dispatchEvent(new Event('change')); });
   if(store.get('consol.navshut')==='1') document.body.classList.add('navshut');
-  navSync(); if(state.view==='pc') renderTable(); })();
+  navSync(); if(state.view==='pc'||state.view==='fp') renderTable(); })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
 $('hideZero').addEventListener('change',renderTable);
@@ -5037,7 +5221,7 @@ async function exportAllViews(){
   if(!state.res){ setMsg('Load the data first.','err'); return; }
   const b=$('dlall'), label=b.textContent; b.disabled=true;
   const prevView=state.view, used=new Set(), wb=XLSX.utils.book_new();
-  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
+  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am','fp'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
   try{
     const info=[['79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd'],['Source workbook',(state.meta&&state.meta.title)||''],
       ['Period','Jan–'+MONTHS[state.to]+' 2026'],['Range shown',MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026'],
@@ -5120,6 +5304,7 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
   const [m,d]=await Promise.all([C.use('mcp').catch(()=>null),C.use('downloads').catch(()=>null)]);
   mcp=m; downloads=d; if(state.res) $('csv').hidden=false;
   if(mcp&&state.view==='pc'&&!pcTried) pcLoad();
+  if(mcp&&state.view==='fp'&&!fpSt.tried[fpSt.co]) fpLoad();
   wrDbInit();
   if(!mcp){ if(!state.res) $('tablebox').innerHTML='<div class="empty">Connectors are not available in this view. Open the artifact on claude.ai.</div>'; else addMsg('Connectors are not available in this view; showing last saved data.',''); return; }
   refresh(false);
