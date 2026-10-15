@@ -4815,10 +4815,192 @@ function renderPC(){
   } else $('pcGo').addEventListener('click',()=>pcLoad());
 }
 
+// ---------- Asset Management: fixed asset register and depreciation ----------
+// Reads the Asset Register and Category Rates tabs of the asset master data workbook and works out
+// straight-line depreciation the same way that workbook's formulas do: charged from the purchase
+// month at the category rate, capped at the opening net book value, up to and including the
+// disposal month. Purchases from 1 Jan 2026 under RM1,000 are low value assets, expensed at once.
+const AM_FILE='1L3S_2owmKweiF0ctIf9zgW8fW1KERoi3', AM_URL='/api/assets.xlsx', AM_BASE=2026, AM_LVA='Low Value Asset';
+let amData=(()=>{ try{ return JSON.parse(store.get('consol.am')||'null'); }catch(e){ return null; } })();
+let amBusy=false, amErr=null, amTried=false, amTab=store.get('consol.amTab')||'reg', amQ='', amF='all';
+let amYear=Math.max(AM_BASE,new Date().getFullYear());
+function amDate(v){
+  if(v==null||v==='') return null;
+  if(typeof v==='number'&&v>1){ const d=XLSX.SSF.parse_date_code(v); return d?d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'):null; }
+  if(v instanceof Date) return v.toISOString().slice(0,10);
+  const m=String(v).match(/^(\d{4})-(\d{2})-(\d{2})/); return m?m[0]:null;
+}
+function amParse(wb){
+  const R=wb.Sheets['Asset Register'], C=wb.Sheets['Category Rates'];
+  if(!R||!C) return {error:'The workbook has no '+(!R?'"Asset Register"':'"Category Rates"')+' tab. Tabs found: '+wb.SheetNames.join(', ')};
+  const rates={}; XLSX.utils.sheet_to_json(C,{header:1,raw:true,defval:null}).slice(1).forEach(r=>{ if(r&&r[0]!=null&&r[1]!=null&&r[1]!=='') rates[String(r[0]).trim()]=+r[1]; });
+  const s=v=>v==null?'':String(v).trim();
+  const assets=[];
+  XLSX.utils.sheet_to_json(R,{header:1,raw:true,defval:null}).slice(1).forEach((r,i)=>{
+    if(!r||!r.slice(1,12).some(c=>c!=null&&c!=='')) return;
+    // Column P is the opening NBV at 1 Jan 2026: the workbook's estimate, or the audited figure
+    // typed over it. Take it when it is a number; otherwise it is worked out below.
+    const p=r[15];
+    assets.push({row:i+2,no:r[0],id:s(r[1]),cat:s(r[2]),desc:s(r[3]),serial:s(r[4]),date:amDate(r[5]),cost:r[6]==null||r[6]===''?null:+r[6],
+      pic:s(r[7]),dept:s(r[8]),status:s(r[9]),disp:amDate(r[10]),remarks:s(r[11]),open26:typeof p==='number'?p:null});
+  });
+  return {rates,assets};
+}
+function amCalc(a,Y,rates){
+  const M=s=>{ const m=s&&s.match(/^(\d{4})-(\d{2})-(\d{2})/); return m?{y:+m[1],m:+m[2],d:+m[3],i:+m[1]*12+ +m[2]-1,s:m[0]}:null; };
+  const p=M(a.date), d=M(a.disp), base=AM_BASE*12;
+  const lva=a.cat===AM_LVA||(p&&p.s>=AM_BASE+'-01-01'&&a.cost!=null&&a.cost<1000);
+  const cat=lva?AM_LVA:a.cat, rate=rates[cat]!=null?rates[cat]:0;
+  const o={a,cat,rate,cost:a.cost||0,m:new Array(12).fill(0),charge:0,open:0,nbv:0,costOpen:0,add:0,dispC:0,costEnd:0,accOpen:0,accEnd:0,t:'cap'};
+  if(!p||a.cost==null){ o.t='missing'; return o; }
+  if(p.i>Y*12+11){ o.t='future'; return o; }
+  if(d&&d.i<Y*12){ o.t='gone'; return o; }
+  if(lva){ o.t='lva'; return o; }
+  const cost=a.cost, mo=cost*rate/12;
+  let o26;
+  if(d&&d.i<base) o26=0;
+  else if(p.i>=base) o26=cost;
+  else if(a.open26!=null) o26=a.open26;
+  else o26=Math.max(0,cost-mo*((AM_BASE-p.y)*12+(1-p.m)-(p.d>1?1:0)));
+  let rem=o26, openY=o26;
+  for(let i=base;i<=Y*12+11;i++){
+    if(i===Y*12) openY=rem;
+    let x=0; if(p.i<=i&&(!d||d.i>=i)){ x=Math.max(0,Math.min(mo,rem)); rem-=x; }
+    if(i>=Y*12) o.m[i-Y*12]=x;
+  }
+  o.charge=o.m.reduce((s,x)=>s+x,0);
+  const before=p.i<Y*12, gone=!!(d&&d.y===Y);
+  o.open=before?openY:0; o.costOpen=before?cost:0; o.add=before?0:cost; o.dispC=gone?cost:0;
+  o.costEnd=o.costOpen+o.add-o.dispC; o.accOpen=before?cost-openY:0; o.accEnd=gone?0:o.accOpen+o.charge; o.nbv=o.costEnd-o.accEnd;
+  if(gone){ o.t='disposed'; o.nbvAtDisp=(before?openY:cost)-o.charge; }
+  return o;
+}
+function amChecks(D){
+  const out=[], ids={};
+  D.assets.forEach(a=>{ const k=a.id.toUpperCase(); if(k) ids[k]=(ids[k]||0)+1; });
+  D.assets.forEach(a=>{
+    const k=a.id.toUpperCase(), add=(sev,c,act)=>out.push({a,sev,c,act});
+    if(k&&ids[k]>1) add('bad','Asset ID '+a.id+' is used by '+ids[k]+' records.','Give each asset its own tag number.');
+    if(!a.date) add('bad','No purchase date, so no depreciation is charged.','Enter the date from the resolution or payment voucher.');
+    else if(+a.date.slice(0,4)<2000) add('bad','Purchase date reads '+a.date+'.','Correct the date; until then the asset counts as fully depreciated.');
+    if(a.cost==null) add('bad','No cost entered.','Enter the cost from the invoice.');
+    if(!a.cat) add('warn','No category.','Choose a category so a rate applies.');
+    else if(D.rates[a.cat]==null) add('warn','Category "'+a.cat+'" has no rate in Category Rates.','Add the category and its rate, or reclassify.');
+    if(/dispose/i.test(a.status)&&!a.disp) add('warn','Marked disposed with no disposal date.','Enter the disposal date.');
+    if(/laptop|phone|samsung|oppo|vivo|honor|redmi|tablet|infinix|drone|osmo/i.test(a.desc)&&!/dispose/i.test(a.status)&&!a.pic) add('low','Portable device with no PIC.','Record who holds it and get their acknowledgment.');
+  });
+  const r={bad:0,warn:1,low:2}; return out.sort((x,y)=>r[x.sev]-r[y.sev]);
+}
+async function amLoad(file){
+  if(amBusy) return; amBusy=true; amErr=null; amTried=true; if(state.view==='am') renderAM();
+  try{
+    if(typeof XLSX==='undefined') throw new Error('The Excel reader library could not be loaded.');
+    let u8, title='Asset Management-Master Data.xlsx', mod=null;
+    if(file){ u8=new Uint8Array(await file.arrayBuffer()); title=file.name; mod=new Date(file.lastModified).toISOString(); }
+    else if(MODE==='web'){
+      const resp=await fetch(AM_URL,{cache:'no-store'});
+      if(!resp.ok){ let j=null; try{ j=await resp.json(); }catch(e){}
+        throw new Error(j&&j.error==='not_shared'?'The master data workbook is not shared "anyone with the link", so the server cannot read it. Open it with <b>Open Excel file…</b> below, or share it by link (which makes it readable by anyone who has the link).':'The server could not fetch the master data workbook (HTTP '+resp.status+').'); }
+      u8=new Uint8Array(await resp.arrayBuffer()); title=decodeURIComponent(resp.headers.get('X-Consol-Title')||'')||title;
+    } else if(mcp){
+      const r=await mcp.callTool(SERVER,'download_file_content',{fileId:AM_FILE,exportMimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},{cache:false});
+      const p=payloadOf(r)||{}, b64=p.content||p.data; if(!b64) throw new Error('The master data workbook came back empty from Google Drive.');
+      const bin=atob(b64); u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+      title=p.title||title; mod=p.modifiedTime||null;
+    } else throw new Error('Google Drive is not available in this view. Open the master data workbook with <b>Open Excel file…</b> below.');
+    const D=amParse(XLSX.read(u8,{type:'array',cellFormula:false,cellStyles:false}));
+    if(D.error) throw new Error(esc(D.error));
+    amData={...D,title,mod,at:new Date().toISOString()};
+    try{ store.set('consol.am',JSON.stringify(amData)); }catch(e){}
+  }catch(e){ amErr=e&&e.code?errText(e):((e&&e.message)||String(e)); }
+  amBusy=false; if(state.view==='am') renderAM();
+}
+function amCsv(rows,name){
+  const q=v=>{ const s=v==null?'':String(v); return /[",\n]/.test(s)?'"'+s.replace(/"/g,'""')+'"':s; };
+  const blob=new Blob(['﻿'+rows.map(r=>r.map(q).join(',')).join('\r\n')],{type:'text/csv'});
+  if(downloads){ downloads.save({filename:name,data:blob}).catch(()=>{}); return; }
+  const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },500);
+}
+function renderAM(){
+  const Y=amYear, D=amData, F=x=>Math.abs(x)<0.005?'–':fmt(x), dd=s=>s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'–';
+  const now=new Date(), cut=now.getFullYear()>Y?12:now.getFullYear()<Y?0:now.getMonth()+1;
+  const years=[]; for(let y=AM_BASE;y<=Math.max(now.getFullYear()+1,AM_BASE+1);y++) years.push(y);
+  let h=`<div class="stmt"><h3>ASSET MANAGEMENT: FIXED ASSET REGISTER AND DEPRECIATION</h3>
+   <p class="sub2">From the <i>Asset Register</i> and <i>Category Rates</i> tabs of <i>${esc(D?D.title:'Asset Management-Master Data.xlsx')}</i>${D?', read '+dt(Date.parse(D.at)):''}. Straight-line from the purchase month at the category rate. Purchases from 1 Jan ${AM_BASE} under RM1,000 are low value assets, expensed at purchase (SOP 79V/SOP/FIN/2026/006).</p>
+   <div class="controls" style="margin:6px 0"><button id="amGo" class="primary"${amBusy?' disabled':''}>${amBusy?'Reading…':'Refresh from Drive'}</button>
+   <label class="hint" style="cursor:pointer"><input type="file" id="amFile" accept=".xlsx" hidden><span style="text-decoration:underline">Open Excel file…</span></label>
+   <label>Financial year <select id="amYear">${years.map(y=>`<option${y===Y?' selected':''}>${y}</option>`).join('')}</select></label></div>`;
+  if(amErr) h+=`<div class="msg err" style="margin:8px 0">${amErr}${D?' The figures below are from the last successful read.':''}</div>`;
+  if(!D){ h+=`<div class="empty">${amBusy?'Reading the master data workbook…':'Press <b>Refresh from Drive</b> or open the master data workbook to see the register.'}</div></div>`; return void amWire(h); }
+  const L=D.assets.map(a=>amCalc(a,Y,D.rates)), held=L.filter(o=>o.t==='cap'||o.t==='disposed'), lva=L.filter(o=>o.t==='lva'&&o.a.date&&+o.a.date.slice(0,4)===Y);
+  const S=k=>held.reduce((s,o)=>s+o[k],0), ytd=held.reduce((s,o)=>s+o.m.slice(0,cut).reduce((t,x)=>t+x,0),0), miss=L.filter(o=>o.t==='missing').length;
+  const chk=amChecks(D);
+  h+=`<div class="bekpi"><div><span>Cost at 31 Dec ${Y}</span><b>RM${fmt(S('costEnd'))}</b></div><div><span>Additions ${Y}</span><b>RM${fmt(S('add'))}</b></div>
+    <div><span>Depreciation ${Y}</span><b>RM${fmt(S('charge'))}</b></div><div><span>Charged to date${cut&&cut<12?' (Jan–'+MONTHS[cut-1]+')':''}</span><b>RM${fmt(ytd)}</b></div>
+    <div><span>NBV at 31 Dec ${Y}</span><b>RM${fmt(S('nbv'))}</b></div><div><span>Low value, expensed ${Y}</span><b>RM${fmt(lva.reduce((s,o)=>s+o.cost,0))} <small>(${lva.length})</small></b></div></div>`;
+  if(miss) h+=`<div class="msg" style="margin:10px 0;border-color:#b7791f">▲ ${miss} record${miss>1?'s have':' has'} no purchase date or cost and ${miss>1?'are':'is'} not depreciated. See <b>Data checks</b>.</div>`;
+  h+=`<div class="seg" role="group" aria-label="Asset Management" style="margin:10px 0 0;display:flex;flex-wrap:wrap;width:fit-content;max-width:100%">${[['reg','Register'],['sch','Fixed asset schedule'],['mon','Monthly depreciation'],['lva','Low value assets'],['chk','Data checks ('+chk.length+')']].map(([k,l])=>`<button data-amt="${k}" aria-pressed="${amTab===k}">${l}</button>`).join('')}</div></div>`;
+  const cats=[...new Set(held.map(o=>o.cat))].sort((a,b)=>held.filter(o=>o.cat===b).reduce((s,o)=>s+o.costEnd,0)-held.filter(o=>o.cat===a).reduce((s,o)=>s+o.costEnd,0));
+  h+='<div class="stmt" style="padding-top:0">';
+  if(amTab==='sch'){
+    const K=[['costOpen','Cost 1 Jan'],['add','Additions'],['dispC','Disposals'],['costEnd','Cost 31 Dec'],['accOpen','Acc. dep. 1 Jan'],['charge','Charge for year'],['accEnd','Acc. dep. 31 Dec'],['nbv','NBV 31 Dec']];
+    h+=`<div style="overflow-x:auto"><table class="tc" style="min-width:980px"><tr class="sub"><td>Category</td><td class="r">Rate</td>${K.map(k=>`<td class="r">${k[1]}</td>`).join('')}</tr>`;
+    cats.forEach(c=>{ const g=held.filter(o=>o.cat===c); h+=`<tr><td><b>${esc(c)}</b><span class="note">${g.length} assets</span></td><td class="r">${(D.rates[c]*100||0).toFixed(0)}%</td>${K.map(k=>`<td class="r">${F(g.reduce((s,o)=>s+o[k[0]],0))}</td>`).join('')}</tr>`; });
+    h+=`<tr class="sub"><td>Total</td><td></td>${K.map(k=>`<td class="r">${fmt(S(k[0]))}</td>`).join('')}</tr></table></div>
+      <p class="sub2" style="margin-top:8px">Disposals leave cost and accumulated depreciation in the year they go. Low value assets and records without a date or cost are not included.</p>`;
+  } else if(amTab==='mon'){
+    const tot=new Array(12).fill(0);
+    h+=`<div style="overflow-x:auto"><table class="tc" style="min-width:1100px"><tr class="sub"><td>Category</td>${MONTHS.map((m,j)=>`<td class="r"${j<cut?'':' style="opacity:.6"'}>${m}-${String(Y).slice(2)}</td>`).join('')}<td class="r">Total</td></tr>`;
+    cats.forEach(c=>{ const v=new Array(12).fill(0); held.filter(o=>o.cat===c).forEach(o=>o.m.forEach((x,j)=>{ v[j]+=x; tot[j]+=x; }));
+      h+=`<tr><td>${esc(c)}</td>${v.map(x=>`<td class="r">${F(x)}</td>`).join('')}<td class="r"><b>${fmt(v.reduce((s,x)=>s+x,0))}</b></td></tr>`; });
+    h+=`<tr class="sub"><td>Total</td>${tot.map(x=>`<td class="r">${fmt(x)}</td>`).join('')}<td class="r">${fmt(tot.reduce((s,x)=>s+x,0))}</td></tr></table></div>
+      <p class="sub2" style="margin-top:8px">Months still to come are shown faded: they are the charge if nothing is bought or disposed of before then.</p>`;
+  } else if(amTab==='lva'){
+    h+=`<table class="tc" style="max-width:900px"><tr class="sub"><td>Asset</td><td class="r">Purchased</td><td class="r">Cost (RM)</td><td>Entered category</td></tr>${lva.map(o=>`<tr><td><b>${esc(o.a.id)}</b> ${esc(o.a.desc)}</td><td class="r">${dd(o.a.date)}</td><td class="r">${fmt(o.cost)}</td><td>${esc(o.a.cat)}</td></tr>`).join('')||'<tr><td colspan="4" class="hint">No low value assets bought in '+Y+'.</td></tr>'}
+      <tr class="sub"><td>Total expensed</td><td></td><td class="r">${fmt(lva.reduce((s,o)=>s+o.cost,0))}</td><td></td></tr></table>`;
+  } else if(amTab==='chk'){
+    const ST={bad:['■ High','zb'],warn:['▲ Medium','zw'],low:['● Low','']};
+    h+=chk.length?`<div style="overflow-x:auto"><table class="tc" style="min-width:760px"><tr class="sub"><td>Asset</td><td>Risk</td><td>Finding</td><td>Action</td></tr>${chk.map(c=>`<tr><td><b>${esc(c.a.id||'(no ID)')}</b><span class="note">${esc(c.a.desc)} · row ${c.a.row}</span></td><td class="${ST[c.sev][1]}" style="font-weight:700;white-space:nowrap">${ST[c.sev][0]}</td><td>${esc(c.c)}</td><td>${esc(c.act)}</td></tr>`).join('')}</table></div>`:'<p class="sub2">No data problems found.</p>';
+  } else {
+    const T={cap:'Capitalised',lva:'Low value',disposed:'Disposed '+Y,gone:'Disposed earlier',missing:'Missing data',future:'Bought after '+Y};
+    const q=amQ.toLowerCase();
+    const vis=L.filter(o=>o.t!=='future'&&(amF==='all'||o.t===amF)&&(!q||[o.a.id,o.a.desc,o.a.serial,o.a.pic,o.a.dept,o.cat].join(' ').toLowerCase().includes(q)));
+    const dep=o=>o.t==='cap'||o.t==='disposed';
+    h+=`<div class="controls" style="margin:4px 0 8px"><input type="search" id="amQ" placeholder="Search ID, description, serial, PIC…" value="${esc(amQ)}" style="flex:0 1 300px;padding:6px 8px">
+      <select id="amF">${[['all','All'],['cap','Capitalised'],['lva','Low value'],['disposed','Disposed '+Y],['missing','Missing data']].map(([k,l])=>`<option value="${k}"${amF===k?' selected':''}>${l}</option>`).join('')}</select>
+      <span class="hint">${vis.length} of ${L.length} records</span><button id="amCsv">Download CSV</button></div>
+      <div style="overflow-x:auto"><table class="tc" style="min-width:1100px"><tr class="sub"><td>Asset</td><td>Category</td><td>Treatment</td><td class="r">Purchased</td><td class="r">Cost (RM)</td><td class="r">Rate</td><td class="r">Opening NBV</td><td class="r">Dep. to date</td><td class="r">Dep. ${Y}</td><td class="r">NBV 31 Dec</td><td>PIC / Dept</td></tr>`;
+    let tc=0,to=0,ty=0,tch=0,tn=0;
+    vis.forEach(o=>{ const y=o.m.slice(0,cut).reduce((s,x)=>s+x,0); tc+=o.cost; if(dep(o)){ to+=o.open; ty+=y; tch+=o.charge; tn+=o.nbv; }
+      h+=`<tr${o.t==='disposed'||o.t==='gone'?' style="opacity:.6"':''}><td><b>${esc(o.a.id)}</b> ${esc(o.a.desc)}${o.a.serial?`<span class="note">Serial ${esc(o.a.serial.replace(/^SN\s*/i,''))}</span>`:''}</td><td>${esc(o.cat)}</td>
+        <td class="${o.t==='missing'?'zb':o.t==='lva'?'zw':''}" style="white-space:nowrap">${T[o.t]}</td><td class="r">${dd(o.a.date)}</td><td class="r">${o.a.cost==null?'–':fmt(o.cost)}</td><td class="r">${o.t==='missing'?'–':(o.rate*100).toFixed(0)+'%'}</td>
+        <td class="r">${dep(o)?F(o.open):'–'}</td><td class="r">${dep(o)?F(y):'–'}</td><td class="r">${dep(o)?F(o.charge):'–'}</td><td class="r">${dep(o)?F(o.nbv):'–'}</td><td>${esc(o.a.pic||o.a.dept||'')}</td></tr>`; });
+    h+=`<tr class="sub"><td colspan="4">Total shown</td><td class="r">${fmt(tc)}</td><td></td><td class="r">${fmt(to)}</td><td class="r">${fmt(ty)}</td><td class="r">${fmt(tch)}</td><td class="r">${fmt(tn)}</td><td></td></tr></table></div>`;
+  }
+  h+=`</div><div class="stmt"><p class="sub2"><b>Adding a purchase.</b> Add a row to the <i>Asset Register</i> tab of the master data workbook (columns A to L), or send the invoice to Claude to add it, then press <b>Refresh from Drive</b>. Opening NBV at 1 Jan ${AM_BASE} for older assets is column P of that tab: the workbook's estimate until an audited figure is typed over it.</p></div>`;
+  amWire(h);
+}
+function amWire(h){
+  $('tablebox').innerHTML=h;
+  const on=(id,ev,fn)=>{ const e=$(id); if(e) e.addEventListener(ev,fn); };
+  on('amGo','click',()=>amLoad());
+  on('amFile','change',ev=>{ const f=ev.target.files[0]; if(f) amLoad(f); });
+  on('amYear','change',ev=>{ amYear=+ev.target.value; renderAM(); });
+  on('amF','change',ev=>{ amF=ev.target.value; renderAM(); });
+  on('amQ','input',ev=>{ amQ=ev.target.value; const pos=ev.target.selectionStart; renderAM(); const n=$('amQ'); if(n){ n.focus(); n.setSelectionRange(pos,pos); } });
+  on('amCsv','click',()=>{ const Y=amYear, L=amData.assets.map(a=>amCalc(a,Y,amData.rates)), r2=x=>Math.round(x*100)/100;
+    amCsv([['Row','Asset ID','Description','Serial No','Entered category','Final category','Purchase date','Cost (RM)','Rate','Treatment','Opening NBV',...MONTHS.map(m=>m+'-'+String(Y).slice(2)),'Total '+Y,'NBV 31 Dec '+Y,'PIC','Department','Status','Date disposed'],
+      ...L.map(o=>{ const dep=o.t==='cap'||o.t==='disposed'; return [o.a.row,o.a.id,o.a.desc,o.a.serial,o.a.cat,o.cat,o.a.date||'',o.a.cost==null?'':o.cost,o.rate,o.t,dep?r2(o.open):'',...o.m.map(x=>dep?r2(x):''),dep?r2(o.charge):'',dep?r2(o.nbv):'',o.a.pic,o.a.dept,o.a.status,o.a.disp||'']; })],
+      'Fixed asset register '+Y+'.csv'); });
+  $('tablebox').querySelectorAll('[data-amt]').forEach(b=>b.addEventListener('click',()=>{ amTab=b.dataset.amt; store.set('consol.amTab',amTab); renderAM(); }));
+}
+
 function renderTable(){
   if(state.view==='pc'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     if(!pcTried&&mcp) setTimeout(pcLoad,0); return renderPC(); }
-  const SECT={pc:['PETTY CASH','Petty cash automation'],am:['ASSET MANAGEMENT','Fixed asset register and depreciation']};
+  if(state.view==='am'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
+    if(!amTried&&(mcp||MODE==='web')) setTimeout(()=>amLoad(),0); return renderAM(); }
+  const SECT={pc:['PETTY CASH','Petty cash automation']};
   if(SECT[state.view]){ const [t,d]=SECT[state.view]; if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     $('tablebox').innerHTML=`<div class="stmt"><h3>${t}</h3><p class="sub2">This section is being set up. ${d} will live here, separate from the BOD Review views.</p></div>`; return; }
   if(state.view==='bod'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='contents'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderBOD(); }
@@ -4967,9 +5149,9 @@ $('viewSel').addEventListener('change',ev=>{ const b=document.querySelector('.se
 document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListener('click',()=>{
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view; navSync();
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
-  // Petty Cash does not need the P&L workbook, so it still opens while that is loading or has failed.
-  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc') renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc'].includes(sv)){ state.view=sv;
+  // Petty Cash and Asset Management do not need the P&L workbook, so they still open while that is loading or has failed.
+  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc'||state.view==='am') renderTable(); }));
+(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc','am'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 // Side menu, built from the View list so the two always hold the same views.
 const navMod=v=>{ const o=$('viewSel').querySelector('option[value="'+v+'"]'); return (o&&o.parentNode.dataset&&o.parentNode.dataset.mod)||'bod'; };
@@ -4998,7 +5180,7 @@ function navSync(){ const m=navMod(state.view); document.body.classList.toggle('
     if(!v||!$('viewSel').querySelector('option[value="'+v+'"]')) v='home';
     $('viewSel').value=v; $('viewSel').dispatchEvent(new Event('change')); });
   if(store.get('consol.navshut')==='1') document.body.classList.add('navshut');
-  navSync(); if(state.view==='pc') renderTable(); })();
+  navSync(); if(state.view==='pc'||state.view==='am') renderTable(); })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
 $('hideZero').addEventListener('change',renderTable);

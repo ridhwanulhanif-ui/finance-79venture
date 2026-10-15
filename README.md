@@ -36,6 +36,23 @@ The default workbook is `02.10.2026_Consol+Mgmt Fee_2026.xlsx` (Drive ID in `DEF
 `3. Latest 79V P&L-Mthly`, `3.1 79V BS`, `4. Latest Arabina PNL-Mthly`, `4.1 Arabina BS`. Change these under **Data source**
 on the page. Tax assumptions, forecast and budget inputs and thresholds are saved in the browser's local storage.
 
+## Asset Management
+
+The **Asset Management** section reads the asset master data workbook (`Asset Management-Master Data.xlsx`, tabs
+`Asset Register` and `Category Rates`) and works out the fixed asset register, monthly depreciation, the fixed asset
+schedule, low value assets and data checks for the chosen financial year. Nothing about the assets is stored in this repo.
+
+- On claude.ai and the Apps Script version it reads the workbook from Drive directly.
+- On Railway it reads `/api/assets.xlsx`, which `server.js` fetches from Drive. The file ID is `ASSETS_FILE_ID` in Railway
+  Variables, defaulting to the master data workbook. Like the consolidation workbook, this needs the file shared
+  "Anyone with the link – Viewer"; until it is, use **Open Excel file…** in the section.
+
+Depreciation follows the workbook's own formulas: straight-line from the purchase month at the category rate, capped at
+the opening net book value, up to and including the disposal month. Purchases from 1 January 2026 under RM1,000 are low
+value assets, expensed at purchase. Opening NBV at 1 January 2026 is taken from column P of the Asset Register when it
+holds a number (the workbook's estimate, or the audited figure typed over it). To add a purchase, add a row to the Asset
+Register tab and press **Refresh from Drive**.
+
 ## Deploy the Apps Script web app
 
 Deploy from a **`@79ventures.biz` account** — a personal gmail account has no Workspace domain, so the domain restriction
