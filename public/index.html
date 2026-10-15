@@ -4167,12 +4167,12 @@ const PC_SNAP={at:'2026-10-15T19:45:00+08:00',rows:[
 // Why the two that do not tally do not, traced through both ledgers on 15 Oct 2026. Shown only while
 // that holder still does not tally, and only while the gap is the one traced here.
 const PC_WHY={
-  Hezry:{gap:25.90,html:`Beza RM25.90 bermula masa petty cash dipindah dari 79V ke Arabina. Dalam sheet, baki Hezry pada 7 Sep ialah <b>−RM25.90</b> (terlebih belanja). QuickBooks Arabina mula dengan topup RM500 pada 8 Sep tanpa membawa baki negatif itu, manakala baki 79V direklas ke <i>Due to Staff-Petty Cash (Hezry)</i> pada 30 Sep. Pada 14 Okt sheet ada <i>Supervisor Topup</i> RM25.90 yang membawa sheet sama dengan QuickBooks.
-    <ul><li><b>Tindakan:</b> jika RM25.90 itu bayaran balik kepada Hezry untuk lebihan belanja tadi, <b>jangan</b> rekod sebagai topup ke <i>Petty Cash - Hezry</i> dalam QuickBooks; rekod terhadap <i>Due to Staff-Petty Cash (Hezry)</i>. Selepas baki transaksi 14 Okt (topup RM500, TnG RM50, Annur Seafood RM36) dimasukkan, kedua-dua akan jadi RM644.00.</li></ul>`},
-  Hakimi:{gap:445.08,html:`Beza RM445.08 sudah wujud dalam <b>79V</b> sebelum pindahan: baki QuickBooks 79V pada 24 Ogos RM977.12 berbanding sheet RM532.04. Pada 8 Sep, JE pindahan memindahkan <b>RM156.13</b> ke Arabina (baki sheet ketika itu RM73.14, jadi terlebih <b>RM82.99</b>) dan meninggalkan <b>RM362.09</b> dalam <i>79V · Petty Cash - Hakimi</i>. RM82.99 + RM362.09 = RM445.08.
-    <ul><li><b>Tindakan 1:</b> semak transaksi <i>79V · Petty Cash - Hakimi</i> sebelum 25 Ogos untuk cari RM445.08 (resit yang tidak direkod dalam QuickBooks, atau topup direkod dua kali).</li>
-    <li><b>Tindakan 2:</b> betulkan JE pindahan 8 Sep kepada RM73.14, atau buat JE pelarasan RM82.99 dalam Arabina.</li>
-    <li><b>Tindakan 3:</b> kosongkan baki RM362.09 yang tertinggal dalam 79V selepas punca dijumpai.</li></ul>`}};
+  Hezry:{gap:25.90,html:`The RM25.90 gap began when petty cash moved from 79V to Arabina. In the sheet, Hezry's balance on 7 Sep was <b>−RM25.90</b> (overspent). QuickBooks Arabina started with a RM500 top-up on 8 Sep without carrying that negative balance, while the 79V balance was reclassed to <i>Due to Staff-Petty Cash (Hezry)</i> on 30 Sep. On 14 Oct the sheet has a RM25.90 <i>Supervisor Topup</i> that brings the sheet in line with QuickBooks.
+    <ul><li><b>Action:</b> if the RM25.90 is a reimbursement to Hezry for that overspend, do <b>not</b> record it as a top-up to <i>Petty Cash - Hezry</i> in QuickBooks; record it against <i>Due to Staff-Petty Cash (Hezry)</i>. Once the remaining 14 Oct transactions (RM500 top-up, TnG RM50, Annur Seafood RM36) are keyed in, both will be RM644.00.</li></ul>`},
+  Hakimi:{gap:445.08,html:`The RM445.08 gap already existed in <b>79V</b> before the move: the 79V QuickBooks balance on 24 Aug was RM977.12 against RM532.04 in the sheet. On 8 Sep the transfer JE moved <b>RM156.13</b> to Arabina (the sheet balance then was RM73.14, so <b>RM82.99</b> too much) and left <b>RM362.09</b> in <i>79V · Petty Cash - Hakimi</i>. RM82.99 + RM362.09 = RM445.08.
+    <ul><li><b>Action 1:</b> review <i>79V · Petty Cash - Hakimi</i> transactions before 25 Aug to find the RM445.08 (receipts not recorded in QuickBooks, or a top-up recorded twice).</li>
+    <li><b>Action 2:</b> correct the 8 Sep transfer JE to RM73.14, or post a RM82.99 adjusting JE in Arabina.</li>
+    <li><b>Action 3:</b> clear the RM362.09 left in 79V once the cause is found.</li></ul>`}};
 let pcLive=null, pcBusy=false, pcErr=null, pcTried=false;
 const pcR2=x=>Math.round((x||0)*100)/100;
 function pcStatus(r){
@@ -4187,8 +4187,8 @@ function pcBadge(){
   const b=document.querySelector('#snavMods [data-mod="pc"]'); if(!b) return;
   const n=pcData().rows.filter(r=>pcStatus(r)==='bad').length;
   const w=(typeof wrPending==='function')?wrPending().length:0;
-  b.innerHTML='Petty Cash'+(n?` <span title="${n} pemegang tidak tally" style="display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px">${n}</span>`:'')
-    +(w?` <span title="${w} laporan mingguan menunggu pengesahan" style="display:inline-block;min-width:18px;padding:0 5px;margin-left:2px;border-radius:9px;background:#b7791f;color:#fff;font-size:11px;line-height:18px">✓${w}</span>`:'');
+  b.innerHTML='Petty Cash'+(n?` <span title="${n} holder(s) not tallying" style="display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px">${n}</span>`:'')
+    +(w?` <span title="${w} weekly report(s) awaiting verification" style="display:inline-block;min-width:18px;padding:0 5px;margin-left:2px;border-radius:9px;background:#b7791f;color:#fff;font-size:11px;line-height:18px">✓${w}</span>`:'');
 }
 const pcIso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const PC_MON={january:1,february:2,march:3,april:4,may:5,june:6,july:7,august:8,september:9,october:10,november:11,december:12};
@@ -4276,39 +4276,39 @@ function renderPCRec(){
   const bad=st.filter(r=>r.s==='bad'), pend=st.filter(r=>r.s==='pend'), ok=st.filter(r=>r.s==='ok');
   const T=k=>st.reduce((t,r)=>t+r[k],0), F=x=>Math.abs(x)<0.005?'0.00':fmt(x);
   const dd=s=>s?new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'–';
-  const ST={ok:['● Tally','zg'],pend:['▲ Belum direkod','zw'],bad:['■ Tidak tally','zb']};
+  const ST={ok:['● Tally','zg'],pend:['▲ Not yet recorded','zw'],bad:['■ Not tallying','zb']};
   let h=`<div class="stmt"><h3>PETTY CASH: QUICKBOOKS vs SHEET PETTY CASH</h3>
-   <p class="sub2">Baki setiap pemegang dalam sheet <i>UPDATED PETTY CASH LISTING</i> (tab pemegang, baris <i>Deleted</i> tidak dikira) berbanding akaun <i>Petty Cash - …</i> dalam QuickBooks Arabina dan 79V. ${D.live?'Dibaca terus dari Google Drive dan QuickBooks dengan connector anda':'Semakan manual'} pada <b>${when}</b>.</p>
-   <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><button id="pcGo" class="primary"${pcBusy?' disabled':''}>${pcBusy?'Sedang semak…':'Semak semula sekarang'}</button>
-   <span class="hint">${pcBusy?'Membaca sheet dan QuickBooks…':D.live?'Data live':'Menunjukkan semakan 15 Okt 2026; tekan butang untuk data terkini'}</span></div>`;
-  if(pcErr) h+=`<div class="msg err" style="margin:8px 0">${pcErr} Angka di bawah ialah ${pcLive?'semakan live terakhir':'semakan 15 Okt 2026'}.</div>`;
-  if(bad.length) h+=`<div class="msg err" style="margin:10px 0"><b>⚠ ALERT: ${bad.length} pemegang petty cash tidak tally dengan QuickBooks.</b> ${bad.map(r=>`<b>${esc(r.k)}</b> (beza RM${F(r.d)}${r.asof!=null?`; pada ${dd(r.last)} beza RM${F(pcR2(r.asof-r.qb))}`:''})`).join(' · ')}. Sebab dan tindakan di bawah.</div>`;
-  else h+=`<div class="msg ok" style="margin:10px 0"><b>Tiada beza sebenar.</b> Semua pemegang tally, atau beza hanya transaksi yang belum dimasukkan ke QuickBooks.</div>`;
-  if(pend.length) h+=`<div class="msg" style="margin:10px 0;border-color:#b7791f"><b>▲ ${pend.length} pemegang ada transaksi dalam sheet yang belum direkod di QuickBooks:</b> ${pend.map(r=>`${esc(r.k)} (${r.pend.length} transaksi selepas ${dd(r.last)})`).join(' · ')}. Sheet dan QuickBooks sama sehingga tarikh terakhir QuickBooks, jadi ini beza masa sahaja; masukkan transaksi tersebut.</div>`;
-  h+=`<div class="bekpi"><div><span>Jumlah baki sheet</span><b>RM${F(T('sheet'))}</b></div><div><span>Jumlah QuickBooks (Arabina + 79V)</span><b>RM${F(T('qb'))}</b></div>
-    <div><span>Beza (sheet − QuickBooks)</span><b style="color:${Math.abs(T('d'))<0.005?'var(--ok)':'var(--bad)'}">RM${F(T('d'))}</b></div>
-    <div><span>Status pemegang</span><b><span class="zg">${ok.length} tally</span> · <span class="zw">${pend.length} belum direkod</span> · <span class="zb">${bad.length} tidak tally</span></b></div></div></div>`;
-  h+=`<div class="stmt" style="padding-top:0"><div style="overflow-x:auto"><table class="tc" style="min-width:760px"><tr class="sub"><td>Pemegang</td><td class="r">Baki sheet</td><td class="r">QB Arabina</td><td class="r">QB 79V</td><td class="r">Beza</td><td class="r">Entri QB terakhir</td><td class="r">Sheet pada tarikh itu</td><td>Status</td></tr>`;
+   <p class="sub2">Each holder's balance in the <i>UPDATED PETTY CASH LISTING</i> sheet (holder tab, <i>Deleted</i> rows excluded) against the <i>Petty Cash - …</i> accounts in QuickBooks Arabina and 79V. ${D.live?'Read live from Google Drive and QuickBooks through your connectors':'Manual check'} at <b>${when}</b>.</p>
+   <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><button id="pcGo" class="primary"${pcBusy?' disabled':''}>${pcBusy?'Checking…':'Re-check now'}</button>
+   <span class="hint">${pcBusy?'Reading the sheet and QuickBooks…':D.live?'Live data':'Showing the 15 Oct 2026 check; press the button for current data'}</span></div>`;
+  if(pcErr) h+=`<div class="msg err" style="margin:8px 0">${pcErr} Figures below are from ${pcLive?'the last live check':'the 15 Oct 2026 check'}.</div>`;
+  if(bad.length) h+=`<div class="msg err" style="margin:10px 0"><b>⚠ ALERT: ${bad.length} petty cash holder(s) do not tally with QuickBooks.</b> ${bad.map(r=>`<b>${esc(r.k)}</b> (gap RM${F(r.d)}${r.asof!=null?`; on ${dd(r.last)} gap RM${F(pcR2(r.asof-r.qb))}`:''})`).join(' · ')}. Causes and actions below.</div>`;
+  else h+=`<div class="msg ok" style="margin:10px 0"><b>No real differences.</b> Every holder tallies, or the gap is only transactions not yet keyed into QuickBooks.</div>`;
+  if(pend.length) h+=`<div class="msg" style="margin:10px 0;border-color:#b7791f"><b>▲ ${pend.length} holder(s) have sheet transactions not yet recorded in QuickBooks:</b> ${pend.map(r=>`${esc(r.k)} (${r.pend.length} transactions after ${dd(r.last)})`).join(' · ')}. The sheet and QuickBooks agree up to QuickBooks' last date, so this is timing only; key in those transactions.</div>`;
+  h+=`<div class="bekpi"><div><span>Total sheet balance</span><b>RM${F(T('sheet'))}</b></div><div><span>Total QuickBooks (Arabina + 79V)</span><b>RM${F(T('qb'))}</b></div>
+    <div><span>Difference (sheet − QuickBooks)</span><b style="color:${Math.abs(T('d'))<0.005?'var(--ok)':'var(--bad)'}">RM${F(T('d'))}</b></div>
+    <div><span>Holder status</span><b><span class="zg">${ok.length} tally</span> · <span class="zw">${pend.length} not yet recorded</span> · <span class="zb">${bad.length} not tallying</span></b></div></div></div>`;
+  h+=`<div class="stmt" style="padding-top:0"><div style="overflow-x:auto"><table class="tc" style="min-width:760px"><tr class="sub"><td>Holder</td><td class="r">Sheet balance</td><td class="r">QB Arabina</td><td class="r">QB 79V</td><td class="r">Difference</td><td class="r">Last QB entry</td><td class="r">Sheet at that date</td><td>Status</td></tr>`;
   const ord={bad:0,pend:1,ok:2};
   st.slice().sort((a,b)=>ord[a.s]-ord[b.s]).forEach(r=>{ const h0=PC_H.find(x=>x.k===r.k);
-    h+=`<tr><td><b>${esc(r.k)}</b><span class="note">tab ${esc(h0.tab)}${r.missing?' · <b style="color:var(--bad)">tab tidak dijumpai</b>':''}</span></td><td class="r">${F(r.sheet)}</td><td class="r">${F(r.qa)}</td>
+    h+=`<tr><td><b>${esc(r.k)}</b><span class="note">tab ${esc(h0.tab)}${r.missing?' · <b style="color:var(--bad)">tab not found</b>':''}</span></td><td class="r">${F(r.sheet)}</td><td class="r">${F(r.qa)}</td>
       <td class="r"${Math.abs(r.qv)>0.004?' style="color:var(--bad);font-weight:700"':''}>${F(r.qv)}</td><td class="r ${r.s==='ok'?'good':r.s==='bad'?'bad':''}" style="font-weight:700">${r.s==='ok'?'✓ 0.00':F(r.d)}</td>
       <td class="r">${r.s==='ok'?'':dd(r.last)}</td><td class="r">${r.asof==null||r.s==='ok'?'':F(r.asof)}</td><td class="${ST[r.s][1]}" style="font-weight:700;white-space:nowrap">${ST[r.s][0]}</td></tr>`; });
-  h+=`<tr class="sub"><td>Jumlah</td><td class="r">${F(T('sheet'))}</td><td class="r">${F(T('qa'))}</td><td class="r">${F(T('qv'))}</td><td class="r">${F(T('d'))}</td><td></td><td></td><td></td></tr></table></div></div>`;
+  h+=`<tr class="sub"><td>Total</td><td class="r">${F(T('sheet'))}</td><td class="r">${F(T('qa'))}</td><td class="r">${F(T('qv'))}</td><td class="r">${F(T('d'))}</td><td></td><td></td><td></td></tr></table></div></div>`;
   // Detail for every holder that does not tally: the cause where it has been traced, then what the sheet has after QuickBooks stops.
   [...bad,...pend].forEach(r=>{ const W=PC_WHY[r.k], gap=pcR2(r.asof!=null?r.asof-r.qb:r.d);
     h+=`<div class="stmt" style="border-top:1px solid var(--rule)"><h3 style="font-size:13.5px"><span class="${ST[r.s][1]}">${ST[r.s][0]}</span> · ${esc(r.k)}</h3>`;
-    if(r.s==='bad'&&r.asof==null) h+=`<p class="sub2">Baki sheet RM${F(r.sheet)} berbanding QuickBooks RM${F(r.qb)}: beza <b>RM${F(r.d)}</b>. QuickBooks tiada entri untuk pemegang ini dalam 120 hari lepas, jadi bandingkan transaksi satu per satu.</p>`;
+    if(r.s==='bad'&&r.asof==null) h+=`<p class="sub2">Sheet balance RM${F(r.sheet)} against QuickBooks RM${F(r.qb)}: a gap of <b>RM${F(r.d)}</b>. QuickBooks has no entry for this holder in the last 120 days, so compare transactions one by one.</p>`;
     else if(r.s==='bad'){
-      h+=`<p class="sub2">Pada ${dd(r.last)} (entri QuickBooks terakhir) sheet RM${F(r.asof)} berbanding QuickBooks RM${F(r.qb)}${Math.abs(r.qv)>0.004?` (termasuk RM${F(r.qv)} masih dalam 79V)`:''}: beza <b>RM${F(gap)}</b> yang bukan sebab transaksi belum direkod.</p>`;
+      h+=`<p class="sub2">On ${dd(r.last)} (last QuickBooks entry) the sheet was RM${F(r.asof)} against QuickBooks RM${F(r.qb)}${Math.abs(r.qv)>0.004?` (including RM${F(r.qv)} still in 79V)`:''}: a gap of <b>RM${F(gap)}</b> not explained by unrecorded transactions.</p>`;
       if(W&&Math.abs(Math.abs(gap)-W.gap)<0.01) h+=`<div class="anbox" style="margin:6px 0 10px">${W.html}</div>`;
-      else h+=`<p class="sub2">Belum dikesan: bandingkan transaksi sheet dan QuickBooks pemegang ini satu per satu sebelum ${dd(r.last)}.</p>`;
+      else h+=`<p class="sub2">Not traced yet: compare this holder's sheet and QuickBooks transactions one by one before ${dd(r.last)}.</p>`;
     }
     if(r.pend&&r.pend.length){ const t=r.pend.reduce((s,x)=>s+x[2],0);
-      h+=`<table class="tc" style="max-width:640px"><tr class="sub"><td>Dalam sheet selepas ${dd(r.last)}, belum ada dalam QuickBooks</td><td class="r">RM</td></tr>${r.pend.map(x=>`<tr><td>${dd(x[0])} · ${esc(x[1]||'–')}</td><td class="r${x[2]<0?' neg':''}">${fmt(x[2])}</td></tr>`).join('')}<tr class="sub"><td>Jumlah</td><td class="r">${fmt(t)}</td></tr></table>`; }
+      h+=`<table class="tc" style="max-width:640px"><tr class="sub"><td>In the sheet after ${dd(r.last)}, not yet in QuickBooks</td><td class="r">RM</td></tr>${r.pend.map(x=>`<tr><td>${dd(x[0])} · ${esc(x[1]||'–')}</td><td class="r${x[2]<0?' neg':''}">${fmt(x[2])}</td></tr>`).join('')}<tr class="sub"><td>Total</td><td class="r">${fmt(t)}</td></tr></table>`; }
     h+='</div>'; });
-  if(D.extra&&D.extra.length) h+=`<div class="stmt"><p class="sub2"><b>Akaun petty cash QuickBooks tanpa tab pemegang dalam sheet</b> (tidak dibandingkan): ${D.extra.map(x=>`${esc(x[0])} · ${esc(x[1])} RM${fmt(x[2])}`).join(' · ')}.</p></div>`;
-  h+=`<div class="stmt"><p class="sub2"><b>Cara semakan.</b> Tally = baki sheet sama dengan QuickBooks Arabina + 79V. Jika tidak sama, sheet dikira semula sehingga tarikh entri terakhir QuickBooks untuk pemegang itu: jika sama pada tarikh itu, bezanya hanya transaksi yang belum dimasukkan (<span class="zw">▲ Belum direkod</span>); jika masih berbeza, ia beza sebenar (<span class="zb">■ Tidak tally</span>) dan perlu disiasat. Baki dalam akaun 79V sepatutnya sifar selepas pindahan ke Arabina pada September.</p></div>`;
+  if(D.extra&&D.extra.length) h+=`<div class="stmt"><p class="sub2"><b>QuickBooks petty cash accounts with no holder tab in the sheet</b> (not compared): ${D.extra.map(x=>`${esc(x[0])} · ${esc(x[1])} RM${fmt(x[2])}`).join(' · ')}.</p></div>`;
+  h+=`<div class="stmt"><p class="sub2"><b>How the check works.</b> Tally = sheet balance equals QuickBooks Arabina + 79V. If not, the sheet is re-added up to that holder's last QuickBooks entry date: if they agree there, the gap is only transactions not keyed in yet (<span class="zw">▲ Not yet recorded</span>); if they still differ, it is a real difference (<span class="zb">■ Not tallying</span>) to investigate. Balances in the 79V accounts should be zero after the move to Arabina in September.</p></div>`;
   return h;
 }
 // ===== Petty Cash weekly report (Google Doc "Petty Cash-Weekly Report") =====
@@ -4375,13 +4375,13 @@ const wrDate=s=>{ const m=String(s||'').match(/(\d{1,2})\/(\d{1,2})\/(\d{4})/); 
 function wrChecks(rep){
   const out=[], F=x=>Math.abs(x)<0.005?'0.00':fmt(x);
   const [ps,pe]=String(rep.period).split(/\s+to\s+/i).map(wrDate), d=wrDate(rep.date);
-  if(pe&&d&&(pe>d||(d-pe)/864e5>10)) out.push(['w',`Tempoh minggu "${esc(rep.period)}" tidak sepadan dengan tarikh laporan ${esc(rep.date)}; kemungkinan salah taip.`]);
+  if(pe&&d&&(pe>d||(d-pe)/864e5>10)) out.push(['w',`Week period "${esc(rep.period)}" does not match the report date ${esc(rep.date)}; probably a typo.`]);
   rep.rows.forEach(([n,sys,cash,qb,ctl,v])=>{
-    if(sys==null){ out.push(['w',`<b>${esc(n)}</b>: tiada angka dilaporkan.`]); return; }
-    const ds=[['QuickBook',qb],['Cash on hand',cash],['Control list',ctl]].filter(([,x])=>x!=null&&Math.abs(x-sys)>0.005).map(([l,x])=>`${l} RM${F(x)} (beza RM${F(x-sys)})`);
-    if(ds.length&&!(v>0.005)) out.push(['b',`<b>${esc(n)}</b>: variance ditulis 0 tetapi sistem RM${F(sys)} berbeza dengan ${ds.join(', ')}.`]);
-    else if(!ds.length&&v>0.005) out.push(['w',`<b>${esc(n)}</b>: semua kolum sama (RM${F(sys)}) tetapi variance ditulis RM${F(v)}. Jelaskan dari mana angka variance ini.`]);
-    else if(ds.length) out.push(['b',`<b>${esc(n)}</b>: ${ds.join(', ')} berbanding sistem RM${F(sys)}; variance dilaporkan RM${F(v)}.`]);
+    if(sys==null){ out.push(['w',`<b>${esc(n)}</b>: no figures reported.`]); return; }
+    const ds=[['QuickBook',qb],['Cash on hand',cash],['Control list',ctl]].filter(([,x])=>x!=null&&Math.abs(x-sys)>0.005).map(([l,x])=>`${l} RM${F(x)} (diff RM${F(x-sys)})`);
+    if(ds.length&&!(v>0.005)) out.push(['b',`<b>${esc(n)}</b>: variance written as 0 but system RM${F(sys)} differs from ${ds.join(', ')}.`]);
+    else if(!ds.length&&v>0.005) out.push(['w',`<b>${esc(n)}</b>: all columns agree (RM${F(sys)}) but variance is written as RM${F(v)}. Explain where this variance comes from.`]);
+    else if(ds.length) out.push(['b',`<b>${esc(n)}</b>: ${ds.join(', ')} against system RM${F(sys)}; reported variance RM${F(v)}.`]);
   });
   return out;
 }
@@ -4392,35 +4392,35 @@ function renderWR(){
   const F=x=>x==null?'–':(Math.abs(x)<0.005?'0.00':fmt(x));
   const when=new Date(W.at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
   let h=`<div class="stmt"><h3>WEEKLY REPORT TO FINANCE LEADER</h3>
-   ${wrPending().length?`<div class="msg" style="margin:8px 0;border-color:#b7791f"><b>▲ ${wrPending().length} laporan menunggu pengesahan Finance Leader / Manager:</b> ${wrPending().map(x=>esc(x.date)).join(', ')}. Pilih minggu itu di bawah untuk sahkan.</div>`:''}
-   <div class="anbox" style="margin:8px 0 12px"><b>Jana laporan minggu baru</b> <span class="hint">· tak perlu kemas kini Google Doc lagi</span>
-    <div class="controls" style="margin:6px 0 0;gap:10px;flex-wrap:wrap;align-items:center"><label>Dari <input type="date" id="wrGs" value="${gs}"></label><label>Hingga <input type="date" id="wrGe" value="${ge}"></label>
-    <button class="primary" id="wrGen"${wrGenBusy?' disabled':''}>${wrGenBusy?'Sedang jana…':'Jana laporan'}</button></div>
+   ${wrPending().length?`<div class="msg" style="margin:8px 0;border-color:#b7791f"><b>▲ ${wrPending().length} report(s) awaiting Finance Leader / Manager verification:</b> ${wrPending().map(x=>esc(x.date)).join(', ')}. Pick that week below to verify.</div>`:''}
+   <div class="anbox" style="margin:8px 0 12px"><b>Generate a new weekly report</b> <span class="hint">· no need to update the Google Doc any more</span>
+    <div class="controls" style="margin:6px 0 0;gap:10px;flex-wrap:wrap;align-items:center"><label>From <input type="date" id="wrGs" value="${gs}"></label><label>To <input type="date" id="wrGe" value="${ge}"></label>
+    <button class="primary" id="wrGen"${wrGenBusy?' disabled':''}>${wrGenBusy?'Generating…':'Generate report'}</button></div>
     ${wrGenErr?`<div class="msg err" style="margin:8px 0 0">${wrGenErr}</div>`:''}${wrDbErr?`<p class="hint" style="margin:6px 0 0">${wrDbErr}</p>`:''}</div>
-   <p class="sub2">${reps.length} laporan: ${reps.filter(x=>x.src==='doc').length} dari Google Doc <a href="https://docs.google.com/document/d/${WR_DOC}/edit" target="_blank" rel="noopener"><i>Petty Cash-Weekly Report</i></a> (${W.live?'dibaca terus':'salinan'} ${when}), ${reps.filter(x=>x.src==='db').length} dijana dan disimpan dalam artifact ini.</p>
+   <p class="sub2">${reps.length} reports: ${reps.filter(x=>x.src==='doc').length} from the Google Doc <a href="https://docs.google.com/document/d/${WR_DOC}/edit" target="_blank" rel="noopener"><i>Petty Cash-Weekly Report</i></a> (${W.live?'read live':'copy'} ${when}), ${reps.filter(x=>x.src==='db').length} generated and saved in this artifact.</p>
    <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center">
-    <label>Minggu <select id="wrSel">${reps.map((x,k)=>`<option value="${k}"${k===i?' selected':''}>${esc(x.date)} · ${esc(x.period)}${x.src==='db'?(x.status==='draft'?' · DRAF':' · artifact'):' · Google Doc'}</option>`).join('')}</select></label>
-    <button id="wrGo"${wrBusy?' disabled':''}>${wrBusy?'Membaca Doc…':'Muat semula dari Google Doc'}</button>
-    <button id="wrDl">Muat turun (Word)</button>${R.src==='db'?'<button id="wrEdit">Edit</button><button id="wrDelBtn">Padam</button>':''}</div>`;
+    <label>Week <select id="wrSel">${reps.map((x,k)=>`<option value="${k}"${k===i?' selected':''}>${esc(x.date)} · ${esc(x.period)}${x.src==='db'?(x.status==='draft'?' · DRAFT':' · artifact'):' · Google Doc'}</option>`).join('')}</select></label>
+    <button id="wrGo"${wrBusy?' disabled':''}>${wrBusy?'Reading the Doc…':'Reload from Google Doc'}</button>
+    <button id="wrDl">Download (Word)</button>${R.src==='db'?'<button id="wrEdit">Edit</button><button id="wrDelBtn">Delete</button>':''}</div>`;
   if(wrErr) h+=`<div class="msg err" style="margin:8px 0">${wrErr}</div>`;
   const C=wrChecks(R), bad=C.filter(x=>x[0]==='b');
-  h+=`<p style="margin:10px 0 4px">${R.src==='db'&&R.status==='draft'?'<span class="zw" style="font-weight:700">▲ DRAF</span> · ':''}<b>Tarikh laporan:</b> ${esc(R.date)} · <b>Tempoh:</b> ${esc(R.period)}${R.prep?` · <b>Disediakan:</b> ${esc(R.prep)}`:''}${R.appr?` · <b>Diluluskan:</b> ${esc(R.appr)}`:''} · <span class="hint">${R.src==='db'?'dijana dalam artifact'+(R.savedAt?' · disimpan '+dt(Date.parse(R.savedAt)):''):'dari Google Doc'}</span></p>`+wrFlowHtml(R);
-  h+=C.length?`<div class="msg ${bad.length?'err':''}" style="margin:8px 0${bad.length?'':';border-color:#b7791f'}"><b>${bad.length?'⚠ ':''}Semakan automatik laporan ini (${C.length})</b><ul>${C.map(([z,t])=>`<li class="${z==='b'?'zb':'zw'}">${t}</li>`).join('')}</ul></div>`
-    :`<div class="msg ok" style="margin:8px 0"><b>Semakan automatik:</b> semua angka dalam laporan ini konsisten.</div>`;
-  h+=`<h3 style="font-size:13.5px;margin-top:14px">1. Sistem vs QuickBook vs Cash on Hand vs Control List</h3><div style="overflow-x:auto"><table class="tc" style="min-width:820px"><tr class="sub"><td>Staff / SV</td><td class="r">Sistem</td><td class="r">Cash on hand</td><td class="r">QuickBook</td><td class="r">Control list</td><td class="r">Variance (ditulis)</td><td>Penjelasan</td></tr>`;
+  h+=`<p style="margin:10px 0 4px">${R.src==='db'&&R.status==='draft'?'<span class="zw" style="font-weight:700">▲ DRAFT</span> · ':''}<b>Report date:</b> ${esc(R.date)} · <b>Period:</b> ${esc(R.period)}${R.prep?` · <b>Prepared by:</b> ${esc(R.prep)}`:''}${R.appr?` · <b>Approved by:</b> ${esc(R.appr)}`:''} · <span class="hint">${R.src==='db'?'generated in artifact'+(R.savedAt?' · saved '+dt(Date.parse(R.savedAt)):''):'from Google Doc'}</span></p>`+wrFlowHtml(R);
+  h+=C.length?`<div class="msg ${bad.length?'err':''}" style="margin:8px 0${bad.length?'':';border-color:#b7791f'}"><b>${bad.length?'⚠ ':''}Automatic checks on this report (${C.length})</b><ul>${C.map(([z,t])=>`<li class="${z==='b'?'zb':'zw'}">${t}</li>`).join('')}</ul></div>`
+    :`<div class="msg ok" style="margin:8px 0"><b>Automatic checks:</b> every figure in this report is consistent.</div>`;
+  h+=`<h3 style="font-size:13.5px;margin-top:14px">1. System vs QuickBook vs Cash on Hand vs Control List</h3><div style="overflow-x:auto"><table class="tc" style="min-width:820px"><tr class="sub"><td>Staff / SV</td><td class="r">System</td><td class="r">Cash on hand</td><td class="r">QuickBook</td><td class="r">Control list</td><td class="r">Variance (written)</td><td>Explanation</td></tr>`;
   R.rows.forEach(([n,sys,cash,qb,ctl,v,ex])=>{ const c=x=>x!=null&&sys!=null&&Math.abs(x-sys)>0.005?' style="color:var(--bad);font-weight:700"':'';
     h+=`<tr><td><b>${esc(n)}</b></td><td class="r">${F(sys)}</td><td class="r"${c(cash)}>${F(cash)}</td><td class="r"${c(qb)}>${F(qb)}</td><td class="r"${c(ctl)}>${F(ctl)}</td><td class="r"${v>0.005?' style="color:var(--bad);font-weight:700"':''}>${F(v)}</td><td>${esc(ex&&ex!=='-'?ex:'')}</td></tr>`; });
   const sum=k=>R.rows.reduce((t,r)=>t+(r[k]||0),0);
-  h+=`<tr class="sub"><td>Jumlah</td><td class="r">${F(sum(1))}</td><td class="r">${F(sum(2))}</td><td class="r">${F(sum(3))}</td><td class="r">${F(sum(4))}</td><td class="r">${F(sum(5))}</td><td></td></tr></table></div>`;
-  const small=(t,head,rows)=>`<h3 style="font-size:13.5px;margin-top:16px">${t}</h3>`+(rows.length?`<table class="tc" style="max-width:900px"><tr class="sub">${head.map(x=>`<td>${x}</td>`).join('')}</tr>${rows.map(r=>`<tr>${head.map((_,k)=>`<td>${esc(r[k]||'')}</td>`).join('')}</tr>`).join('')}</table>`:'<p class="sub2">Tiada.</p>');
-  h+=small('2. Non-Compliance Summary (48 jam)',['Staff','Lewat hantar (jam)','Status / tindakan'],R.nc);
-  h+=small('3. Frozen Floats (72 jam)',['Staff','Sebab dibekukan','Status'],R.frozen);
-  h+=small('4. Written Explanation Forms',['Staff','Sebab','Borang dilampirkan'],R.forms);
+  h+=`<tr class="sub"><td>Total</td><td class="r">${F(sum(1))}</td><td class="r">${F(sum(2))}</td><td class="r">${F(sum(3))}</td><td class="r">${F(sum(4))}</td><td class="r">${F(sum(5))}</td><td></td></tr></table></div>`;
+  const small=(t,head,rows)=>`<h3 style="font-size:13.5px;margin-top:16px">${t}</h3>`+(rows.length?`<table class="tc" style="max-width:900px"><tr class="sub">${head.map(x=>`<td>${x}</td>`).join('')}</tr>${rows.map(r=>`<tr>${head.map((_,k)=>`<td>${esc(r[k]||'')}</td>`).join('')}</tr>`).join('')}</table>`:'<p class="sub2">None.</p>');
+  h+=small('2. Non-Compliance Summary (48 hrs)',['Staff','Late submission (hours)','Status / action taken'],R.nc);
+  h+=small('3. Frozen Floats (72 hrs)',['Staff','Reason frozen','Status'],R.frozen);
+  h+=small('4. Written Explanation Forms',['Staff','Reason','Form attached'],R.forms);
   // Every week side by side: how each holder's balance and variance moved.
   const names=[...new Set(reps.flatMap(x=>x.rows.map(r=>r[0])))];
-  h+=`<h3 style="font-size:13.5px;margin-top:18px">Trend baki sistem mengikut minggu (merah = variance dilaporkan)</h3><div style="overflow-x:auto"><table class="tc" style="min-width:${200+reps.length*90}px"><tr class="sub"><td>Staff / SV</td>${reps.map(x=>`<td class="r">${esc(x.date.slice(0,5))}</td>`).join('')}</tr>`;
+  h+=`<h3 style="font-size:13.5px;margin-top:18px">System balance trend by week (red = variance reported)</h3><div style="overflow-x:auto"><table class="tc" style="min-width:${200+reps.length*90}px"><tr class="sub"><td>Staff / SV</td>${reps.map(x=>`<td class="r">${esc(x.date.slice(0,5))}</td>`).join('')}</tr>`;
   names.forEach(n=>{ h+=`<tr><td><b>${esc(n)}</b></td>${reps.map(x=>{ const r=x.rows.find(y=>y[0]===n); if(!r) return '<td class="r hint">–</td>'; return `<td class="r"${r[5]>0.005?' style="color:var(--bad);font-weight:700" title="Variance RM'+fmt(r[5])+'"':''}>${F(r[1])}</td>`; }).join('')}</tr>`; });
-  h+=`</table></div><p class="sub2" style="margin-top:8px">Laporan ditulis oleh pasukan kewangan dalam Google Doc; page ini hanya membaca dan menyemak. Semakan automatik membandingkan kolum dalam laporan yang sama: QuickBook, cash on hand dan control list sepatutnya sama dengan sistem, dan variance sepatutnya sama dengan bezanya.</p></div>`;
+  h+=`</table></div><p class="sub2" style="margin-top:8px">Reports come from the finance team's Google Doc or are generated here. The automatic checks compare columns within the same report: QuickBook, cash on hand and the control list should equal the system, and the variance should equal the difference.</p></div>`;
   return h;
 }
 
@@ -4443,10 +4443,10 @@ function wrDT(v){
 async function wrDbInit(){
   if(wrSub||wrDbErr) return;
   try{ dbRef=await claude.use('db'); }catch(e){ dbRef=null; }
-  if(!dbRef){ wrDbErr='Simpanan laporan tidak tersedia dalam paparan ini (buka artifact di claude.ai dan log masuk).'; if(state.view==='pc') renderPC(); return; }
+  if(!dbRef){ wrDbErr='Saving reports is not available in this view (open the artifact on claude.ai and sign in).'; if(state.view==='pc') renderPC(); return; }
   wrCfgInit();
   wrSub=dbRef.collection(WR_COL).onSnapshot(s=>{ wrDb=s.docs.map(d=>({...d.data(),id:d.id,src:'db'})); pcBadge(); if(state.view==='pc'&&!wrDraft) renderPC(); },
-    e=>{ wrDbErr='Tidak dapat membaca laporan yang disimpan ('+esc(e&&e.code||'error')+').'; if(state.view==='pc') renderPC(); });
+    e=>{ wrDbErr='Could not read the saved reports ('+esc(e&&e.code||'error')+').'; if(state.view==='pc') renderPC(); });
 }
 // Every report, oldest first: the ones in the Google Doc, then the ones saved here (a saved report for
 // the same date replaces the Doc's copy).
@@ -4475,13 +4475,13 @@ async function wrGenerate(startIso,endIso){
       const qb=pcR2(h.a.reduce((t,n)=>t+(tA[n]||0),0)+h.v.reduce((t,n)=>t+(tV[n]||0),0));
       const name=h.k.toUpperCase();
       if(Math.abs(sys)>0.004||Math.abs(qb)>0.004||prevNames.has(name)){
-        const v=pcR2(qb-sys), ex=Math.abs(v)>0.004?`QuickBooks ${v>0?'lebih':'kurang'} RM${fmt(Math.abs(v))} berbanding sistem`:'-';
+        const v=pcR2(qb-sys), ex=Math.abs(v)>0.004?`QuickBooks ${v>0?'higher':'lower'} by RM${fmt(Math.abs(v))} than system`:'-';
         rows.push([name,sys,sys,qb,sys,v,ex]); }
       // Late submission: keyed more than 48 hours after the end of the receipt day.
       let late=0, worst=0;
       A.forEach(x=>{ const rd=pcDate(x[2]), cr=wrDT(x[3]); if(!rd||!cr||cr<st||cr>en) return;
         const hrs=(cr-new Date(rd+'T23:59:59'))/36e5; if(hrs>48){ late++; worst=Math.max(worst,hrs); } });
-      if(late) nc.push([name,`${Math.round(worst)} (paling lewat) · ${late} resit`,'']); });
+      if(late) nc.push([name,`${Math.round(worst)} (latest) · ${late} receipt(s)`,'']); });
     if(!wefRows) await wefLoad();
     const forms=prev?(prev.forms||[]).map(x=>x.slice()):[];
     (wefRows||[]).forEach(f=>{ const d=wrDate(f.ts); if(!d||d<st||d>en) return; const why=(f.issue||'')+(f.why?': '+f.why:'')+(f.no?' ('+f.no+')':'');
@@ -4498,12 +4498,12 @@ async function wrSave(status){
   const body={date:D.date,period:D.period,rows:D.rows,nc:D.nc.filter(x=>x.some(Boolean)),frozen:D.frozen.filter(x=>x.some(Boolean)),forms:D.forms.filter(x=>x.some(Boolean)),
     prep:D.prep||'',appr:D.appr||'',status,savedAt:new Date().toISOString(),flow:'open',checked:null,submitted:null,verified:null,returned:D.flow==='returned'?(D.returned||null):null};
   try{ await dbRef.collection(WR_COL).doc(id).set(body); wrDraft=null; wrSel=null; wrGenErr=null; }
-  catch(e){ wrGenErr=e&&e.code==='invalid_argument'?'Anda tiada kebenaran menyimpan laporan dalam artifact ini.':'Gagal menyimpan ('+esc(e&&e.code||'error')+'). Cuba lagi.'; }
+  catch(e){ wrGenErr=e&&e.code==='invalid_argument'?'You do not have permission to save reports in this artifact.':'Save failed ('+esc(e&&e.code||'error')+'). Try again.'; }
   renderPC();
 }
 async function wrDelete(r){
-  if(!dbRef||!confirm('Padam laporan '+r.date+' yang disimpan dalam artifact?')) return;
-  try{ await dbRef.collection(WR_COL).doc(r.id).delete(); wrSel=null; }catch(e){ wrGenErr='Gagal memadam ('+esc(e&&e.code||'error')+').'; }
+  if(!dbRef||!confirm('Delete the report '+r.date+' saved in this artifact?')) return;
+  try{ await dbRef.collection(WR_COL).doc(r.id).delete(); wrSel=null; }catch(e){ wrGenErr='Delete failed ('+esc(e&&e.code||'error')+').'; }
   renderPC();
 }
 // The report as a Word-readable file, laid out like the Google Doc.
@@ -4527,22 +4527,22 @@ function renderWRDraft(){
   const D=wrDraft, F=x=>x==null?'':(Math.abs(x)<0.005?'0.00':fmt(x));
   const inS='font:inherit;padding:3px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)';
   const ed=(path,val,w,num)=>`<input data-wrd="${path}" ${num?'type="number" step="0.01"':''} value="${esc(val==null?'':String(val))}" style="${inS};width:${w}px${num?';text-align:right':''}">`;
-  let h=`<div class="stmt"><h3>LAPORAN MINGGUAN BARU · DRAF</h3>
-   <p class="sub2">Diisi automatik untuk tempoh <b>${esc(D.period)}</b>. <b>Sistem</b> dan <b>Control list</b> = baki dalam sheet <i>UPDATED PETTY CASH LISTING</i> setakat ${esc(D.date)}; <b>QuickBook</b> = Arabina + 79V setakat tarikh sama. Taip <b>Cash on hand</b> (kiraan tunai sebenar) dan semak penjelasan, kemudian Simpan.</p>`;
+  let h=`<div class="stmt"><h3>NEW WEEKLY REPORT · DRAFT</h3>
+   <p class="sub2">Filled in automatically for <b>${esc(D.period)}</b>. <b>System</b> and <b>Control list</b> = balance in the <i>UPDATED PETTY CASH LISTING</i> sheet as at ${esc(D.date)}; <b>QuickBook</b> = Arabina + 79V as at the same date. Type the <b>Cash on hand</b> (actual cash count) and review the explanations, then Save.</p>`;
   if(wrGenErr) h+=`<div class="msg err" style="margin:8px 0">${wrGenErr}</div>`;
-  h+=`<p style="margin:8px 0">Tarikh laporan ${ed('date',D.date,110)} · Tempoh ${ed('period',D.period,230)}</p>
-   <h3 style="font-size:13.5px;margin-top:12px">1. Sistem vs QuickBook vs Cash on Hand vs Control List</h3><div style="overflow-x:auto"><table class="tc" style="min-width:900px"><tr class="sub"><td>Staff / SV</td><td class="r">Sistem</td><td class="r">Cash on hand</td><td class="r">QuickBook</td><td class="r">Control list</td><td class="r">Variance</td><td>Penjelasan</td></tr>`;
+  h+=`<p style="margin:8px 0">Report date ${ed('date',D.date,110)} · Period ${ed('period',D.period,230)}</p>
+   <h3 style="font-size:13.5px;margin-top:12px">1. System vs QuickBook vs Cash on Hand vs Control List</h3><div style="overflow-x:auto"><table class="tc" style="min-width:900px"><tr class="sub"><td>Staff / SV</td><td class="r">System</td><td class="r">Cash on hand</td><td class="r">QuickBook</td><td class="r">Control list</td><td class="r">Variance</td><td>Explanation</td></tr>`;
   D.rows.forEach((r,i)=>{ const bad=Math.abs(r[5])>0.004;
     h+=`<tr><td><b>${esc(r[0])}</b></td><td class="r">${F(r[1])}</td><td class="r">${ed('rows.'+i+'.2',r[2],100,1)}</td><td class="r">${F(r[3])}</td><td class="r">${F(r[4])}</td><td class="r"${bad?' style="color:var(--bad);font-weight:700"':''}>${F(r[5])}</td><td>${ed('rows.'+i+'.6',r[6],300)}</td></tr>`; });
-  h+=`</table></div><p class="sub2">Variance = beza paling besar antara Cash on hand / QuickBook / Control list dengan Sistem (dikira semula bila anda ubah Cash on hand).</p>`;
+  h+=`</table></div><p class="sub2">Variance = the largest difference between Cash on hand / QuickBook / Control list and System (recalculated when you change Cash on hand).</p>`;
   const grid=(key,t,head,ws)=>{ let s=`<h3 style="font-size:13.5px;margin-top:14px">${t}</h3><table class="tc" style="max-width:1000px"><tr class="sub">${head.map(x=>`<td>${x}</td>`).join('')}<td></td></tr>`;
     D[key].forEach((r,i)=>{ s+=`<tr>${head.map((_,k)=>`<td>${ed(key+'.'+i+'.'+k,r[k]||'',ws[k])}</td>`).join('')}<td><button data-wrdel="${key}.${i}">✕</button></td></tr>`; });
-    return s+`</table><button data-wradd="${key}" style="margin-top:6px">+ Tambah baris</button>`; };
-  h+=grid('nc','2. Non-Compliance Summary (48 jam) <span class="hint" style="font-weight:400">· diisi automatik: resit dimasukkan lebih 48 jam selepas tarikh resit dalam minggu ini</span>',['Staff','Lewat hantar (jam)','Status / tindakan'],[160,220,360]);
-  h+=grid('frozen','3. Frozen Floats (72 jam) <span class="hint" style="font-weight:400">· dibawa dari laporan sebelum</span>',['Staff','Sebab dibekukan','Status'],[160,420,140]);
-  h+=grid('forms','4. Written Explanation Forms <span class="hint" style="font-weight:400">· dibawa dari laporan sebelum + borang Google Form dalam minggu ini</span>',['Staff','Sebab','Borang dilampirkan'],[160,420,140]);
-  h+=`<p style="margin:14px 0 6px">Disediakan oleh ${ed('prep',D.prep,300)} · Diluluskan oleh ${ed('appr',D.appr,300)}</p>
-   <div class="controls" style="gap:10px;margin:10px 0"><button class="primary" id="wrSaveF"${dbRef?'':' disabled'}>Simpan laporan</button><button id="wrSaveD"${dbRef?'':' disabled'}>Simpan sebagai draf</button><button id="wrCancel">Batal</button>${dbRef?'':'<span class="hint">Simpanan tidak tersedia dalam paparan ini.</span>'}</div></div>`;
+    return s+`</table><button data-wradd="${key}" style="margin-top:6px">+ Add row</button>`; };
+  h+=grid('nc','2. Non-Compliance Summary (48 hrs) <span class="hint" style="font-weight:400">· filled automatically: receipts keyed more than 48 hours after the receipt date during this week</span>',['Staff','Late submission (hours)','Status / action taken'],[160,220,360]);
+  h+=grid('frozen','3. Frozen Floats (72 hrs) <span class="hint" style="font-weight:400">· carried from the previous report</span>',['Staff','Reason frozen','Status'],[160,420,140]);
+  h+=grid('forms','4. Written Explanation Forms <span class="hint" style="font-weight:400">· carried from the previous report + Google Form responses this week</span>',['Staff','Reason','Form attached'],[160,420,140]);
+  h+=`<p style="margin:14px 0 6px">Prepared by ${ed('prep',D.prep,300)} · Approved by ${ed('appr',D.appr,300)}</p>
+   <div class="controls" style="gap:10px;margin:10px 0"><button class="primary" id="wrSaveF"${dbRef?'':' disabled'}>Save report</button><button id="wrSaveD"${dbRef?'':' disabled'}>Save as draft</button><button id="wrCancel">Cancel</button>${dbRef?'':'<span class="hint">Saving is not available in this view.</span>'}</div></div>`;
   return h;
 }
 function wrWireDraft(){
@@ -4567,7 +4567,7 @@ let userRef=null, wrNames={}, wrCfg=null, wrFlowErr=null, wrBusyFlow=false;
 async function wrUserInit(){ if(userRef!==null) return userRef; try{ userRef=await claude.use('user'); }catch(e){ userRef=false; } return userRef; }
 async function wrResolveNames(ids){
   const u=await wrUserInit(); const need=ids.filter(x=>x&&!(x in wrNames)); if(!u||!need.length) return;
-  try{ const ps=await u.profiles(need); need.forEach(id=>{ wrNames[id]=(ps[id]&&ps[id].name)||'Pengguna'; }); if(state.view==='pc'&&pcTab==='wr'&&!wrDraft) renderPC(); }catch(e){}
+  try{ const ps=await u.profiles(need); need.forEach(id=>{ wrNames[id]=(ps[id]&&ps[id].name)||'User'; }); if(state.view==='pc'&&pcTab==='wr'&&!wrDraft) renderPC(); }catch(e){}
 }
 const wrWho=id=>id?esc(wrNames[id]||'…'):'';
 function wrCfgInit(){
@@ -4576,32 +4576,32 @@ function wrCfgInit(){
 }
 const wrPending=()=>(wrDb||[]).filter(r=>r.flow==='submitted');
 function wrFlowHtml(R){
-  if(R.src!=='db') return `<div class="anbox" style="margin:10px 0"><b>Semakan &amp; pengesahan</b><p class="sub2" style="margin:4px 0 0">Laporan ini dari Google Doc. Tick semak, hantar dan pengesahan hanya untuk laporan yang dijana dan disimpan dalam artifact.</p></div>`;
+  if(R.src!=='db') return `<div class="anbox" style="margin:10px 0"><b>Check &amp; verification</b><p class="sub2" style="margin:4px 0 0">This report is from the Google Doc. Checking, submitting and verifying apply only to reports generated and saved in this artifact.</p></div>`;
   const f=R.flow||'open', chk=R.checked, sub=R.submitted, ver=R.verified, ret=R.returned;
   wrResolveNames([chk&&chk.by,sub&&sub.by,ver&&ver.by,ret&&ret.by]);
   const when=x=>x&&x.at?dt(Date.parse(x.at)):'';
   const step=(ok,label,meta)=>`<li style="margin:6px 0"><span class="${ok?'zg':'hint'}" style="font-weight:700">${ok?'✓':'○'}</span> ${label}${meta?` <span class="hint">· ${meta}</span>`:''}</li>`;
-  let h=`<div class="anbox" style="margin:10px 0;border-left-color:${f==='verified'?'var(--ok)':f==='submitted'?'#b7791f':'var(--cons)'}"><b>Semakan &amp; pengesahan</b>
-   ${f==='submitted'?' <span class="zw" style="font-weight:700">· ▲ Menunggu pengesahan Finance Leader / Manager</span>':f==='verified'?' <span class="zg" style="font-weight:700">· ● Disahkan</span>':f==='returned'?' <span class="zb" style="font-weight:700">· ■ Dipulangkan untuk pembetulan</span>':''}
+  let h=`<div class="anbox" style="margin:10px 0;border-left-color:${f==='verified'?'var(--ok)':f==='submitted'?'#b7791f':'var(--cons)'}"><b>Check &amp; verification</b>
+   ${f==='submitted'?' <span class="zw" style="font-weight:700">· ▲ Awaiting Finance Leader / Manager verification</span>':f==='verified'?' <span class="zg" style="font-weight:700">· ● Verified</span>':f==='returned'?' <span class="zb" style="font-weight:700">· ■ Returned for correction</span>':''}
    <ol style="list-style:none;padding:0;margin:6px 0">`;
-  h+=step(!!chk,`<label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="wrChk"${chk?' checked':''}${f==='submitted'||f==='verified'?' disabled':''}> Admin Account dah semak laporan ini</label>`,chk?`oleh ${wrWho(chk.by)}, ${when(chk)}`:'');
-  h+=step(!!sub,`Dihantar kepada Finance Leader / Manager untuk pengesahan`,sub?`oleh ${wrWho(sub.by)}, ${when(sub)}${sub.mail?' · emel dihantar ke '+esc(sub.mail):sub.mailErr?' · emel tidak dihantar ('+esc(sub.mailErr)+')':''}`:'');
-  h+=step(!!ver,`Disahkan oleh Finance Leader / Manager`,ver?`oleh ${wrWho(ver.by)}, ${when(ver)}${ver.note?' · "'+esc(ver.note)+'"':''}`:'');
+  h+=step(!!chk,`<label style="display:inline-flex;gap:6px;align-items:center;cursor:pointer"><input type="checkbox" id="wrChk"${chk?' checked':''}${f==='submitted'||f==='verified'?' disabled':''}> Admin Account has checked this report</label>`,chk?`by ${wrWho(chk.by)}, ${when(chk)}`:'');
+  h+=step(!!sub,`Submitted to Finance Leader / Manager for verification`,sub?`by ${wrWho(sub.by)}, ${when(sub)}${sub.mail?' · email sent to '+esc(sub.mail):sub.mailErr?' · email not sent ('+esc(sub.mailErr)+')':''}`:'');
+  h+=step(!!ver,`Verified by Finance Leader / Manager`,ver?`by ${wrWho(ver.by)}, ${when(ver)}${ver.note?' · "'+esc(ver.note)+'"':''}`:'');
   h+='</ol>';
-  if(ret&&f==='returned') h+=`<p class="zb" style="margin:4px 0">Dipulangkan oleh ${wrWho(ret.by)}, ${when(ret)}${ret.note?': "'+esc(ret.note)+'"':''}. Betulkan (Edit), semak semula dan hantar.</p>`;
+  if(ret&&f==='returned') h+=`<p class="zb" style="margin:4px 0">Returned by ${wrWho(ret.by)}, ${when(ret)}${ret.note?': "'+esc(ret.note)+'"':''}. Correct it (Edit), check again and submit.</p>`;
   if(wrFlowErr) h+=`<div class="msg err" style="margin:6px 0">${wrFlowErr}</div>`;
   const dis=wrBusyFlow?' disabled':'';
-  if(f!=='submitted'&&f!=='verified') h+=`<div class="controls" style="gap:8px;margin:6px 0;flex-wrap:wrap;align-items:center"><button class="primary" id="wrSubmit"${chk?'':' disabled title="Tick semakan Admin Account dulu"'}${dis}>Hantar untuk pengesahan</button>
-     <label class="hint">Emel alert kepada <input id="wrTo" value="${esc(wrCfg&&wrCfg.to||'')}" placeholder="finance.leader@..., manager@..." style="width:300px;font:inherit;padding:3px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)"></label></div>`;
-  if(f==='submitted') h+=`<div class="controls" style="gap:8px;margin:6px 0;flex-wrap:wrap;align-items:center"><input id="wrNote" placeholder="Catatan (pilihan)" style="width:300px;font:inherit;padding:4px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)">
-     <button class="primary" id="wrVerify"${dis}>Sahkan laporan</button><button id="wrReturn"${dis}>Pulangkan untuk pembetulan</button></div>`;
-  if(f==='verified') h+=`<button id="wrReopen"${dis}>Buka semula</button>`;
+  if(f!=='submitted'&&f!=='verified') h+=`<div class="controls" style="gap:8px;margin:6px 0;flex-wrap:wrap;align-items:center"><button class="primary" id="wrSubmit"${chk?'':' disabled title="Tick the Admin Account check first"'}${dis}>Submit for verification</button>
+     <label class="hint">Email alert to <input id="wrTo" value="${esc(wrCfg&&wrCfg.to||'')}" placeholder="finance.leader@..., manager@..." style="width:300px;font:inherit;padding:3px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)"></label></div>`;
+  if(f==='submitted') h+=`<div class="controls" style="gap:8px;margin:6px 0;flex-wrap:wrap;align-items:center"><input id="wrNote" placeholder="Note (optional)" style="width:300px;font:inherit;padding:4px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)">
+     <button class="primary" id="wrVerify"${dis}>Verify report</button><button id="wrReturn"${dis}>Return for correction</button></div>`;
+  if(f==='verified') h+=`<button id="wrReopen"${dis}>Reopen</button>`;
   return h+'</div>';
 }
 async function wrFlowSet(R,patch){
   if(!dbRef) return; wrBusyFlow=true; wrFlowErr=null; renderPC();
   try{ await dbRef.collection(WR_COL).doc(R.id).update(patch); }
-  catch(e){ wrFlowErr=e&&e.code==='invalid_argument'?'Anda tiada kebenaran mengubah laporan ini.':'Gagal disimpan ('+esc(e&&e.code||'error')+'). Cuba lagi.'; }
+  catch(e){ wrFlowErr=e&&e.code==='invalid_argument'?'You do not have permission to change this report.':'Save failed ('+esc(e&&e.code||'error')+'). Try again.'; }
   wrBusyFlow=false; renderPC();
 }
 async function wrSubmit(R){
@@ -4611,11 +4611,11 @@ async function wrSubmit(R){
   const sub={by:me,at};
   if(to.length){
     const bad=R.rows.filter(r=>Math.abs(r[5]||0)>0.004);
-    const html=`<p>Laporan mingguan petty cash <b>${esc(R.date)}</b> (tempoh ${esc(R.period)}) telah disemak oleh Admin Account dan menunggu pengesahan anda.</p>
-      <p>${bad.length?`<b>${bad.length} pemegang ada variance:</b> `+bad.map(r=>esc(r[0])+' RM'+fmt(r[5])).join(', '):'Tiada variance.'}</p>
-      <p>Buka artifact <i>P&amp;L 2026 – Consol</i> di claude.ai → Petty Cash → Weekly Report untuk sahkan.</p>`;
-    try{ await mcp.callTool('Gmail','send_message',{to,subject:'[Petty Cash] Weekly report '+R.date+' menunggu pengesahan',htmlBody:html,
-        body:'Laporan mingguan petty cash '+R.date+' ('+R.period+') telah disemak oleh Admin Account dan menunggu pengesahan anda. Buka artifact P&L 2026 - Consol > Petty Cash > Weekly Report.'},{cache:false});
+    const html=`<p>The petty cash weekly report <b>${esc(R.date)}</b> (period ${esc(R.period)}) has been checked by Admin Account and is awaiting your verification.</p>
+      <p>${bad.length?`<b>${bad.length} holder(s) with a variance:</b> `+bad.map(r=>esc(r[0])+' RM'+fmt(r[5])).join(', '):'No variance.'}</p>
+      <p>Open the <i>P&amp;L 2026 – Consol</i> artifact on claude.ai → Petty Cash → Weekly Report to verify.</p>`;
+    try{ await mcp.callTool('Gmail','send_message',{to,subject:'[Petty Cash] Weekly report '+R.date+' awaiting verification',htmlBody:html,
+        body:'The petty cash weekly report '+R.date+' ('+R.period+') has been checked by Admin Account and is awaiting your verification. Open the artifact P&L 2026 - Consol > Petty Cash > Weekly Report.'},{cache:false});
       sub.mail=to.join(', '); }
     catch(e){ sub.mailErr=e&&e.code||'error'; }
   }
@@ -4628,9 +4628,9 @@ function wrWireFlow(R){
   const s=$('wrSubmit'); if(s) s.addEventListener('click',()=>wrSubmit(R));
   const v=$('wrVerify'); if(v) v.addEventListener('click',async()=>{ const u=await wrUserInit(), me=u?await u.id():null;
     wrFlowSet(R,{flow:'verified',verified:{by:me,at:new Date().toISOString(),note:($('wrNote').value||'').trim()}}); });
-  const r=$('wrReturn'); if(r) r.addEventListener('click',async()=>{ const note=($('wrNote').value||'').trim(); if(!note&&!confirm('Pulangkan tanpa catatan?')) return; const u=await wrUserInit(), me=u?await u.id():null;
+  const r=$('wrReturn'); if(r) r.addEventListener('click',async()=>{ const note=($('wrNote').value||'').trim(); if(!note&&!confirm('Return without a note?')) return; const u=await wrUserInit(), me=u?await u.id():null;
     wrFlowSet(R,{flow:'returned',returned:{by:me,at:new Date().toISOString(),note},checked:null,submitted:null}); });
-  const o=$('wrReopen'); if(o) o.addEventListener('click',()=>{ if(confirm('Buka semula laporan yang sudah disahkan?')) wrFlowSet(R,{flow:'open',verified:null,submitted:null,checked:null}); });
+  const o=$('wrReopen'); if(o) o.addEventListener('click',()=>{ if(confirm('Reopen a report that is already verified?')) wrFlowSet(R,{flow:'open',verified:null,submitted:null,checked:null}); });
 }
 
 // ===== Written Explanation Forms (Google Form → printable form, as tab A001 of the responses sheet) =====
@@ -4690,7 +4690,7 @@ async function wefSave(name,blob){
 function wefXlsx(list){
   const wb=XLSX.utils.book_new();
   if(list.length>1) XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet([['Form No','Timestamp','Staff / SV','Site / Location','Date of Expense','Amount (RM)','Purpose','Issue Type','Explanation','Alternative Proof','Supervisor'],
-    ...list.map(f=>[f.no,f.ts,f.staff,f.site,f.date,parseFloat(String(f.amt).replace(/[^\d.\-]/g,''))||f.amt,f.purpose,f.issue,f.why,f.alt,f.sv])]),'Senarai');
+    ...list.map(f=>[f.no,f.ts,f.staff,f.site,f.date,parseFloat(String(f.amt).replace(/[^\d.\-]/g,''))||f.amt,f.purpose,f.issue,f.why,f.alt,f.sv])]),'List');
   list.forEach(f=>{
     const aoa=[[],['',WEF_TITLE],['',WEF_SUB],[],...wefLines(f).map(([k,v])=>['',k,v]),[],['','Explanation (why late / why the receipt is missing):'],['',f.why],[],
       ['','Alternative Proof Attached?',f.alt],['','Supervisor :',f.sv],[],[],['','Staff Signature,','','','Checked By Admin Account,'],['','.........................................','','','.........................................'],
@@ -4738,19 +4738,19 @@ function wefVisible(){ const q=wefQ.trim().toLowerCase(); return (wefRows||[]).f
 function renderWEF(){
   const rows=wefRows||[], vis=wefVisible(), cur=rows.find(f=>f.no===wefSel)||vis[vis.length-1]||null;
   let h=`<div class="stmt"><h3>WRITTEN EXPLANATION FORMS</h3>
-   <p class="sub2">Setiap respons <a href="${WEF_FORM}" target="_blank" rel="noopener">Google Form</a> (late submission / missing receipt) dijadikan borang dalam format tab A001, sedia untuk dimuat turun. Dibaca terus dari sheet respons${wefAt?' pada <b>'+dt(wefAt)+'</b>':''}.</p>
-   <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><button id="wefGo"${wefBusy?' disabled':''}>${wefBusy?'Membaca respons…':'Muat semula respons'}</button>
-    <input id="wefQ" value="${esc(wefQ)}" placeholder="Cari nama, no. borang, tapak…" style="width:240px;font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--card);color:var(--ink)">
-    ${vis.length?`<span class="hint">Muat turun semua (${vis.length}):</span><button data-wefall="xlsx">Excel</button><button data-wefall="pdf">PDF</button><button data-wefall="doc">Word</button>`:''}</div>`;
+   <p class="sub2">Each <a href="${WEF_FORM}" target="_blank" rel="noopener">Google Form</a> response (late submission / missing receipt) becomes a form laid out like tab A001, ready to download. Read live from the responses sheet${wefAt?' at <b>'+dt(wefAt)+'</b>':''}.</p>
+   <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><button id="wefGo"${wefBusy?' disabled':''}>${wefBusy?'Reading responses…':'Reload responses'}</button>
+    <input id="wefQ" value="${esc(wefQ)}" placeholder="Search name, form no., site…" style="width:240px;font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--card);color:var(--ink)">
+    ${vis.length?`<span class="hint">Download all (${vis.length}):</span><button data-wefall="xlsx">Excel</button><button data-wefall="pdf">PDF</button><button data-wefall="doc">Word</button>`:''}</div>`;
   if(wefErr) h+=`<div class="msg err" style="margin:8px 0">${wefErr}</div>`;
-  if(!wefRows){ h+=`<p class="sub2">${wefBusy?'Membaca respons dari Google Sheets…':'Belum dibaca. Tekan "Muat semula respons".'}</p></div>`; return h; }
-  if(!rows.length){ h+='<p class="sub2">Tiada respons lagi.</p></div>'; return h; }
-  h+=`<div style="overflow-x:auto"><table class="tc" style="min-width:820px"><tr class="sub"><td>No.</td><td>Tarikh borang</td><td>Staff / SV</td><td>Tapak</td><td>Tarikh belanja</td><td class="r">Amaun</td><td>Isu</td><td>Bukti lain</td><td>Supervisor</td><td></td></tr>`;
+  if(!wefRows){ h+=`<p class="sub2">${wefBusy?'Reading responses from Google Sheets…':'Not read yet. Press "Reload responses".'}</p></div>`; return h; }
+  if(!rows.length){ h+='<p class="sub2">No responses yet.</p></div>'; return h; }
+  h+=`<div style="overflow-x:auto"><table class="tc" style="min-width:820px"><tr class="sub"><td>No.</td><td>Form date</td><td>Staff / SV</td><td>Site</td><td>Expense date</td><td class="r">Amount</td><td>Issue</td><td>Alt. proof</td><td>Supervisor</td><td></td></tr>`;
   vis.slice().reverse().forEach(f=>{ const miss=wefNeedsSv(f)&&!f.sv;
     h+=`<tr${cur&&cur.no===f.no?' style="background:var(--consbg)"':''}><td><b>${esc(f.no)}</b></td><td>${esc(f.ts)}</td><td>${esc(f.staff)}</td><td>${esc(f.site)}</td><td>${esc(f.date)}</td><td class="r">${esc(wefAmt(f.amt))}</td><td>${esc(f.issue)}</td>
-      <td>${/^yes/i.test(f.alt)?'<span class="zg">Ada</span>':'<span class="zb">Tiada</span>'}</td><td${miss?' class="zb"':''}>${miss?'Perlu (lebih RM30)':esc(f.sv)}</td><td><button data-wefv="${esc(f.no)}">Lihat</button></td></tr>`; });
+      <td>${/^yes/i.test(f.alt)?'<span class="zg">Yes</span>':'<span class="zb">No</span>'}</td><td${miss?' class="zb"':''}>${miss?'Required (over RM30)':esc(f.sv)}</td><td><button data-wefv="${esc(f.no)}">View</button></td></tr>`; });
   h+='</table></div>';
-  if(cur) h+=`<div style="margin-top:16px"><div class="controls" style="gap:8px;margin:0 0 8px;align-items:center"><b>Borang ${esc(cur.no)}</b><button data-wef1="xlsx">Excel</button><button data-wef1="pdf">PDF</button><button data-wef1="doc">Word</button></div>${wefHtml(cur,false)}</div>`;
+  if(cur) h+=`<div style="margin-top:16px"><div class="controls" style="gap:8px;margin:0 0 8px;align-items:center"><b>Form ${esc(cur.no)}</b><button data-wef1="xlsx">Excel</button><button data-wef1="pdf">PDF</button><button data-wef1="doc">Word</button></div>${wefHtml(cur,false)}</div>`;
   return h+'</div>';
 }
 function wefWire(){
@@ -4765,7 +4765,7 @@ function wefWire(){
 
 // Petty Cash has two tabs: the live QuickBooks vs sheet check, and the finance team's weekly report.
 function renderPC(){
-  const tabs=`<div class="seg" role="group" aria-label="Petty Cash" style="margin:14px 18px 0">${[['rec','Semakan QB vs Sheet'],['wr','Weekly Report'],['wef','Borang Penjelasan']].map(([k,l])=>`<button data-pct="${k}" aria-pressed="${pcTab===k}">${l}</button>`).join('')}</div>`;
+  const tabs=`<div class="seg" role="group" aria-label="Petty Cash" style="margin:14px 18px 0">${[['rec','QB vs Sheet Check'],['wr','Weekly Report'],['wef','Explanation Forms']].map(([k,l])=>`<button data-pct="${k}" aria-pressed="${pcTab===k}">${l}</button>`).join('')}</div>`;
   if(pcTab==='wr') wrDbInit();
   $('tablebox').innerHTML=tabs+(pcTab==='wef'?renderWEF():pcTab==='wr'?(wrDraft?renderWRDraft():renderWR()):renderPCRec());
   $('tablebox').querySelectorAll('[data-pct]').forEach(b=>b.addEventListener('click',()=>{ pcTab=b.dataset.pct; store.set('consol.pcTab',pcTab); renderPC(); }));
@@ -4773,7 +4773,7 @@ function renderPC(){
   if(pcTab==='wr'&&wrDraft){ wrWireDraft(); return; }
   if(pcTab==='wr'){
     const reps=wrAll(), cur=reps[Math.min(reps.length-1,wrSel==null?reps.length-1:wrSel)];
-    $('wrGen').addEventListener('click',()=>{ const a=$('wrGs').value, b=$('wrGe').value; if(!a||!b||a>b){ wrGenErr='Pilih tarikh mula dan tamat yang betul.'; renderPC(); return; } wrGenerate(a,b); });
+    $('wrGen').addEventListener('click',()=>{ const a=$('wrGs').value, b=$('wrGe').value; if(!a||!b||a>b){ wrGenErr='Pick a valid start and end date.'; renderPC(); return; } wrGenerate(a,b); });
     $('wrDl').addEventListener('click',()=>wrDownload(cur));
     if($('wrEdit')) $('wrEdit').addEventListener('click',()=>{ wrDraft=JSON.parse(JSON.stringify(cur)); renderPC(); });
     if($('wrDelBtn')) $('wrDelBtn').addEventListener('click',()=>wrDelete(cur));
