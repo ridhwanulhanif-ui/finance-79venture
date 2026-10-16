@@ -5073,7 +5073,7 @@ const AM_MON=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov',
 
 // ---- master data ----
 function amRates(){ return (amLive||AM_SNAP).rates; }
-function amCats(){ return Object.keys(amRates()).filter(c=>c!=='Low Value Asset'); }
+function amCats(){ return Object.keys(amRates()).filter(c=>!amIsLva(c)); }
 function amFromRow(r){ return {no:r[0],id:String(r[1]||''),cat:r[2],desc:r[3],sn:r[4],pd:r[5],cost:+r[6]||0,pic:r[7],dept:r[8],st:r[9],disp:r[10],rem:r[11],open:r[12],src:'file'}; }
 // The register rows, each with a stable key: its Asset ID, or ID@No. where the ID is used twice.
 function amBase(){
@@ -5111,7 +5111,10 @@ function amIssues(all){
 }
 
 // ---- depreciation ----
-function amFinal(a){ return a.pd&&a.pd>=AM_BASE+'-01-01'&&(+a.cost||0)<AM_LVA?'Low Value Asset':a.cat; }
+const amIsLva=c=>/^Low Value Asset\b/i.test(String(c||''));
+// A low value asset is entered as "Low Value Asset - <category>", so its own category stays on the register.
+function amFinal(a){ return amIsLva(a.cat)||(a.pd&&a.pd>=AM_BASE+'-01-01'&&(+a.cost||0)<AM_LVA)?'Low Value Asset':a.cat; }
+function amBaseCat(a){ const m=String(a.cat||'').match(/^Low Value Asset\s*[-–]\s*(.+)$/i); return m?m[1].trim():amIsLva(a.cat)?'':a.cat||''; }
 function amRate(a){ const R=amRates(), c=amFinal(a); return c in R?+R[c]||0:0; }
 function amDatedif(a,b){ const [y1,m1,d1]=a.split('-').map(Number), [y2,m2,d2]=b.split('-').map(Number); return Math.max(0,(y2-y1)*12+(m2-m1)-(d2<d1?1:0)); }
 function amOpen2026(a){
@@ -5204,7 +5207,7 @@ function amYearSel(){ return `<label>Year <select id="amYear">${amYears().map(y=
 function renderAMReg(){
   const all=amAll(), Y=amYear, q=amQ.trim().toLowerCase();
   const rows=all.map(a=>{ const S=amSched(a,Y); return {a,f:amFinal(a),rate:amRate(a),S,chg:amSum(S.m)}; })
-    .filter(x=>(!amCat||x.f===amCat)&&(!amSt||(amSt==='(blank)'?!x.a.st:x.a.st===amSt))&&(!q||[x.a.id,x.a.desc,x.a.sn,x.a.pic,x.a.dept,x.a.rem,x.f].join(' ').toLowerCase().includes(q)));
+    .filter(x=>(!amCat||x.f===amCat||x.a.cat===amCat||(amIsLva(amCat)&&x.f==='Low Value Asset'&&('Low Value Asset - '+amBaseCat(x.a))===amCat))&&(!amSt||(amSt==='(blank)'?!x.a.st:x.a.st===amSt))&&(!q||[x.a.id,x.a.desc,x.a.sn,x.a.pic,x.a.dept,x.a.rem,x.f].join(' ').toLowerCase().includes(q)));
   const D=amLive||AM_SNAP, iss=amIssues(all), sts=[...new Set(all.map(a=>a.st||'(blank)'))];
   const T=k=>rows.reduce((t,x)=>t+(k(x)||0),0), cap=rows.filter(x=>x.f!=='Low Value Asset');
   let h=`<div class="stmt"><h3>FIXED ASSET REGISTER (MASTER DATA)</h3>
@@ -5222,7 +5225,7 @@ function renderAMReg(){
     <div><span>Depreciation ${Y}</span><b>RM${fmt(T(x=>x.chg))}</b></div><div><span>NBV 31 Dec ${Y}</span><b>RM${fmt(cap.reduce((t,x)=>t+(x.S.close||0),0))}</b></div></div></div>`;
   h+=`<div class="stmt" style="padding-top:0"><div style="overflow-x:auto"><table class="tc" style="min-width:1280px"><tr class="sub"><td>No.</td><td>Asset ID</td><td>Category</td><td>Description</td><td>Serial no.</td><td>Purchased</td><td class="r">Cost</td><td>PIC</td><td>Dept</td><td>Status</td><td>Disposed</td><td class="r">Rate</td><td class="r">NBV 1 Jan ${Y}</td><td class="r">Charge ${Y}</td><td class="r">NBV 31 Dec ${Y}</td><td></td></tr>`;
   rows.forEach(({a,f,rate,S,chg})=>{ const bad=!a.pd||a.pd<'2000-01-01', est=a.src==='file'&&a.pd&&a.pd<AM_BASE+'-01-01'&&!(a.disp&&a.disp<AM_BASE+'-01-01');
-    h+=`<tr><td>${esc(a.no)}</td><td><b>${esc(a.id)}</b>${a.src==='db'?' <span class="zg" title="Added in this artifact">●</span>':a.src==='edit'?' <span class="zw" title="Edited in this artifact">✎</span>':''}</td><td>${esc(f)}${f!==a.cat&&a.cat?`<span class="note">entered as ${esc(a.cat)}</span>`:''}</td><td>${esc(a.desc)}${a.rem?`<span class="note">${esc(a.rem)}</span>`:''}${a.inv?` <a href="/_blob/${esc(a.inv)}" target="_blank" rel="noopener" class="hint">invoice</a>`:''}</td><td>${esc(a.sn)}</td>
+    h+=`<tr><td>${esc(a.no)}</td><td><b>${esc(a.id)}</b>${a.src==='db'?' <span class="zg" title="Added in this artifact">●</span>':a.src==='edit'?' <span class="zw" title="Edited in this artifact">✎</span>':''}</td><td>${esc(f)}${f==='Low Value Asset'&&amBaseCat(a)?`<span class="note">${esc(amBaseCat(a))}</span>`:f!==a.cat&&a.cat?`<span class="note">entered as ${esc(a.cat)}</span>`:''}</td><td>${esc(a.desc)}${a.rem?`<span class="note">${esc(a.rem)}</span>`:''}${a.inv?` <a href="/_blob/${esc(a.inv)}" target="_blank" rel="noopener" class="hint">invoice</a>`:''}</td><td>${esc(a.sn)}</td>
       <td${bad?' class="zb" style="font-weight:700"':''}>${a.pd?amDmy(a.pd):'missing'}</td><td class="r">${fmt(+a.cost)}</td><td>${esc(a.pic)}</td><td>${esc(a.dept)}</td><td>${esc(a.st)}</td><td>${amDmy(a.disp)}</td><td class="r">${(rate*100).toFixed(0)}%</td>
       <td class="r"${est&&Y===AM_BASE?' title="Estimated opening NBV in the workbook (column P); verify against the audited closing balance"':''}>${S.open==null?'–':fmt(S.open)}</td><td class="r">${fmt(chg)}</td><td class="r">${S.close==null?'–':fmt(S.close)}</td><td><button data-amed="${esc(a.k)}">Edit</button></td></tr>`; });
   h+=`<tr class="sub"><td colspan="6">Total (${rows.length})</td><td class="r">${fmt(T(x=>+x.a.cost))}</td><td colspan="5"></td><td class="r">${fmt(T(x=>x.S.open))}</td><td class="r">${fmt(T(x=>x.chg))}</td><td class="r">${fmt(T(x=>x.S.close))}</td><td></td></tr></table></div>
@@ -5262,6 +5265,22 @@ function amSchedHTML(Y,cats,order){
    <p class="sub2" style="margin-top:8px">${det?'':'Click a category to see its assets. '}Disposals take the asset's cost and its accumulated depreciation out in the year it goes, so its NBV at 31 Dec is nil.</p>`;
   return h;
 }
+// Low value assets bought in the year: expensed, listed by their own category.
+function amLvaHTML(Y,lva){
+  const g={}; lva.forEach(a=>{ const c=amBaseCat(a)||'(category not given)'; (g[c]=g[c]||[]).push(a); });
+  const cats=Object.keys(g).sort((x,y)=>g[y].reduce((t,a)=>t+(+a.cost||0),0)-g[x].reduce((t,a)=>t+(+a.cost||0),0));
+  const tot=lva.reduce((t,a)=>t+(+a.cost||0),0), det=amSchV==='det';
+  let h=`<h3 style="font-size:13.5px;margin-top:18px">Low value assets ${Y} (expensed, not capitalised)</h3>
+   <div style="overflow-x:auto"><table class="fas" style="min-width:640px;max-width:900px"><thead><tr><th>${det?'Asset':'Category'}</th>${det?'<th class="gs">Purchased</th>':''}<th class="gs">Items</th><th>Cost (RM)</th></tr></thead><tbody>`;
+  cats.forEach(c=>{ const L=g[c], t=L.reduce((s,a)=>s+(+a.cost||0),0);
+    if(!det){ h+=`<tr><td><b>${esc(c)}</b></td><td class="gs">${L.length}</td><td class="cl">${fmt(t)}</td></tr>`; return; }
+    h+=`<tr class="cat"><td colspan="4">${esc(c)} <span class="note" style="display:inline;margin-left:6px">${L.length} item${L.length>1?'s':''}</span></td></tr>`;
+    L.slice().sort((x,y)=>String(x.pd).localeCompare(String(y.pd))).forEach(a=>{ h+=`<tr class="it"><td><b>${esc(a.id)}</b> ${esc(a.desc)}</td><td class="gs">${amDmy(a.pd)}</td><td class="gs"></td><td>${fmt(+a.cost)}</td></tr>`; });
+    h+=`<tr class="subt"><td>Total ${esc(c)}</td><td class="gs"></td><td class="gs">${L.length}</td><td>${fmt(t)}</td></tr>`; });
+  h+=`</tbody><tfoot><tr class="gt"><td>Total expensed</td>${det?'<td class="gs"></td>':''}<td class="gs">${lva.length}</td><td>${fmt(tot)}</td></tr></tfoot></table></div>
+   <p class="sub2" style="margin-top:8px">Bought from 1 Jan ${AM_BASE} under RM1,000, or entered as <i>Low Value Asset - category</i>: charged to expense in the month bought. Switch to <b>Asset detail</b> above to list each item.</p>`;
+  return h;
+}
 function renderAMDep(){
   const all=amAll(), Y=amYear, {cats,lva}=amFAW(Y,all), order=Object.keys(amRates()).filter(c=>cats[c]).concat(Object.keys(cats).filter(c=>!(c in amRates())));
   const G={cOpen:0,add:0,dsp:0,cEnd:0,dOpen:0,chg:0,dEnd:0,nbv:0}, GM=new Array(12).fill(0);
@@ -5272,7 +5291,7 @@ function renderAMDep(){
     h+=`<tr><td><b>${esc(c)}</b></td><td class="r">${((amRates()[c]||0)*100).toFixed(0)}%</td>${M.map(v=>`<td class="r">${fmt(v)}</td>`).join('')}<td class="r"><b>${fmt(amSum(M))}</b></td></tr>`; });
   h+=`<tr class="sub"><td>Total</td><td></td>${GM.map(v=>`<td class="r">${fmt(v)}</td>`).join('')}<td class="r">${fmt(amSum(GM))}</td></tr></table></div>`;
   h+=`<h3 style="font-size:13.5px;margin-top:18px">Fixed asset schedule ${Y}</h3>`+amSchedHTML(Y,cats,order)+`
-   <p class="sub2" style="margin-top:8px"><b>Low Value Assets bought in ${Y}</b> (expensed, not capitalised): ${lva.length} item(s), RM${fmt(lva.reduce((t,a)=>t+(+a.cost||0),0))}.</p></div>`;
+`+amLvaHTML(Y,lva)+`</div>`;
   return h;
 }
 // ---- new purchase / edit ----
@@ -5345,7 +5364,7 @@ Rules:
 - One item per distinct asset line. "description" in the register's style: "<qty> Unit <item name and model>", e.g. "1 Unit HP Laptop 15 AMD Ryzen" or "2 Unit Aircond Daikin 1.5HP".
 - "amount" is the line's total cost in RM, including its share of SST/tax and of delivery or installation charges (spread them over the lines by value). Discounts reduce the amount.
 - "serial": serial numbers if printed, else "".
-- "category": the best fit from exactly this list: ${Object.keys(R).filter(c=>c!=='Low Value Asset').join(', ')}.
+- "category": the best fit from exactly this list: ${Object.keys(R).filter(c=>!amIsLva(c)).join(', ')}.
 - Dates are day/month/year on Malaysian invoices; output ISO.
 - "notes": anything a finance person should check (unreadable figures, items that look like expenses not assets, foreign currency). Empty string if none.`;
     const J=await amSampleRef.json(prompt,{images:imgs,modelTier:'default'});
