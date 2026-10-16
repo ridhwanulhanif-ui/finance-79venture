@@ -4163,36 +4163,56 @@ const PC_H=[
   {k:'Amin',tab:'Sales- Amin',a:['Petty Cash - Amin Sales'],v:['Petty Cash - Amin Sales','Petty Cash - Amin']},
   {k:'Izzat',tab:'SV- Izzat',a:['Petty Cash - Izzat'],v:['Petty Cash - Izzat']},
   {k:'Zani',tab:'SV - ZANI',a:['Petty Cash - Syazani'],v:['Petty Cash - Zani']}];
-// Checked by hand on 15 Oct 2026 (QuickBooks ledgers of both companies against every tab). Shown until
-// the page has read both sources itself, and kept as the fallback if a connector cannot be reached.
-const PC_SNAP={at:'2026-10-15T19:45:00+08:00',rows:[
-  {k:'Fazrin',sheet:691.80,qa:325.70,qv:0,last:'2026-10-08',asof:325.70,pend:[['2026-10-12','Saidee 62 Enterprise',-29],['2026-10-13','Restoran Sri Tasik Utama',-44.9],['2026-10-14','Ereca Hardware Enterprise',-60],['2026-10-14','Supervisor Topup',500]]},
-  {k:'Alif',sheet:522.52,qa:522.52,qv:0,last:null,asof:null,pend:[]},
-  {k:'Hezry',sheet:644.00,qa:230.00,qv:0,last:'2026-10-13',asof:204.10,pend:[['2026-10-14','Supervisor Topup',25.9],['2026-10-14','Supervisor Topup',500],["2026-10-14","Touch 'n Go",-50],['2026-10-14','Annur Seafood',-36]]},
-  {k:'Faris',sheet:499.60,qa:270.75,qv:0,last:'2026-10-10',asof:270.75,pend:[['2026-10-13','Segi Cash & Carry Sdn. Bhd.',-190.55],['2026-10-13','Chong Hon Theam Hardware',-80.6],['2026-10-14','Supervisor Topup',500]]},
-  {k:'Zainal',sheet:213.64,qa:453.14,qv:0,last:'2026-10-12',asof:453.14,pend:[['2026-10-13','Storan Mariamah Maju',-72],['2026-10-14','Wang Jaya Industry Supply Sdn',-3.5],['2026-10-14','Warisan Maju',-73],['2026-10-14','Restoran Warisan Maju',-19],['2026-10-14','MOHD ZABRI',-50],['2026-10-15','Restoran Warisan Maju',-18],['2026-10-15','City Building Hardware',-4]]},
-  {k:'Danial',sheet:287.90,qa:301.90,qv:0,last:'2026-10-09',asof:301.90,pend:[['2026-10-13','Dapur Anas',-14]]},
-  {k:'Hakimi',sheet:416.07,qa:634.06,qv:362.09,last:'2026-10-09',asof:551.07,pend:[['2026-10-13','M/S 26-210',-55],['2026-10-13','ACM Motor Services',-80]]},
-  {k:'Ruzi',sheet:0,qa:0,qv:0,last:null,asof:null,pend:[]},
-  {k:'Sarah',sheet:11.25,qa:11.25,qv:0,last:null,asof:null,pend:[]},
-  {k:'Amin',sheet:148.23,qa:148.23,qv:0,last:null,asof:null,pend:[]},
-  {k:'Izzat',sheet:0,qa:0,qv:0,last:null,asof:null,pend:[]},
-  {k:'Zani',sheet:0,qa:0,qv:0,last:null,asof:null,pend:[]}],
-  extra:[['79V','Petty Cash - Admin',17.28],['79V','Petty Cash - Ameer',-20],['79V','Petty Cash - CIMB',5223.70]]};
-// Why the two that do not tally do not, traced through both ledgers on 15 Oct 2026. Shown only while
-// that holder still does not tally, and only while the gap is the one traced here.
+// Checked on 16 Oct 2026, 14:55 (QuickBooks ledgers of both companies matched line by line against every
+// tab). Shown until the page has read both sources itself, and kept as the fallback if that read fails.
+const PC_SNAP={at:'2026-10-16T14:55:00+08:00',rows:[
+  {k:'Fazrin',sheet:691.80,qa:825.70,qv:0,last:'2026-10-14',gap:0,pend:[['2026-10-12','Saidee 62 Enterprise',-29],['2026-10-13','Restoran Sri Tasik Utama',-44.9],['2026-10-14','Ereca Hardware Enterprise',-60]]},
+  {k:'Alif',sheet:376.47,qa:522.52,qv:0,last:'2026-10-13',gap:0,pend:[['2026-10-15','Kedai Makan Tom Yam',-13],['2026-10-15','TF Value-Mart Sdn Bhd',-221.85],['2026-10-15','MR D.I.Y. (KUCHAI) SDN BHD',-22],['2026-10-15','MOHAMMAD AMIR RIDWAN BIN AMENUDDIN',-234.4],['2026-10-16','Supervisor Topup',500],['2026-10-16','Hock Hin Hardware and Machinery Trading',-45],['2026-10-16','Sheng Guan D Hardware Enterprise',-102.8],['2026-10-16','Restoran Madina',-7]]},
+  {k:'Hezry',sheet:442.50,qa:730.00,qv:0,last:'2026-10-14',gap:-61.90,pend:[['2026-10-14','Supervisor Topup',25.9],["2026-10-14","Touch 'n Go",-50],['2026-10-14','Annur Seafood',-36],['2026-10-15','Roti Leagen',-15],['2026-10-15','Warung Nina',-36],['2026-10-15','Ajil Hardware Trading',-114.5]],odd:[['2025-10-15','Annur Seafood',-36]]},
+  {k:'Faris',sheet:601.65,qa:770.75,qv:0,last:'2026-10-14',gap:-49,pend:[['2026-10-12','Mee Bandung Muar Kg Lawan Kuda',-50],['2026-10-13','Segi Cash & Carry Sdn. Bhd.',-190.55],['2026-10-13','Chong Hon Theam Hardware',-80.6],['2026-10-13','Alifcafe Restaurant',-29.5],['2026-10-15','MR D.I.Y. (KK) SDN BHD',-17.1],['2026-10-15','Segi Cash & Carry Sdn. Bhd.',-252.35],['2026-10-16','Supervisor Topup',500]],odd:[['2022-10-13','D. Imran',-49]]},
+  {k:'Zainal',sheet:713.64,qa:453.14,qv:0,last:'2026-10-12',gap:0,pend:[['2026-10-13','Storan Mariamah Maju',-72],['2026-10-14','Wang Jaya Industry Supply Sdn Bhd',-3.5],['2026-10-14','Warisan Maju',-73],['2026-10-14','Restoran Warisan Maju',-19],['2026-10-14','MOHD ZABRI',-50],['2026-10-15','Restoran Warisan Maju',-18],['2026-10-15','City Building Hardware',-4],['2026-10-16','Supervisor Topup',500]]},
+  {k:'Danial',sheet:287.90,qa:287.90,qv:0,last:null,gap:null,pend:[]},
+  {k:'Hakimi',sheet:408.17,qa:634.06,qv:362.09,last:'2026-10-09',gap:-395.08,pend:[['2026-10-13','M/S 26-210',-55],['2026-10-13','ACM Motor Services',-80],['2026-10-16','Kedai makan',-46],['2026-10-16','Ereca Hardware Enterprise',-11.9]]},
+  {k:'Ruzi',sheet:0,qa:0,qv:0,last:null,gap:null,pend:[]},
+  {k:'Sarah',sheet:11.25,qa:11.25,qv:0,last:null,gap:null,pend:[]},
+  {k:'Amin',sheet:148.23,qa:148.23,qv:0,last:null,gap:null,pend:[]},
+  {k:'Izzat',sheet:0,qa:0,qv:0,last:null,gap:null,pend:[]},
+  {k:'Zani',sheet:0,qa:0,qv:0,last:null,gap:null,pend:[]}],
+  extra:[['79V','Petty Cash - Admin',17.28],['79V','Petty Cash - CIMB',5223.70]]};
+// Why the ones that do not tally do not, traced through both ledgers on 15-16 Oct 2026. Shown only while
+// that holder still does not tally, and only while the unexplained gap is the one traced here.
 const PC_WHY={
-  Hezry:{gap:25.90,html:`The RM25.90 gap began when petty cash moved from 79V to Arabina. In the sheet, Hezry's balance on 7 Sep was <b>−RM25.90</b> (overspent). QuickBooks Arabina started with a RM500 top-up on 8 Sep without carrying that negative balance, while the 79V balance was reclassed to <i>Due to Staff-Petty Cash (Hezry)</i> on 30 Sep. On 14 Oct the sheet has a RM25.90 <i>Supervisor Topup</i> that brings the sheet in line with QuickBooks.
-    <ul><li><b>Action:</b> if the RM25.90 is a reimbursement to Hezry for that overspend, do <b>not</b> record it as a top-up to <i>Petty Cash - Hezry</i> in QuickBooks; record it against <i>Due to Staff-Petty Cash (Hezry)</i>. Once the remaining 14 Oct transactions (RM500 top-up, TnG RM50, Annur Seafood RM36) are keyed in, both will be RM644.00.</li></ul>`},
-  Hakimi:{gap:445.08,html:`The RM445.08 gap already existed in <b>79V</b> before the move: the 79V QuickBooks balance on 24 Aug was RM977.12 against RM532.04 in the sheet. On 8 Sep the transfer JE moved <b>RM156.13</b> to Arabina (the sheet balance then was RM73.14, so <b>RM82.99</b> too much) and left <b>RM362.09</b> in <i>79V · Petty Cash - Hakimi</i>. RM82.99 + RM362.09 = RM445.08.
-    <ul><li><b>Action 1:</b> review <i>79V · Petty Cash - Hakimi</i> transactions before 25 Aug to find the RM445.08 (receipts not recorded in QuickBooks, or a top-up recorded twice).</li>
-    <li><b>Action 2:</b> correct the 8 Sep transfer JE to RM73.14, or post a RM82.99 adjusting JE in Arabina.</li>
+  Hezry:{gap:61.90,html:`RM61.90 = <b>RM25.90</b> + <b>RM36.00</b>.
+    <ul><li><b>RM25.90</b> began when petty cash moved from 79V to Arabina: in the sheet Hezry was <b>−RM25.90</b> on 7 Sep (overspent), but QuickBooks Arabina started with the RM500 top-up on 8 Sep without that negative balance (the 79V balance went to <i>Due to Staff-Petty Cash (Hezry)</i> on 30 Sep). The sheet's 14 Oct <i>Supervisor Topup</i> RM25.90 is that reimbursement: record it against <i>Due to Staff-Petty Cash (Hezry)</i>, <b>not</b> as a top-up to <i>Petty Cash - Hezry</i>, and this part clears.</li>
+    <li><b>RM36.00</b> is a receipt <i>Annur Seafood</i> keyed on 15 Oct with receipt date <b>15/10/2025</b>. The same RM36 Annur Seafood is already in the sheet on 14/10/2026, so it looks like a duplicate with a mistyped year: mark it <i>Deleted</i> if so.</li></ul>`},
+  Faris:{gap:49,html:`RM49.00 is the receipt <i>D. Imran</i> keyed on 16 Oct with receipt date <b>13/10/2022</b>. The year is mistyped (it should be 2026), so the check counts it as an old balance. Correct the date in the sheet and key it into QuickBooks.`},
+  Hakimi:{gap:395.08,html:`RM395.08 = <b>RM362.09</b> still in <i>79V · Petty Cash - Hakimi</i> + <b>RM32.99</b> in Arabina. Until 15 Oct the gap was RM445.08; it fell by RM50 when the sheet's receipt <i>Shell Amilia Trade RM50 (30/07/2026)</i> was marked <i>Deleted</i> on 15 Oct. The rest goes back to 79V before the move: QuickBooks 79V on 24 Aug was RM977.12 against RM532.04 in the sheet, and the 8 Sep transfer JE moved RM156.13 to Arabina.
+    <ul><li><b>Action 1:</b> review <i>79V · Petty Cash - Hakimi</i> transactions before 25 Aug (receipts not recorded in QuickBooks, or a top-up recorded twice), and check whether the deleted Shell RM50 was also recorded in QuickBooks.</li>
+    <li><b>Action 2:</b> correct the 8 Sep transfer JE, or post an adjusting JE in Arabina for what is left.</li>
     <li><b>Action 3:</b> clear the RM362.09 left in 79V once the cause is found.</li></ul>`}};
-let pcLive=null, pcBusy=false, pcErr=null, pcTried=false;
+let pcLive=null, pcBusy=false, pcErr=null, pcErrCode=null, pcTried=false;
+// On the served version (Railway) there are no claude.ai connectors: the server reads the sheet and
+// QuickBooks itself (/api/petty-cash.xlsx, /api/qbo/report), so the same check runs there too.
+const pcWeb={ async callTool(server,tool,input){
+  const bad=async r=>{ let j=null; try{ j=await r.json(); }catch(e){} return (j&&j.error&&typeof j.error==='object')?j.error:{code:(j&&j.error)||'http_'+r.status,message:'The server answered HTTP '+r.status+'.'}; };
+  if(tool==='download_file_content'){ const r=await fetch('/api/petty-cash.xlsx',{cache:'no-store'}); if(!r.ok) throw await bad(r);
+    let title=''; try{ title=decodeURIComponent(r.headers.get('X-Consol-Title')||''); }catch(e){} return {payload:{u8:new Uint8Array(await r.arrayBuffer()),title}}; }
+  if(tool==='run_report'){ const r=await fetch('/api/qbo/report',{method:'POST',cache:'no-store',headers:{'Content-Type':'application/json'},body:JSON.stringify({...input,co:input.company_id})}); if(!r.ok) throw await bad(r); return {payload:await r.json()}; }
+  throw {code:'unsupported',message:'Not available on the served version.'}; } };
+const pcConn=()=>mcp||(MODE==='web'?pcWeb:null);
+const PC_EVERY=60000;
+function pcWebErr(e){ const c=e&&e.code;
+  if(c==='not_connected') return 'QuickBooks is not connected on this server yet. An admin connects it once: <a href="/qbo/connect?co=a">Connect Arabina</a> · <a href="/qbo/connect?co=v">Connect 79 Ventures</a>.';
+  if(c==='needs_reauth') return 'The server\'s QuickBooks connection has expired. Reconnect: <a href="/qbo/connect?co=a">Arabina</a> · <a href="/qbo/connect?co=v">79 Ventures</a>.';
+  if(c==='not_shared') return 'The server cannot read the petty cash sheet (it is not shared "anyone with the link").';
+  if(c==='sign_in_required') return 'Sign in again to read live data.';
+  return 'Could not read live data'+(c?' ('+esc(c)+')':'')+': '+esc((e&&e.message)||String(e));
+}
 const pcR2=x=>Math.round((x||0)*100)/100;
 function pcStatus(r){
   const qb=pcR2(r.qa+r.qv), d=pcR2(r.sheet-qb);
   if(Math.abs(d)<0.005) return 'ok';
+  if(r.gap!=null) return Math.abs(r.gap)<0.005?'pend':'bad';
   if(r.asof!=null&&Math.abs(pcR2(r.asof-qb))<0.005) return 'pend';
   return 'bad';
 }
@@ -4221,13 +4241,13 @@ function pcSheetRows(wb,tab){
   const A=XLSX.utils.sheet_to_json(ws,{header:1,raw:true,defval:null});
   const out=[];
   A.slice(1).forEach(r=>{ if(!r||!r.slice(0,10).some(c=>c!=null&&c!=='')) return; if(/^deleted$/i.test(String(r[18]||'').trim())) return;
-    out.push({d:pcDate(r[2]),to:String(r[4]||''),amt:pcNum(r[8])-pcNum(r[7])}); });
+    out.push({d:pcDate(r[2]),c:pcDate(r[3]),to:String(r[4]||''),amt:pcNum(r[8])-pcNum(r[7])}); });
   return out;
 }
 async function pcRun(cid,input){
   let all=[], cursor=null, pages=0, meta=null;
   for(;;){
-    const r=await mcp.callTool(QBS,'run_report',cursor?{company_id:cid,cursor}:{company_id:cid,...input},{cache:false});
+    const r=await pcConn().callTool(QBS,'run_report',cursor?{company_id:cid,cursor}:{company_id:cid,...input},{cache:false});
     const p=payloadOf(r), rr=p&&p.raw_report; if(!rr) throw {code:'tool_error',message:(p&&p.error&&p.error.message)||'QuickBooks returned no report.'};
     if(!meta) meta=rr.metadata; all=all.concat(rr.rows||[]); pages++;
     if(p.continuation_cursor&&pages<30) cursor=p.continuation_cursor; else break;
@@ -4245,6 +4265,19 @@ async function pcTB(cid,date){
   return out;
 }
 // Last date each account has an entry, from the general ledger of the last 120 days.
+// Every ledger line of the given accounts over the last 120 days, and each account's last date.
+async function pcLedger(cid,names){
+  if(!names.length) return {last:{},lines:{}};
+  const end=new Date(), st=new Date(end.getTime()-120*864e5);
+  const G=await pcRun(cid,{report_type:'general_ledger',account:names.map(n=>({name:n})),start_date:pcIso(st),end_date:pcIso(end),columns:['tx_date','subt_nat_amount'],response_mode:'raw',row_page_size:500});
+  const sec={}, last={}, lines={};
+  G.rows.forEach(x=>{ const row=x.row; if(!row) return;
+    if(row.type==='Section'&&row.Header&&row.Header.ColData){ sec[x.path]=String(row.Header.ColData[0].value||'').split(':').pop().trim(); return; }
+    const cd=row.ColData; if(!cd||!/^\d{4}-\d{2}-\d{2}$/.test(String(cd[0]&&cd[0].value||''))) return;
+    let p=x.path, nm=null; while(p&&!nm){ p=p.replace(/\/Rows\/Row\/\d+$/,''); if(sec[p]) nm=sec[p]; if(!/\/Rows\/Row\/\d+$/.test(p)) break; }
+    if(nm&&/^petty cash\s*-/i.test(nm)){ const d=cd[0].value; if(!last[nm]||d>last[nm]) last[nm]=d; (lines[nm]=lines[nm]||[]).push({d,amt:pcR2(pcNum(cd[cd.length-1]&&cd[cd.length-1].value))}); } });
+  return {last,lines,from:pcIso(st)};
+}
 async function pcLast(cid,names){
   if(!names.length) return {};
   const end=new Date(), st=new Date(end.getTime()-120*864e5);
@@ -4257,14 +4290,15 @@ async function pcLast(cid,names){
     if(nm&&/^petty cash\s*-/i.test(nm)){ const d=cd[0].value; if(!last[nm]||d>last[nm]) last[nm]=d; } });
   return last;
 }
-async function pcLoad(){
-  if(pcBusy) return; pcBusy=true; pcErr=null; pcTried=true; if(state.view==='pc') renderPC();
+async function pcLoad(quiet){
+  if(pcBusy) return; pcBusy=true; pcErr=null; pcErrCode=null; pcTried=true; if(state.view==='pc'&&!quiet) renderPC();
   try{
-    if(!mcp) throw {code:'not_granted',message:'Connectors are not available in this view. Open the artifact on claude.ai.'};
-    const ids=await qdCompanies();
-    const r=await mcp.callTool(SERVER,'download_file_content',{fileId:PC_SHEET,exportMimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},{cache:false});
-    const p=payloadOf(r)||{}, b64=p.content||p.data; if(!b64) throw {code:'tool_error',message:'The petty cash sheet came back empty from Google Drive.'};
-    const bin=atob(b64), u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i);
+    const C=pcConn(); if(!C) throw {code:'not_granted',message:'Connectors are not available in this view. Open the artifact on claude.ai.'};
+    const ids=mcp?await qdCompanies():{a:'a',v:'v'};
+    const r=await C.callTool(SERVER,'download_file_content',{fileId:PC_SHEET,exportMimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},{cache:false});
+    const p=payloadOf(r)||{}; let u8=p.u8;
+    if(!u8){ const b64=p.content||p.data; if(!b64) throw {code:'tool_error',message:'The petty cash sheet came back empty from Google Drive.'};
+      const bin=atob(b64); u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); }
     const wb=XLSX.read(u8,{type:'array',cellFormula:false,cellStyles:false});
     const [tA,tV]=await Promise.all([pcTB(ids.a),pcTB(ids.v)]);
     const rows=PC_H.map(h=>{ const S=pcSheetRows(wb,h.tab)||[];
@@ -4273,57 +4307,76 @@ async function pcLoad(){
     // Dates are needed only where the balances differ.
     const off=rows.filter(x=>Math.abs(x.sheet-x.qa-x.qv)>=0.005);
     const nA=[...new Set(off.flatMap(x=>PC_H.find(h=>h.k===x.k).a).filter(n=>n in tA))], nV=[...new Set(off.flatMap(x=>PC_H.find(h=>h.k===x.k).v).filter(n=>n in tV&&Math.abs(tV[n])>0.004))];
-    const [lA,lV]=await Promise.all([pcLast(ids.a,nA),pcLast(ids.v,nV)]);
-    off.forEach(x=>{ const h=PC_H.find(y=>y.k===x.k); const ds=[...h.a.map(n=>lA[n]),...h.v.map(n=>lV[n])].filter(Boolean).sort();
+    const [gA,gV]=await Promise.all([pcLedger(ids.a,nA),pcLedger(ids.v,nV)]);
+    // Match each sheet line of the last 120 days to a QuickBooks line of the same amount (nearest date
+    // first). Sheet lines left over are not keyed in yet, QuickBooks lines left over are not in the
+    // sheet; whatever difference remains after both sits in older balances and is a real gap.
+    const win=gA.from||gV.from||pcIso(new Date(Date.now()-120*864e5));
+    off.forEach(x=>{ const h=PC_H.find(y=>y.k===x.k); const ds=[...h.a.map(n=>(gA.last||{})[n]),...h.v.map(n=>(gV.last||{})[n])].filter(Boolean).sort();
       x.last=ds.length?ds[ds.length-1]:null;
-      if(x.last){ x.asof=pcR2(x.S.filter(s=>s.d&&s.d<=x.last).reduce((t,s)=>t+s.amt,0)); x.pend=x.S.filter(s=>s.d&&s.d>x.last).map(s=>[s.d,s.to,s.amt]); } });
+      const pool=new Map(); [...h.a.flatMap(n=>(gA.lines||{})[n]||[]),...h.v.flatMap(n=>(gV.lines||{})[n]||[])].forEach(q=>{ const k=q.amt.toFixed(2); pool.set(k,(pool.get(k)||[]).concat([q])); });
+      const unS=[];
+      x.S.filter(s=>s.d&&s.d>=win).forEach(s=>{ const L=pool.get(pcR2(s.amt).toFixed(2)); if(!L||!L.length){ unS.push(s); return; }
+        let bi=0, bd=Infinity; L.forEach((q,i)=>{ const dd=Math.abs(Date.parse(q.d)-Date.parse(s.d)); if(dd<bd){ bd=dd; bi=i; } }); L.splice(bi,1); });
+      const unQ=[...pool.values()].flat();
+      x.pend=unS.sort((a,b)=>a.d<b.d?-1:1).map(s=>[s.d,s.to,s.amt]); x.qonly=unQ.map(q=>[q.d,'',q.amt]);
+      x.gap=pcR2(x.sheet-x.qa-x.qv-unS.reduce((t,s)=>t+s.amt,0)+unQ.reduce((t,q)=>t+q.amt,0));
+      // Receipt dates that look mistyped: keyed this year but dated a year or more earlier.
+      x.odd=x.S.filter(s=>s.d&&s.c&&s.d<s.c&&(Date.parse(s.c)-Date.parse(s.d))>300*864e5).map(s=>[s.d,s.to,s.amt]); });
     const known=new Set(PC_H.flatMap(h=>h.a)), knownV=new Set(PC_H.flatMap(h=>h.v)), extra=[];
     Object.entries(tV).forEach(([n,v])=>{ if(!knownV.has(n)&&Math.abs(v)>0.004) extra.push(['79V',n,v]); });
     Object.entries(tA).forEach(([n,v])=>{ if(!known.has(n)&&Math.abs(v)>0.004) extra.push(['Arabina',n,v]); });
     rows.forEach(x=>delete x.S);
-    pcLive={at:new Date().toISOString(),rows,extra,live:true,title:p.title||'UPDATED PETTY CASH LISTING'};
-  }catch(e){ pcErr=qdErr(e); }
+    pcLive={at:new Date().toISOString(),rows,extra,live:true,src:mcp?'connector':'server',title:p.title||'UPDATED PETTY CASH LISTING'};
+  }catch(e){ pcErrCode=e&&e.code||'error'; pcErr=mcp?qdErr(e):pcWebErr(e); }
   pcBusy=false; pcBadge(); if(state.view==='pc') renderPC();
 }
+// Every minute, while the check is on screen and the tab is visible, read both sides again.
+setInterval(()=>{ if(state.view==='pc'&&pcTab==='rec'&&pcTried&&!pcBusy&&pcErrCode!=='not_connected'&&document.visibilityState==='visible'&&pcConn()) pcLoad(true); },PC_EVERY);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&state.view==='pc'&&pcTab==='rec'&&pcTried&&!pcBusy&&pcConn()&&(!pcLive||Date.now()-Date.parse(pcLive.at)>PC_EVERY)) pcLoad(true); });
 function renderPCRec(){
-  const D=pcData(), when=new Date(D.at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'});
+  const D=pcData(), when=new Date(D.at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:D.live?'2-digit':undefined});
   const st=D.rows.map(r=>({...r,s:pcStatus(r),qb:pcR2(r.qa+r.qv),d:pcR2(r.sheet-r.qa-r.qv)}));
   const bad=st.filter(r=>r.s==='bad'), pend=st.filter(r=>r.s==='pend'), ok=st.filter(r=>r.s==='ok');
   const T=k=>st.reduce((t,r)=>t+r[k],0), F=x=>Math.abs(x)<0.005?'0.00':fmt(x);
   const dd=s=>s?new Date(s+'T00:00:00').toLocaleDateString('en-GB',{day:'numeric',month:'short'}):'–';
   const ST={ok:['● Tally','zg'],pend:['▲ Not yet recorded','zw'],bad:['■ Not tallying','zb']};
   let h=`<div class="stmt"><h3>PETTY CASH: QUICKBOOKS vs SHEET PETTY CASH</h3>
-   <p class="sub2">Each holder's balance in the <i>UPDATED PETTY CASH LISTING</i> sheet (holder tab, <i>Deleted</i> rows excluded) against the <i>Petty Cash - …</i> accounts in QuickBooks Arabina and 79V. ${D.live?'Read live from Google Drive and QuickBooks through your connectors':'Manual check'} at <b>${when}</b>.</p>
+   <p class="sub2">Each holder's balance in the <i>UPDATED PETTY CASH LISTING</i> sheet (holder tab, <i>Deleted</i> rows excluded) against the <i>Petty Cash - …</i> accounts in QuickBooks Arabina and 79V. ${D.live?(D.src==='server'?'Read live from the sheet and QuickBooks by the server':'Read live from Google Drive and QuickBooks through your connectors'):'Manual check'} at <b>${when}</b>.${D.live?' <span style="display:inline-block;padding:0 7px;border-radius:9px;background:var(--ok);color:#fff;font-size:11px;font-weight:700;line-height:18px">● LIVE</span>':''}</p>
    <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><button id="pcGo" class="primary"${pcBusy?' disabled':''}>${pcBusy?'Checking…':'Re-check now'}</button>
-   <span class="hint">${pcBusy?'Reading the sheet and QuickBooks…':D.live?'Live data':'Showing the 15 Oct 2026 check; press the button for current data'}</span></div>`;
-  if(pcErr) h+=`<div class="msg err" style="margin:8px 0">${pcErr} Figures below are from ${pcLive?'the last live check':'the 15 Oct 2026 check'}.</div>`;
-  if(bad.length) h+=`<div class="msg err" style="margin:10px 0"><b>⚠ ALERT: ${bad.length} petty cash holder(s) do not tally with QuickBooks.</b> ${bad.map(r=>`<b>${esc(r.k)}</b> (gap RM${F(r.d)}${r.asof!=null?`; on ${dd(r.last)} gap RM${F(pcR2(r.asof-r.qb))}`:''})`).join(' · ')}. Causes and actions below.</div>`;
+   <span class="hint">${pcBusy?'Reading the sheet and QuickBooks…':D.live?'Refreshes by itself every minute while this tab is open':pcConn()&&!pcErr?`Showing the ${new Date(PC_SNAP.at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} check until the live read finishes`:`Showing the ${new Date(PC_SNAP.at).toLocaleDateString('en-GB',{day:'numeric',month:'short',year:'numeric'})} check; live data needs the claude.ai connectors or QuickBooks connected on the server`}</span></div>`;
+  if(pcErr) h+=`<div class="msg err" style="margin:8px 0">${pcErr} Figures below are from ${pcLive?'the last live check':'the check of '+new Date(PC_SNAP.at).toLocaleDateString('en-GB',{day:'numeric',month:'short'})}.</div>`;
+  if(bad.length) h+=`<div class="msg err" style="margin:10px 0"><b>⚠ ALERT: ${bad.length} petty cash holder(s) do not tally with QuickBooks.</b> ${bad.map(r=>`<b>${esc(r.k)}</b> (gap RM${F(r.d)}${r.gap!=null?`; unexplained RM${F(r.gap)}`:r.asof!=null?`; on ${dd(r.last)} gap RM${F(pcR2(r.asof-r.qb))}`:''})`).join(' · ')}. Causes and actions below.</div>`;
   else h+=`<div class="msg ok" style="margin:10px 0"><b>No real differences.</b> Every holder tallies, or the gap is only transactions not yet keyed into QuickBooks.</div>`;
-  if(pend.length) h+=`<div class="msg" style="margin:10px 0;border-color:#b7791f"><b>▲ ${pend.length} holder(s) have sheet transactions not yet recorded in QuickBooks:</b> ${pend.map(r=>`${esc(r.k)} (${r.pend.length} transactions after ${dd(r.last)})`).join(' · ')}. The sheet and QuickBooks agree up to QuickBooks' last date, so this is timing only; key in those transactions.</div>`;
+  if(pend.length) h+=`<div class="msg" style="margin:10px 0;border-color:#b7791f"><b>▲ ${pend.length} holder(s) have sheet transactions not yet recorded in QuickBooks:</b> ${pend.map(r=>`${esc(r.k)} (${r.pend.length} transaction${r.pend.length===1?'':'s'})`).join(' · ')}. Every other line matches QuickBooks, so this is timing only; key in those transactions.</div>`;
   h+=`<div class="bekpi"><div><span>Total sheet balance</span><b>RM${F(T('sheet'))}</b></div><div><span>Total QuickBooks (Arabina + 79V)</span><b>RM${F(T('qb'))}</b></div>
     <div><span>Difference (sheet − QuickBooks)</span><b style="color:${Math.abs(T('d'))<0.005?'var(--ok)':'var(--bad)'}">RM${F(T('d'))}</b></div>
     <div><span>Holder status</span><b><span class="zg">${ok.length} tally</span> · <span class="zw">${pend.length} not yet recorded</span> · <span class="zb">${bad.length} not tallying</span></b></div></div></div>`;
-  h+=`<div class="stmt" style="padding-top:0"><div style="overflow-x:auto"><table class="tc" style="min-width:760px"><tr class="sub"><td>Holder</td><td class="r">Sheet balance</td><td class="r">QB Arabina</td><td class="r">QB 79V</td><td class="r">Difference</td><td class="r">Last QB entry</td><td class="r">Sheet at that date</td><td>Status</td></tr>`;
+  h+=`<div class="stmt" style="padding-top:0"><div style="overflow-x:auto"><table class="tc" style="min-width:760px"><tr class="sub"><td>Holder</td><td class="r">Sheet balance</td><td class="r">QB Arabina</td><td class="r">QB 79V</td><td class="r">Difference</td><td class="r">Last QB entry</td><td class="r">Unexplained</td><td>Status</td></tr>`;
   const ord={bad:0,pend:1,ok:2};
   st.slice().sort((a,b)=>ord[a.s]-ord[b.s]).forEach(r=>{ const h0=PC_H.find(x=>x.k===r.k);
     h+=`<tr><td><b>${esc(r.k)}</b><span class="note">tab ${esc(h0.tab)}${r.missing?' · <b style="color:var(--bad)">tab not found</b>':''}</span></td><td class="r">${F(r.sheet)}</td><td class="r">${F(r.qa)}</td>
       <td class="r"${Math.abs(r.qv)>0.004?' style="color:var(--bad);font-weight:700"':''}>${F(r.qv)}</td><td class="r ${r.s==='ok'?'good':r.s==='bad'?'bad':''}" style="font-weight:700">${r.s==='ok'?'✓ 0.00':F(r.d)}</td>
-      <td class="r">${r.s==='ok'?'':dd(r.last)}</td><td class="r">${r.asof==null||r.s==='ok'?'':F(r.asof)}</td><td class="${ST[r.s][1]}" style="font-weight:700;white-space:nowrap">${ST[r.s][0]}</td></tr>`; });
+      <td class="r">${r.s==='ok'?'':dd(r.last)}</td><td class="r${r.s==='bad'?' bad':''}"${r.s==='bad'?' style="font-weight:700"':''}>${r.s==='ok'?'':r.gap!=null?F(r.gap):r.asof!=null?F(pcR2(r.asof-r.qb)):''}</td><td class="${ST[r.s][1]}" style="font-weight:700;white-space:nowrap">${ST[r.s][0]}</td></tr>`; });
   h+=`<tr class="sub"><td>Total</td><td class="r">${F(T('sheet'))}</td><td class="r">${F(T('qa'))}</td><td class="r">${F(T('qv'))}</td><td class="r">${F(T('d'))}</td><td></td><td></td><td></td></tr></table></div></div>`;
   // Detail for every holder that does not tally: the cause where it has been traced, then what the sheet has after QuickBooks stops.
-  [...bad,...pend].forEach(r=>{ const W=PC_WHY[r.k], gap=pcR2(r.asof!=null?r.asof-r.qb:r.d);
+  [...bad,...pend].forEach(r=>{ const W=PC_WHY[r.k], gap=pcR2(r.gap!=null?r.gap:r.asof!=null?r.asof-r.qb:r.d);
     h+=`<div class="stmt" style="border-top:1px solid var(--rule)"><h3 style="font-size:13.5px"><span class="${ST[r.s][1]}">${ST[r.s][0]}</span> · ${esc(r.k)}</h3>`;
-    if(r.s==='bad'&&r.asof==null) h+=`<p class="sub2">Sheet balance RM${F(r.sheet)} against QuickBooks RM${F(r.qb)}: a gap of <b>RM${F(r.d)}</b>. QuickBooks has no entry for this holder in the last 120 days, so compare transactions one by one.</p>`;
+    if(r.s==='bad'&&r.gap!=null) h+=`<p class="sub2">Matching every sheet line of the last 120 days against QuickBooks, <b>RM${F(gap)}</b> is not explained by lines missing on either side${Math.abs(r.qv)>0.004?` (QuickBooks includes RM${F(r.qv)} still in 79V)`:''}: it sits in older balances.</p>`+(W&&Math.abs(Math.abs(gap)-W.gap)<0.01?`<div class="anbox" style="margin:6px 0 10px">${W.html}</div>`:`<p class="sub2">Not traced yet: compare this holder's older sheet and QuickBooks transactions.</p>`);
+    else if(r.s==='bad'&&r.asof==null) h+=`<p class="sub2">Sheet balance RM${F(r.sheet)} against QuickBooks RM${F(r.qb)}: a gap of <b>RM${F(r.d)}</b>. QuickBooks has no entry for this holder in the last 120 days, so compare transactions one by one.</p>`;
     else if(r.s==='bad'){
       h+=`<p class="sub2">On ${dd(r.last)} (last QuickBooks entry) the sheet was RM${F(r.asof)} against QuickBooks RM${F(r.qb)}${Math.abs(r.qv)>0.004?` (including RM${F(r.qv)} still in 79V)`:''}: a gap of <b>RM${F(gap)}</b> not explained by unrecorded transactions.</p>`;
       if(W&&Math.abs(Math.abs(gap)-W.gap)<0.01) h+=`<div class="anbox" style="margin:6px 0 10px">${W.html}</div>`;
       else h+=`<p class="sub2">Not traced yet: compare this holder's sheet and QuickBooks transactions one by one before ${dd(r.last)}.</p>`;
     }
+    if(r.odd&&r.odd.length) h+=`<p class="sub2 zw" style="margin:6px 0"><b>Receipt date looks mistyped:</b> ${r.odd.map(x=>`${esc(x[1]||'–')} RM${fmt(Math.abs(x[2]))} dated ${x[0].split('-').reverse().join('/')}`).join(' · ')}. Correct the year in the sheet.</p>`;
+    if(r.qonly&&r.qonly.length){ const t=r.qonly.reduce((s,x)=>s+x[2],0);
+      h+=`<table class="tc" style="max-width:640px;margin-bottom:8px"><tr class="sub"><td>In QuickBooks, not in the sheet</td><td class="r">RM</td></tr>${r.qonly.map(x=>`<tr><td>${dd(x[0])}</td><td class="r${x[2]<0?' neg':''}">${fmt(x[2])}</td></tr>`).join('')}<tr class="sub"><td>Total</td><td class="r">${fmt(t)}</td></tr></table>`; }
     if(r.pend&&r.pend.length){ const t=r.pend.reduce((s,x)=>s+x[2],0);
-      h+=`<table class="tc" style="max-width:640px"><tr class="sub"><td>In the sheet after ${dd(r.last)}, not yet in QuickBooks</td><td class="r">RM</td></tr>${r.pend.map(x=>`<tr><td>${dd(x[0])} · ${esc(x[1]||'–')}</td><td class="r${x[2]<0?' neg':''}">${fmt(x[2])}</td></tr>`).join('')}<tr class="sub"><td>Total</td><td class="r">${fmt(t)}</td></tr></table>`; }
+      h+=`<table class="tc" style="max-width:640px"><tr class="sub"><td>In the sheet${r.gap!=null?'':' after '+dd(r.last)}, not yet in QuickBooks</td><td class="r">RM</td></tr>${r.pend.map(x=>`<tr><td>${dd(x[0])} · ${esc(x[1]||'–')}</td><td class="r${x[2]<0?' neg':''}">${fmt(x[2])}</td></tr>`).join('')}<tr class="sub"><td>Total</td><td class="r">${fmt(t)}</td></tr></table>`; }
     h+='</div>'; });
   if(D.extra&&D.extra.length) h+=`<div class="stmt"><p class="sub2"><b>QuickBooks petty cash accounts with no holder tab in the sheet</b> (not compared): ${D.extra.map(x=>`${esc(x[0])} · ${esc(x[1])} RM${fmt(x[2])}`).join(' · ')}.</p></div>`;
-  h+=`<div class="stmt"><p class="sub2"><b>How the check works.</b> Tally = sheet balance equals QuickBooks Arabina + 79V. If not, the sheet is re-added up to that holder's last QuickBooks entry date: if they agree there, the gap is only transactions not keyed in yet (<span class="zw">▲ Not yet recorded</span>); if they still differ, it is a real difference (<span class="zb">■ Not tallying</span>) to investigate. Balances in the 79V accounts should be zero after the move to Arabina in September.</p></div>`;
+  h+=`<div class="stmt"><p class="sub2"><b>How the check works.</b> Tally = sheet balance equals QuickBooks Arabina + 79V. If not, every sheet line of the last 120 days is matched to a QuickBooks line of the same amount: if the lines left over explain the whole difference, it is only transactions not keyed in yet (<span class="zw">▲ Not yet recorded</span>); if they still differ, it is a real difference (<span class="zb">■ Not tallying</span>) to investigate. Balances in the 79V accounts should be zero after the move to Arabina in September.</p></div>`;
   return h;
 }
 // ===== Petty Cash weekly report (Google Doc "Petty Cash-Weekly Report") =====
@@ -5362,7 +5415,7 @@ function renderAM(){
 
 function renderTable(){
   if(state.view==='pc'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
-    if(!pcTried&&mcp) setTimeout(pcLoad,0); return renderPC(); }
+    if(!pcTried&&pcConn()) setTimeout(pcLoad,0); return renderPC(); }
   if(state.view==='am'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     if(!amTried&&(mcp||MODE==='web')) setTimeout(amLoad,0); return renderAM(); }
   if(state.view==='fp'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderFP(); }
@@ -6695,7 +6748,7 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
         if(me&&me.user){ $('who').innerHTML='Signed in as <b>'+esc(me.user)+'</b> · <a href="/logout">Sign out</a>'; $('who').hidden=false; } }catch(e){}
       // Every viewer gets their own empty browser storage, so on a page meant to be shared the
       // bank comparison has to load itself rather than wait for each person to press a button.
-      MODE='web'; $('dlx').hidden=false; autoSet(); refresh(false); adDbInit(); scDbInit();
+      MODE='web'; $('dlx').hidden=false; autoSet(); refresh(false); adDbInit(); scDbInit(); if(state.view==='pc'&&!pcTried) pcLoad();
       if(!bk.cfAt) setTimeout(()=>{ bkCfLoad().catch(()=>{}); },1500);
       return;
     }
