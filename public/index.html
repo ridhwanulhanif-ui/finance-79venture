@@ -6579,7 +6579,7 @@ function renderSC(){
 // Side menu, built from the View list so the two always hold the same views.
 const navMod=v=>{ const o=$('viewSel').querySelector('option[value="'+v+'"]'); return (o&&o.parentNode.dataset&&o.parentNode.dataset.mod)||'bod'; };
 // Page title follows the module: the P&L/BS title belongs to BOD Review only.
-const PG_TITLE={bod:'P&L & Balance Sheet 2026: Consolidated & individual',pc:'Petty Cash: Claims & Top-ups',am:'Asset Management: Fixed Asset Register',fp:'Financing Profile: Lenders, Use of Funds & Debt Capacity',ad:'Admin: Recurring Tasks & Fuel Card Log'};
+const PG_TITLE={bod:'P&L & Balance Sheet 2026: Consolidated & individual',pc:'Petty Cash: Claims & Top-ups',am:'Asset Management: Fixed Asset Register',fp:'Financing Profile: Financiers, Use of Funds & Financing Capacity',ad:'Admin: Recurring Tasks & Fuel Card Log'};
 function navSync(){ const m=navMod(state.view); document.body.classList.toggle('mod-x',m!=='bod');
   { const t=$('pgTitleT'), b=document.querySelector('#snavMods [data-mod="'+m+'"]'); if(t) t.textContent=PG_TITLE[m]||(b?b.textContent.trim():PG_TITLE.bod); }
   document.querySelectorAll('#snavMods [data-mod]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.mod===m)));
