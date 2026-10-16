@@ -71,6 +71,8 @@ alerted for a show cause letter.
   empty. The store answers only when sign-in is on (`AUTH_USERS` set), and records who made each change.
 - The two are separate: ticks and card moves made on claude.ai do not appear on Railway, and the other way round.
 - The HR alert emails from the viewer's Gmail only on claude.ai; on Railway it is recorded in the log only.
+- The log is built from the responses of the Shell card holder Google Form (`FUEL_FORM_FILE_ID`), read live on each
+  load. On Railway that sheet must be shared "anyone with the link", like the other workbooks.
 
 ## Deploy the Apps Script web app
 
