@@ -238,6 +238,22 @@ tr.in1 td.acct{padding-left:22px} tr.gt td{font-weight:700;border-top:1px solid 
 .belegend{display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted);margin-bottom:12px}
 .belegend i{display:inline-block;width:14px;height:10px;margin-right:6px;vertical-align:-1px;border-radius:2px}
 .betable td.num.pos{color:var(--ok);font-weight:600} .betable td.num.negv{color:var(--bad);font-weight:600}
+/* Fixed asset schedule: cost, accumulated depreciation and NBV as three ruled column groups. */
+.fas{border-collapse:collapse;width:100%;min-width:1140px;font-size:13px;font-variant-numeric:tabular-nums}
+.fas th,.fas td{padding:6px 10px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--rule)}
+.fas th:first-child,.fas td:first-child{text-align:left;white-space:normal;min-width:340px}
+.fas thead th{font-size:11.5px;font-weight:600;color:var(--muted);border-bottom:1.5px solid var(--ink);vertical-align:bottom}
+.fas thead tr.grp th{color:var(--ink);font-size:11px;letter-spacing:.06em;text-align:center;border-bottom:1px solid var(--ink);padding-bottom:4px}
+.fas thead tr.grp th:first-child{border-bottom:0}
+.fas .gs{border-left:1px solid var(--rule)}
+.fas td.cl{font-weight:600}
+.fas tr.cat td{background:var(--band);font-weight:600;border-bottom:1px solid var(--rule)}
+.fas tr.cat td .note,.fas td .note{display:block;font-size:11.5px;color:var(--muted);font-weight:400}
+.fas tr.it td:first-child{padding-left:22px}
+.fas tr.subt td{font-weight:600;border-top:1px solid var(--ink)}
+.fas tr.gt td{font-weight:700;border-top:1.5px solid var(--ink);border-bottom:3px double var(--ink)}
+.fas tbody tr.pick{cursor:pointer}
+.fas tbody tr.pick:hover td{background:var(--band)}
 .bekpi{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin:4px 0 14px}
 .bekpi div{border:1px solid var(--rule);border-radius:6px;padding:9px 12px;font-variant-numeric:tabular-nums}
 .bekpi b{display:block;font-size:17px;margin-top:2px}
@@ -5048,6 +5064,7 @@ const AM_SNAP={at:"2026-10-15T21:20:00+08:00",title:"Asset Management-Master Dat
 let amLive=null, amBusy=false, amErr=null, amTried=false;
 let amDb=null, amDbErr=null, amSub=null, amDbRef=null, amAssetsRef, amSampleRef;
 let amTab=store.get('consol.amTab')||'reg', amYear=Math.max(AM_BASE,+store.get('consol.amYear')||new Date().getFullYear());
+let amSchV=store.get('consol.amSchV')||'sum', amSchCat='', amSchQ='';
 let amQ='', amCat='', amSt='', amDraft=null, amXBusy=false, amXErr=null, amXMsg=null, amFile=null;
 const amIso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
 const amDmy=s=>s?s.slice(8,10)+'/'+s.slice(5,7)+'/'+s.slice(0,4):'';
@@ -5212,6 +5229,39 @@ function renderAMReg(){
    <p class="sub2" style="margin-top:8px"><b>Rules (as in the workbook).</b> Straight line at the category rate (Category Rates tab), a full month's charge in the month of purchase and in the month of disposal, never below nil. From 1 Jan 2026 a purchase under RM1,000 is a <i>Low Value Asset</i>: 0%, expensed when bought. Opening NBV at 1 Jan 2026 for older assets is the workbook's column P (an estimate there: verify against the audited balances). ● added here · ✎ edited here.</p></div>`;
   return h;
 }
+// Fixed asset schedule: cost, accumulated depreciation and NBV, by category or asset by asset.
+function amSchedHTML(Y,cats,order){
+  const K=['cOpen','add','dsp','cEnd','dOpen','chg','dDsp','dEnd','nbv'], G={};
+  K.forEach(k=>G[k]=0);
+  const rowOf=x=>({...x,dDsp:x.dsp?x.dOpen+x.chg-x.dEnd:0});
+  const q=amSchQ.trim().toLowerCase(), det=amSchV==='det';
+  const cells=(o,cls)=>K.map((k,i)=>`<td class="${[i===0||i===4||i===8?'gs':'',i===3||i===7||i===8?'cl':'',cls||''].join(' ').trim()}">${fmt(o[k])}</td>`).join('');
+  const shown=order.filter(c=>!amSchCat||c===amSchCat);
+  let n=0, body='';
+  shown.forEach(c=>{
+    const L=cats[c].map(rowOf).filter(x=>!q||[x.a.id,x.a.desc,x.a.sn,x.a.pic,x.a.dept].join(' ').toLowerCase().includes(q));
+    if(!L.length) return;
+    const t={}; K.forEach(k=>{ t[k]=L.reduce((s,x)=>s+(x[k]||0),0); G[k]+=t[k]; }); n+=L.length;
+    const rate=((amRates()[c]||0)*100).toFixed(0)+'%';
+    if(!det){ body+=`<tr class="pick" data-amsc="${esc(c)}" title="Show the assets in ${esc(c)}"><td><b>${esc(c)}</b><span class="note">${L.length} asset${L.length>1?'s':''} · ${rate}</span></td>${cells(t)}</tr>`; return; }
+    body+=`<tr class="cat"><td colspan="${K.length+1}">${esc(c)} <span class="note" style="display:inline;margin-left:6px">${rate} a year · ${L.length} asset${L.length>1?'s':''}</span></td></tr>`;
+    L.forEach(x=>{ body+=`<tr class="it"><td><b>${esc(x.a.id)}</b> ${esc(x.a.desc)}<span class="note">Purchased ${amDmy(x.a.pd)||'–'}${x.a.disp?' · disposed '+amDmy(x.a.disp):''}</span></td>${cells(x)}</tr>`; });
+    body+=`<tr class="subt"><td>Total ${esc(c)}</td>${cells(t)}</tr>`;
+  });
+  const opts=order.map(c=>`<option${c===amSchCat?' selected':''}>${esc(c)}</option>`).join('');
+  let h=`<div class="controls" style="margin:6px 0 10px;gap:10px;flex-wrap:wrap;align-items:center">
+    <div class="seg" role="group" aria-label="Schedule view">${[['sum','Summary by category'],['det','Asset detail']].map(([k,l])=>`<button data-amsv="${k}" aria-pressed="${amSchV===k}">${l}</button>`).join('')}</div>
+    <label>Category <select id="amSchCat"><option value="">All categories</option>${opts}</select></label>
+    <input id="amSchQ" type="search" value="${esc(amSchQ)}" placeholder="Search asset ID, description, serial, PIC…" style="width:260px;font:inherit;padding:6px 8px;border:1px solid var(--rule);border-radius:6px;background:var(--card);color:var(--ink)">
+    <span class="hint">${n} asset${n===1?'':'s'}${amSchCat||q?' shown':''}</span></div>`;
+  h+=`<div style="overflow-x:auto"><table class="fas"><thead>
+    <tr class="grp"><th></th><th colspan="4" class="gs">COST (RM)</th><th colspan="4" class="gs">ACCUMULATED DEPRECIATION (RM)</th><th class="gs">NBV (RM)</th></tr>
+    <tr><th>${det?'Asset':'Category'}</th><th class="gs">At 1 Jan</th><th>Additions</th><th>Disposals</th><th>At 31 Dec</th><th class="gs">At 1 Jan</th><th>Charge for the year</th><th>Disposals</th><th>At 31 Dec</th><th class="gs">At 31 Dec</th></tr></thead><tbody>`;
+  h+=body||`<tr><td colspan="${K.length+1}" class="hint" style="text-align:left">No asset matches.</td></tr>`;
+  h+=`</tbody>${n?`<tfoot><tr class="gt"><td>${amSchCat||q?'Total shown':'Grand total'}</td>${cells(G)}</tr></tfoot>`:''}</table></div>
+   <p class="sub2" style="margin-top:8px">${det?'':'Click a category to see its assets. '}Disposals take the asset's cost and its accumulated depreciation out in the year it goes, so its NBV at 31 Dec is nil.</p>`;
+  return h;
+}
 function renderAMDep(){
   const all=amAll(), Y=amYear, {cats,lva}=amFAW(Y,all), order=Object.keys(amRates()).filter(c=>cats[c]).concat(Object.keys(cats).filter(c=>!(c in amRates())));
   const G={cOpen:0,add:0,dsp:0,cEnd:0,dOpen:0,chg:0,dEnd:0,nbv:0}, GM=new Array(12).fill(0);
@@ -5221,11 +5271,7 @@ function renderAMDep(){
   order.forEach(c=>{ const M=new Array(12).fill(0); cats[c].forEach(x=>x.m.forEach((v,i)=>M[i]+=v)); M.forEach((v,i)=>GM[i]+=v);
     h+=`<tr><td><b>${esc(c)}</b></td><td class="r">${((amRates()[c]||0)*100).toFixed(0)}%</td>${M.map(v=>`<td class="r">${fmt(v)}</td>`).join('')}<td class="r"><b>${fmt(amSum(M))}</b></td></tr>`; });
   h+=`<tr class="sub"><td>Total</td><td></td>${GM.map(v=>`<td class="r">${fmt(v)}</td>`).join('')}<td class="r">${fmt(amSum(GM))}</td></tr></table></div>`;
-  h+=`<h3 style="font-size:13.5px;margin-top:16px">Cost and accumulated depreciation by category</h3><div style="overflow-x:auto"><table class="tc" style="min-width:1000px"><tr class="sub"><td>Category</td><td class="r">Assets</td><td class="r">Cost (opening)</td><td class="r">Addition</td><td class="r">Disposal</td><td class="r">Cost (end of year)</td><td class="r">Depreciation (opening)</td><td class="r">Charge for the year</td><td class="r">Depreciation (end of year)</td><td class="r">NBV</td></tr>`;
-  order.forEach(c=>{ const L=cats[c], s=k=>L.reduce((t,x)=>t+x[k],0); Object.keys(G).forEach(k=>G[k]+=s(k));
-    h+=`<tr><td><details><summary style="cursor:pointer"><b>${esc(c)}</b></summary><table class="tc" style="margin:6px 0;min-width:900px"><tr class="sub"><td>Asset ID</td><td>Description</td><td>Purchased</td><td class="r">Cost (opening)</td><td class="r">Addition</td><td class="r">Disposal</td><td class="r">Dep. (opening)</td><td class="r">Charge</td><td class="r">NBV</td></tr>${L.map(x=>`<tr><td>${esc(x.a.id)}</td><td>${esc(x.a.desc)}</td><td>${amDmy(x.a.pd)||'missing'}</td><td class="r">${fmt(x.cOpen)}</td><td class="r">${fmt(x.add)}</td><td class="r">${fmt(x.dsp)}</td><td class="r">${fmt(x.dOpen)}</td><td class="r">${fmt(x.chg)}</td><td class="r">${fmt(x.nbv)}</td></tr>`).join('')}</table></details></td>
-      <td class="r">${L.length}</td><td class="r">${fmt(s('cOpen'))}</td><td class="r">${fmt(s('add'))}</td><td class="r">${fmt(s('dsp'))}</td><td class="r">${fmt(s('cEnd'))}</td><td class="r">${fmt(s('dOpen'))}</td><td class="r">${fmt(s('chg'))}</td><td class="r">${fmt(s('dEnd'))}</td><td class="r"><b>${fmt(s('nbv'))}</b></td></tr>`; });
-  h+=`<tr class="sub"><td>Grand total</td><td class="r">${order.reduce((t,c)=>t+cats[c].length,0)}</td>${['cOpen','add','dsp','cEnd','dOpen','chg','dEnd','nbv'].map(k=>`<td class="r">${fmt(G[k])}</td>`).join('')}</tr></table></div>
+  h+=`<h3 style="font-size:13.5px;margin-top:18px">Fixed asset schedule ${Y}</h3>`+amSchedHTML(Y,cats,order)+`
    <p class="sub2" style="margin-top:8px"><b>Low Value Assets bought in ${Y}</b> (expensed, not capitalised): ${lva.length} item(s), RM${fmt(lva.reduce((t,a)=>t+(+a.cost||0),0))}.</p></div>`;
   return h;
 }
@@ -5385,6 +5431,12 @@ function renderAM(){
   $('tablebox').querySelectorAll('[data-amt]').forEach(b=>b.addEventListener('click',()=>{ amTab=b.dataset.amt; store.set('consol.amTab',amTab==='add'?'reg':amTab); if(amTab!=='add') amDraft=null; amXMsg=null; renderAM(); }));
   const y=$('amYear'); if(y) y.addEventListener('change',()=>{ amYear=+y.value; store.set('consol.amYear',String(amYear)); renderAM(); });
   const x=$('amXl'); if(x) x.addEventListener('click',amDownload);
+  if(amTab==='dep'&&!amDraft){
+    $('tablebox').querySelectorAll('[data-amsv]').forEach(b=>b.addEventListener('click',()=>{ amSchV=b.dataset.amsv; store.set('consol.amSchV',amSchV); renderAM(); }));
+    $('tablebox').querySelectorAll('[data-amsc]').forEach(r=>r.addEventListener('click',()=>{ amSchCat=r.dataset.amsc; amSchV='det'; renderAM(); }));
+    const sc=$('amSchCat'); if(sc) sc.addEventListener('change',()=>{ amSchCat=sc.value; renderAM(); });
+    const sq=$('amSchQ'); if(sq) sq.addEventListener('input',()=>{ amSchQ=sq.value; if(amSchQ&&amSchV!=='det') amSchV='det'; const pos=sq.selectionStart; renderAM(); const n=$('amSchQ'); if(n){ n.focus(); try{ n.setSelectionRange(pos,pos); }catch(e){} } });
+  }
   if(amDraft){
     const D=amDraft;
     $('tablebox').querySelectorAll('[data-amd]').forEach(el=>el.addEventListener('change',()=>{ const p=el.dataset.amd.split('.');
