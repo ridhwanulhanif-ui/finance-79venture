@@ -58,6 +58,14 @@ finance checks them and saves. Saved assets, edits and disposals live in the art
 workbook rows (same Asset ID = edit of that row). **Download master data (Excel)** gives the combined register in the
 workbook's layout. On Railway the section is read-only.
 
+The **QuickBooks check** tab compares the worksheet with QuickBooks (79 Ventures) at a chosen month end: cost and
+accumulated depreciation per category (trial balance at 31 December 2025 and at the month end) and each month's
+depreciation journal (Depreciation Expense ledger). Every difference is listed as an alert, worst first, with the known
+cause where one fits (disposals not taken out, items under RM1,000 capitalised, assets marked under recognized, assets
+with no date) and the amount left unexplained. On Railway it reads QuickBooks through the server's own connection
+(`/api/qbo/report`, the one Petty Cash uses, which may now also read the Depreciation Expense ledger); on claude.ai it
+uses the viewer's QuickBooks connector.
+
 ## Petty Cash: live QuickBooks check on Railway
 
 **Petty Cash → QB vs Sheet Check** compares each holder's tab in *UPDATED PETTY CASH LISTING* with the

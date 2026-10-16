@@ -5441,15 +5441,155 @@ async function amDownload(){
   try{ await wefSave(name,amXlsx()); }catch(e){ amErr=esc((e&&e.message)||String(e)); renderAM(); }
 }
 
+// ---- QuickBooks check: QuickBooks (79 Ventures) against the worksheet worked out above ----
+// Balances at 31 Dec 2025 and at the chosen month end come from the trial balance; each month's
+// depreciation journal from the Depreciation Expense ledger. On Railway the server reads QuickBooks
+// (/api/qbo/report), on claude.ai the viewer's connector does, through the same pcRun as Petty Cash.
+const AM_QB_ACC={'Air-Conditioner':['Air-Conditioner'],'Computer and Software':['Computer, Equipment & Software'],'Furniture and Fitting':['Furniture & Fittings'],
+  'Hostel Equipment':['Hostel Furniture'],'Machinery Equipment':['Machinery Equipment'],'Motor Vehicles':['Motor Vehicles'],'Office Equipment':['Office Equipment'],
+  'Showroom':['Showroom','Showroom & Hostel','Showroom Scandi'],'Signboard':['Signboard']};
+let amQb=null, amQbBusy=false, amQbErr=null, amQbF='All';
+const amQbEnds=()=>{ const t=new Date(), out=[]; for(let m=1;m<=12;m++){ const e=new Date(AM_BASE,m,0); if(e<new Date(t.getFullYear(),t.getMonth(),1)) out.push(amIso(e)); } return out; };
+let amQbAsof=store.get('consol.amQbAsof')||'';
+async function amQbLoad(){
+  if(amQbBusy) return; amQbBusy=true; amQbErr=null; if(state.view==='am') renderAM();
+  try{
+    const C=pcConn(); if(!C) throw {code:'not_granted',message:'QuickBooks is not available in this view.'};
+    const ends=amQbEnds(); if(!ends.includes(amQbAsof)) amQbAsof=ends[ends.length-1]||AM_BASE+'-01-31';
+    const ids=mcp?await qdCompanies():{a:'a',v:'v'};
+    const tb=async d=>{ const T=await pcRun(ids.v,{report_type:'trial_balance',report_date:d,response_mode:'raw',row_page_size:500});
+      const cols=((T.meta&&T.meta.Columns&&T.meta.Columns.Column)||[]).map(c=>c.ColTitle), di=cols.indexOf('Debit'), ci=cols.indexOf('Credit'), out={};
+      T.rows.forEach(x=>{ const cd=x.row&&x.row.ColData; if(!cd||!cd[0]||!cd[0].id) return; out[String(cd[0].value||'')]=pcR2(pcNum(cd[di]&&cd[di].value)-pcNum(cd[ci]&&cd[ci].value)); });
+      return out; };
+    const [open,now,G]=await Promise.all([tb(AM_BASE-1+'-12-31'),tb(amQbAsof),
+      pcRun(ids.v,{report_type:'general_ledger',account:[{name:'Depreciation Expense'}],start_date:AM_BASE+'-01-01',end_date:amQbAsof,response_mode:'raw',row_page_size:500})]);
+    amQb={asof:amQbAsof,open,now,gl:qdParse({raw_report:{metadata:G.meta,rows:G.rows}}),at:new Date().toISOString()};
+  }catch(e){ amQbErr=MODE==='web'&&!mcp?pcWebErr(e):qdErr(e); }
+  amQbBusy=false; if(state.view==='am') renderAM();
+}
+// Subset of items whose sum comes closest to target (meet in the middle; a category has a few dozen at most).
+function amQbBest(items,target){
+  const half=arr=>{ const out=[{s:0,m:[]}]; arr.forEach(it=>{ const n=out.length; for(let i=0;i<n;i++) out.push({s:out[i].s+it.v,m:out[i].m.concat(it)}); }); return out; };
+  const k=Math.ceil(items.length/2), L=half(items.slice(0,k)), R=half(items.slice(k)).sort((a,b)=>a.s-b.s);
+  let pick={gap:Math.abs(target),m:[]};
+  L.forEach(l=>{ let lo=0,hi=R.length-1; const want=target-l.s; while(lo<hi){ const mid=(lo+hi)>>1; if(R[mid].s<want) lo=mid+1; else hi=mid; }
+    [lo-1,lo].forEach(j=>{ if(j<0||j>=R.length) return; const g=Math.abs(want-R[j].s); if(g<pick.gap-1e-9) pick={gap:g,m:l.m.concat(R[j].m)}; }); });
+  return pick;
+}
+function amQbRecon(){
+  const Q=amQb, asof=Q.asof, M=+asof.slice(5,7), end0=AM_BASE-1+'-12-31', all=amAll();
+  const bal=(tb,n)=>tb[n]||0;
+  return Object.keys(AM_QB_ACC).map(cat=>{
+    let c25=0,a25=0,cN=0,aN=0,chg=0,disp=0,under=0,nodate=0; const lva=[];
+    all.forEach(a=>{
+      const f=amFinal(a), cost=+a.cost||0;
+      if(f==='Low Value Asset'){ if((amBaseCat(a)||a.cat)===cat&&a.pd&&a.pd>=AM_BASE+'-01-01'&&a.pd<=asof) lva.push({id:a.id,v:cost}); return; }
+      if(f!==cat) return;
+      if(!a.pd){ nodate+=cost; return; }
+      const S=amSched(a,AM_BASE), pre=a.pd<AM_BASE+'-01-01', acc0=pre&&S.open!=null?cost-S.open:0, ytd=amSum(S.m.slice(0,M));
+      if(a.pd<=end0&&!(a.disp&&a.disp<=end0)){ c25+=cost; a25+=acc0; }
+      if(a.pd<=asof){ chg+=ytd; if(!(a.disp&&a.disp<=asof)){ cN+=cost; aN+=acc0+ytd; } else if(a.disp>=AM_BASE+'-01-01') disp+=cost; }
+      if(pre&&/under\s*recogni/i.test(a.rem||'')) under+=cost;
+    });
+    const N=AM_QB_ACC[cat], q=(tb,acc)=>N.reduce((s,n)=>s+bal(tb,acc?n+':Acc Depreciation':n),0);
+    const qc25=q(Q.open,0), qa25=-q(Q.open,1), qcN=q(Q.now,0), qaN=-q(Q.now,1), diff=amR(qcN-cN);
+    let fit=null;
+    for(let mask=0;mask<8;mask++){
+      if((mask&1&&!disp)||(mask&2&&!under)||(mask&4&&!nodate)) continue;
+      const rest=diff-(mask&1?disp:0)+(mask&2?under:0)-(mask&4?nodate:0), b=amQbBest(lva,rest), parts=(mask&1?1:0)+(mask&2?1:0)+(mask&4?1:0)+(b.m.length?1:0);
+      if(!fit||b.gap<fit.gap-0.005||(Math.abs(b.gap-fit.gap)<=0.005&&parts<fit.parts)) fit={gap:b.gap,parts,mask,lva:b.m,left:amR(rest-b.m.reduce((s,x)=>s+x.v,0))};
+    }
+    const why=[];
+    if(Math.abs(diff)>=1){
+      if(fit.mask&1) why.push(`${AM_BASE} disposals not taken out in QuickBooks RM${fmt(disp)}`);
+      if(fit.mask&2) why.push(`assets marked "Under recognized ${AM_BASE-1}" not in QuickBooks RM${fmt(under)}`);
+      if(fit.mask&4) why.push(`assets with no purchase date (in QuickBooks, left out of the worksheet) RM${fmt(nodate)}`);
+      if(fit.lva.length) why.push(`items under RM1,000 capitalised in QuickBooks instead of expensed: ${fit.lva.map(x=>x.id).join(', ')} (RM${fmt(fit.lva.reduce((s,x)=>s+x.v,0))})`);
+    }
+    return {cat,acc:N.join(' + '),wc25:amR(c25),qc25:amR(qc25),wa25:amR(a25),qa25:amR(qa25),wc:amR(cN),qc:amR(qcN),dc:diff,wa:amR(aN),qa:amR(qaN),da:amR(qaN-aN),
+      wch:amR(chg),qch:amR(qaN-qa25),dch:amR(qaN-qa25-chg),da25:amR(qa25-a25),why:why.join('; '),left:Math.abs(diff)<1?0:fit.left};
+  });
+}
+function amQbMonths(){
+  const Q=amQb, M=+Q.asof.slice(5,7), all=amAll().filter(a=>amFinal(a)!=='Low Value Asset'&&a.pd);
+  const W=[['jan'],['feb'],['mar'],['apr'],['may','mei'],['jun'],['jul'],['aug','ogo'],['sep'],['oct','okt'],['nov'],['dec','dis']], out=[];
+  for(let i=0;i<M;i++){
+    const mm=AM_BASE+'-'+String(i+1).padStart(2,'0'), ws=all.reduce((s,a)=>s+(amSched(a,AM_BASE).m[i]||0),0), L=Q.gl.filter(g=>g.d.startsWith(mm)), qb=L.reduce((s,g)=>s+g.amt,0);
+    const memo=L.filter(g=>{ const t=String(g.memo||'').toLowerCase(), hit=W.findIndex(w=>w.some(x=>new RegExp('\\b'+x).test(t))); return hit>=0&&hit!==i; });
+    out.push({mm,label:AM_MON[i]+' '+AM_BASE,ws:amR(ws),qb:amR(qb),diff:amR(qb-ws),n:L.length,nos:L.map(g=>g.num).join(', '),memo:memo.map(g=>`JE ${g.num} dated ${amDmy(g.d)} says "${g.memo}"`).join('; ')});
+  }
+  return out;
+}
+function amQbAlerts(R,Mo){
+  const Q=amQb, out=[], f=v=>(v<0?'-RM':'RM')+fmt(Math.abs(v)), add=(sev,area,item,detail,action,amt)=>out.push({sev,area,item,detail,action,amt:amt||0});
+  const T=k=>R.reduce((s,r)=>s+r[k],0), yd=amR(T('qch')-T('wch'));
+  if(Math.abs(yd)>=1) add(Math.abs(yd)>=1000?'High':'Medium','Charge','Depreciation to '+amDmy(Q.asof),`QuickBooks ${f(T('qch'))}, worksheet ${f(T('wch'))}: difference ${f(yd)}.`,'Work through the category and monthly differences below.',yd);
+  R.forEach(r=>{
+    if(Math.abs(r.dc)>=1) add(Math.abs(r.left)>=1?'High':'Medium','Cost',r.cat,`Cost at ${amDmy(Q.asof)}: QuickBooks ${f(r.qc)}, worksheet ${f(r.wc)}, difference ${f(r.dc)}.`+(r.why?' Explained by: '+r.why+'.':'')+(Math.abs(r.left)>=1?` Not explained: ${f(r.left)}.`:''),
+      Math.abs(r.left)>=1?'Trace the unexplained amount in the QuickBooks ledger for '+r.acc+'.':'Post the adjustment in QuickBooks (expense the items under RM1,000, take out the disposals) or add the missing assets.',r.dc);
+    else if(Math.abs(r.dc)>=0.01) add('Low','Cost',r.cat,`Cost differs by ${f(r.dc)} (rounding).`,'No action unless it grows.',r.dc);
+    if(Math.abs(r.da25)>=1) add(Math.abs(r.da25)>=5000?'High':'Medium','Acc. depreciation',r.cat,`At 31 Dec ${AM_BASE-1}: QuickBooks ${f(r.qa25)}, worksheet ${f(r.wa25)} (the worksheet's opening figure is an estimate), difference ${f(r.da25)}.`,'Agree the opening NBV to the audited balances and type them into column P of the Asset Register.',r.da25);
+    if(Math.abs(r.dch)>=1) add(Math.abs(r.dch)>=1000?'High':'Medium','Charge',r.cat,`Charged ${AM_BASE} to ${amDmy(Q.asof)}: QuickBooks ${f(r.qch)}, worksheet ${f(r.wch)}, difference ${f(r.dch)}.`,'Check the depreciation journal lines for '+r.acc+'.',r.dch);
+  });
+  Object.keys(Q.now).filter(n=>/:Acc Depreciation$/i.test(n)).forEach(n=>{ const mv=Q.now[n]-(Q.open[n]||0), p=n.replace(/:Acc Depreciation$/i,''), cost=Q.now[p]||0;
+    if(Math.abs(mv)<0.005&&cost>0) add('High','Charge',n,`No depreciation posted to this account since 1 Jan ${AM_BASE} (balance ${f(-Q.now[n])}), while the asset account holds ${f(cost)}.`,'Add this account to the monthly depreciation journal.',0); });
+  const mapped=new Set(Object.values(AM_QB_ACC).flat());
+  Object.keys(Q.now).filter(n=>/^Showroom/i.test(n)&&!n.includes(':')&&!mapped.has(n)&&Math.abs(Q.now[n])>=0.01)
+    .forEach(n=>add('High','Not in master data',n,`QuickBooks holds ${f(Q.now[n])} in ${n}, which has no asset in the Asset Register.`,'Add the asset to the Asset Register so it is depreciated, or reclassify it in QuickBooks.',Q.now[n]));
+  Mo.forEach(m=>{
+    if(!m.n) add('High','Journal',m.label,`No depreciation journal posted in QuickBooks for ${m.label} (worksheet charge ${f(m.ws)}).`,'Post the month’s depreciation journal.',m.ws);
+    else if(Math.abs(m.diff)>=1) add(Math.abs(m.diff)>=1000?'High':'Medium','Journal',m.label,`QuickBooks journal ${m.nos}: ${f(m.qb)}; worksheet ${f(m.ws)}; difference ${f(m.diff)}.`,'Agree the journal to the worksheet’s monthly charge.',m.diff);
+    if(m.n>1) add('Medium','Journal',m.label,`${m.n} depreciation journals in one month (${m.nos}).`,'Check for a duplicate.',0);
+    if(m.memo) add('Low','Journal',m.label,`Memo names another month: ${m.memo}.`,'Correct the memo.',0);
+  });
+  const nd=amAll().filter(a=>!a.pd&&!a.disp);
+  if(nd.length) add('Medium','Master data',nd.length+' assets',`No purchase date, so the worksheet does not depreciate them: ${nd.map(a=>a.id).join(', ')}.`,'Enter the purchase dates in the Asset Register.',0);
+  const rk={High:0,Medium:1,Low:2}; return out.sort((a,b)=>rk[a.sev]-rk[b.sev]||Math.abs(b.amt)-Math.abs(a.amt));
+}
+function renderAMQb(){
+  const ends=amQbEnds(); if(!ends.includes(amQbAsof)) amQbAsof=ends[ends.length-1]||'';
+  let h=`<div class="stmt"><h3>QUICKBOOKS VS WORKSHEET</h3>
+   <p class="sub2">79 Ventures Sdn Bhd. QuickBooks balances at 31 Dec ${AM_BASE-1} and at the month end below, and each month's depreciation journal, against the worksheet worked out from the master data. ${MODE==='web'&&!mcp?'Read live from QuickBooks by the server.':'Read live through your QuickBooks connector.'}</p>
+   <div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><label>Balances at <select id="amQbAsof">${ends.map(d=>`<option value="${d}"${d===amQbAsof?' selected':''}>${amDmy(d)}</option>`).join('')}</select></label>
+   <button id="amQbGo" class="primary"${amQbBusy?' disabled':''}>${amQbBusy?'Reading QuickBooks…':amQb?'Check again':'Check QuickBooks now'}</button>${amQb?`<span class="hint">Read ${dt(Date.parse(amQb.at))}</span>`:''}</div>`;
+  if(amQbErr) h+=`<div class="msg err" style="margin:8px 0">${amQbErr}</div>`;
+  if(!amQb||amQb.asof!==amQbAsof){ h+=`<div class="empty">${amQbBusy?'Reading the trial balance and the depreciation ledger…':'Press <b>Check QuickBooks now</b> to compare.'}</div></div>`; return h; }
+  const R=amQbRecon(), Mo=amQbMonths(), A=amQbAlerts(R,Mo), cnt=s=>A.filter(a=>a.sev===s).length, F=x=>Math.abs(x)<0.005?'–':fmt(x);
+  const yd=amR(R.reduce((s,r)=>s+r.qch-r.wch,0)), dc=v=>`<td class="${Math.abs(v)<1?'good':'bad'}">${Math.abs(v)<0.005?'✓':fmt(v)}</td>`;
+  h+=`<div class="bekpi"><div><span>High: fix first</span><b class="zb">${cnt('High')}</b></div><div><span>Medium</span><b class="zw">${cnt('Medium')}</b></div><div><span>Low</span><b>${cnt('Low')}</b></div>
+    <div><span>Depreciation to ${amDmy(amQb.asof)}, QuickBooks less worksheet</span><b class="${Math.abs(yd)<1?'zg':'zb'}">RM${fmt(yd)}</b></div></div>`;
+  if(!A.length) h+=`<div class="msg ok" style="margin:8px 0">✓ QuickBooks and the worksheet tally at ${amDmy(amQb.asof)}.</div>`;
+  const ST={High:['■ High','zb'],Medium:['▲ Medium','zw'],Low:['● Low','']};
+  h+=`<div class="seg" role="group" aria-label="Risk" style="margin:8px 0;display:flex;flex-wrap:wrap;width:fit-content;max-width:100%">${['All','High','Medium','Low'].map(k=>`<button data-amqf="${k}" aria-pressed="${amQbF===k}">${k}</button>`).join('')}</div>
+   <div style="overflow-x:auto"><table class="tc" style="min-width:900px"><tr class="sub"><td>Risk</td><td>Area</td><td>Item</td><td>What does not tally</td><td>Action</td></tr>
+   ${A.filter(a=>amQbF==='All'||a.sev===amQbF).map(a=>`<tr><td class="${ST[a.sev][1]}" style="font-weight:700;white-space:nowrap">${ST[a.sev][0]}</td><td style="white-space:nowrap">${esc(a.area)}</td><td><b>${esc(a.item)}</b></td><td>${esc(a.detail)}</td><td>${esc(a.action)}</td></tr>`).join('')}</table></div></div>`;
+  h+=`<div class="stmt"><h3 style="font-size:13.5px">By category at ${amDmy(amQb.asof)}</h3><div style="overflow-x:auto"><table class="fas" style="min-width:1100px"><thead>
+    <tr class="grp"><th></th><th colspan="4" class="gs">COST (RM)</th><th colspan="3" class="gs">ACCUMULATED DEPRECIATION (RM)</th><th colspan="2" class="gs">CHARGE ${AM_BASE} (RM)</th></tr>
+    <tr><th>Category</th><th class="gs">QuickBooks</th><th>Worksheet</th><th>Difference</th><th>Unexplained</th><th class="gs">QuickBooks</th><th>Worksheet</th><th>Difference</th><th class="gs">QuickBooks</th><th>Worksheet</th></tr></thead><tbody>
+    ${R.map(r=>`<tr><td><b>${esc(r.cat)}</b><span class="note">${esc(r.acc)}</span></td><td class="gs">${F(r.qc)}</td><td>${F(r.wc)}</td>${dc(r.dc)}${dc(r.left)}<td class="gs">${F(r.qa)}</td><td>${F(r.wa)}</td>${dc(r.da)}<td class="gs">${F(r.qch)}</td><td>${F(r.wch)}</td></tr>`).join('')}
+    </tbody><tfoot><tr class="gt"><td>Total</td>${['qc','wc','dc','left','qa','wa','da','qch','wch'].map((k,i)=>`<td class="${[0,4,7].includes(i)?'gs':''}">${fmt(R.reduce((s,r)=>s+r[k],0))}</td>`).join('')}</tr></tfoot></table></div>
+   <h3 style="font-size:13.5px;margin-top:16px">Depreciation journal by month</h3><div style="overflow-x:auto"><table class="fas" style="min-width:640px;max-width:900px"><thead><tr><th>Month</th><th class="gs">Journal</th><th class="gs">QuickBooks</th><th>Worksheet</th><th>Difference</th></tr></thead><tbody>
+    ${Mo.map(m=>`<tr><td>${m.label}</td><td class="gs${m.n?'':' bad'}">${m.n?esc(m.nos):'none'}</td><td class="gs">${fmt(m.qb)}</td><td>${fmt(m.ws)}</td>${dc(m.diff)}</tr>`).join('')}
+    </tbody><tfoot><tr class="gt"><td>Total</td><td class="gs"></td><td class="gs">${fmt(Mo.reduce((s,m)=>s+m.qb,0))}</td><td>${fmt(Mo.reduce((s,m)=>s+m.ws,0))}</td><td>${fmt(Mo.reduce((s,m)=>s+m.diff,0))}</td></tr></tfoot></table></div>
+   <p class="sub2" style="margin-top:8px">A cost difference is matched against the known causes (disposals not taken out, assets marked under recognized, assets with no date, items under RM1,000 capitalised); what they cannot account for is shown as Unexplained. The worksheet's opening accumulated depreciation is an estimate until the audited balances are entered.</p></div>`;
+  return h;
+}
+
 function renderAM(){
   if(state.view!=='am') return;
-  const tabs=`<div class="seg" role="group" aria-label="Asset Management" style="margin:14px 18px 0">${[['reg','Asset Register'],['dep','Depreciation'],['add','New Purchase']].map(([k,l])=>`<button data-amt="${k}" aria-pressed="${(amDraft?'add':amTab)===k}">${l}</button>`).join('')}</div>`;
+  const tabs=`<div class="seg" role="group" aria-label="Asset Management" style="margin:14px 18px 0">${[['reg','Asset Register'],['dep','Depreciation'],['qb','QuickBooks check'],['add','New Purchase']].map(([k,l])=>`<button data-amt="${k}" aria-pressed="${(amDraft?'add':amTab)===k}">${l}</button>`).join('')}</div>`;
   amDbInit();
   if(amTab==='add'&&!amDraft) amNewDraft();
-  $('tablebox').innerHTML=tabs+(amDraft?renderAMDraft():amTab==='dep'?renderAMDep():renderAMReg());
+  $('tablebox').innerHTML=tabs+(amDraft?renderAMDraft():amTab==='dep'?renderAMDep():amTab==='qb'?renderAMQb():renderAMReg());
   $('tablebox').querySelectorAll('[data-amt]').forEach(b=>b.addEventListener('click',()=>{ amTab=b.dataset.amt; store.set('consol.amTab',amTab==='add'?'reg':amTab); if(amTab!=='add') amDraft=null; amXMsg=null; renderAM(); }));
   const y=$('amYear'); if(y) y.addEventListener('change',()=>{ amYear=+y.value; store.set('consol.amYear',String(amYear)); renderAM(); });
   const x=$('amXl'); if(x) x.addEventListener('click',amDownload);
+  if(amTab==='qb'&&!amDraft){
+    $('amQbGo').addEventListener('click',()=>amQbLoad());
+    $('amQbAsof').addEventListener('change',ev=>{ amQbAsof=ev.target.value; store.set('consol.amQbAsof',amQbAsof); amQbLoad(); });
+    $('tablebox').querySelectorAll('[data-amqf]').forEach(b=>b.addEventListener('click',()=>{ amQbF=b.dataset.amqf; renderAM(); }));
+    if(!amQb&&!amQbBusy&&!amQbErr&&pcConn()) setTimeout(()=>amQbLoad(),0);
+  }
   if(amTab==='dep'&&!amDraft){
     $('tablebox').querySelectorAll('[data-amsv]').forEach(b=>b.addEventListener('click',()=>{ amSchV=b.dataset.amsv; store.set('consol.amSchV',amSchV); renderAM(); }));
     $('tablebox').querySelectorAll('[data-amsc]').forEach(r=>r.addEventListener('click',()=>{ amSchCat=r.dataset.amsc; amSchV='det'; renderAM(); }));
