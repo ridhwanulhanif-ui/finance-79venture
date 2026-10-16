@@ -58,6 +58,14 @@ finance checks them and saves. Saved assets, edits and disposals live in the art
 workbook rows (same Asset ID = edit of that row). **Download master data (Excel)** gives the combined register in the
 workbook's layout. On Railway the section is read-only.
 
+### Financing Profile
+
+On claude.ai the Financing Profile reads QuickBooks live through the viewer's connector. Railway has no
+QuickBooks connection, so there the page shows it from an imported Excel file instead: **Import Excel…** on the
+Financing Profile page. Make the file with **Export Excel** on claude.ai, or have Claude prepare it from
+QuickBooks with the prompt in [`docs/financing-profile-prompt.md`](docs/financing-profile-prompt.md). An
+imported file is kept in that browser's local storage only.
+
 ## Deploy the Apps Script web app
 
 Deploy from a **`@79ventures.biz` account** — a personal gmail account has no Workspace domain, so the domain restriction
