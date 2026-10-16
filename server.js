@@ -3,6 +3,7 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const { createAuth, safeNext, loginPage } = require("./auth");
+const { createQbo } = require("./qbo");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -31,6 +32,8 @@ const WEF_ID = process.env.WEF_FILE_ID || "1X5wNONJuO2zK0hijpqpXqMpL7QOhVeRT72hW
 const ASSETS_ID = process.env.ASSETS_FILE_ID || "1L3S_2owmKweiF0ctIf9zgW8fW1KERoi3";
 // Responses of the Shell card holder Google Form, read by the Fuel Card Log.
 const FUEL_FORM_ID = process.env.FUEL_FORM_FILE_ID || "1c257rqN7p5cCS_G-r3s5_1ekheFlzIN_dyMfZT1AO6Q";
+// UPDATED PETTY CASH LISTING: each holder's tab, checked against QuickBooks in the Petty Cash section.
+const PC_ID = process.env.PETTY_CASH_FILE_ID || "175L0xWlKOLnWXiNzZOAQD_Gjsgk5etouT8ESp5i3Jvs";
 const CACHE_MS = 60_000;
 const caches = new Map();
 
@@ -69,7 +72,7 @@ async function fetchWorkbook(id) {
 // key picks the id from the table above, never from the request, so a caller cannot steer the
 // fetch at some other Drive file.
 async function serveWorkbook(res, key) {
-  const id = key === "consol" ? FILE_ID : key === "fc" ? FC_ID : key === "wef" ? WEF_ID : key === "am" ? ASSETS_ID : key === "fuel" ? FUEL_FORM_ID : CF_IDS[key];
+  const id = key === "consol" ? FILE_ID : key === "fc" ? FC_ID : key === "wef" ? WEF_ID : key === "am" ? ASSETS_ID : key === "fuel" ? FUEL_FORM_ID : key === "pc" ? PC_ID : CF_IDS[key];
   if (!id) {
     res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "unknown_workbook" }));
@@ -112,6 +115,7 @@ async function serveWorkbook(res, key) {
 // Only these collections exist, and only for a signed-in user: the site is public until AUTH_USERS is set.
 const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
 const STORE_FILE = path.join(DATA_DIR, "store.json");
+const qbo = createQbo({ dataDir: DATA_DIR });
 const STORE_COLS = new Set(["admtasks", "admdone", "fuelcards", "fuelmoves", "fuelcfg"]);
 let store = null;
 function loadStore() {
@@ -260,6 +264,40 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  // QuickBooks: connect each company once, then the Petty Cash check reads it live.
+  if (urlPath === "/qbo/connect") {
+    try { res.writeHead(302, { Location: qbo.connectUrl(url.searchParams.get("co"), user), "Cache-Control": "no-store" }).end(); }
+    catch (err) { res.writeHead(err.code === "not_configured" ? 503 : 400, { "Content-Type": "text/plain; charset=utf-8" }).end(err.message); }
+    return;
+  }
+  if (urlPath === "/qbo/callback") {
+    try {
+      const r = await qbo.callback(url.searchParams, user);
+      console.log("QuickBooks connected:", r.co, r.realm, "by", user || "(no sign-in)");
+      res.writeHead(303, { Location: "/?qbo=" + r.co, "Cache-Control": "no-store" }).end();
+    } catch (err) {
+      console.error("QuickBooks connect failed:", err.code, err.message);
+      res.writeHead(400, { "Content-Type": "text/plain; charset=utf-8" }).end("QuickBooks was not connected: " + err.message);
+    }
+    return;
+  }
+  if (urlPath === "/api/qbo/status") {
+    res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
+    res.end(JSON.stringify(qbo.status()));
+    return;
+  }
+  if (urlPath === "/api/qbo/report" && req.method === "POST") {
+    const send = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }); res.end(JSON.stringify(obj)); };
+    const body = await readJson(req);
+    if (!body) { send(400, { error: { code: "bad_request", message: "Bad request." } }); return; }
+    try { send(200, await qbo.report(body.co, body)); }
+    catch (err) {
+      console.error("QuickBooks report failed:", err.code || "", err.message);
+      send(err.code === "bad_request" ? 400 : err.code === "not_connected" ? 409 : 502, { error: { code: err.code || "qbo_error", message: err.message } });
+    }
+    return;
+  }
+
   if (urlPath.startsWith("/api/store/")) {
     handleStore(req, res, urlPath, user).catch((err) => {
       console.error("store failed:", (err && err.message) || err);
@@ -274,6 +312,7 @@ const server = http.createServer(async (req, res) => {
     "/api/cashflow-arabina.xlsx": "a",
     "/api/forecast.xlsx": "fc",
     "/api/explanation-forms.xlsx": "wef",
+    "/api/petty-cash.xlsx": "pc",
     "/api/assets.xlsx": "am",
     "/api/fuel-form.xlsx": "fuel",
   };

@@ -58,6 +58,29 @@ finance checks them and saves. Saved assets, edits and disposals live in the art
 workbook rows (same Asset ID = edit of that row). **Download master data (Excel)** gives the combined register in the
 workbook's layout. On Railway the section is read-only.
 
+## Petty Cash: live QuickBooks check on Railway
+
+**Petty Cash → QB vs Sheet Check** compares each holder's tab in *UPDATED PETTY CASH LISTING* with the
+`Petty Cash - …` accounts in QuickBooks Arabina and 79V, and re-reads both every minute while it is open. On
+claude.ai it uses the viewer's connectors. On Railway the server reads them itself:
+
+- the sheet through `/api/petty-cash.xlsx` (`PETTY_CASH_FILE_ID`; the file must be shared "anyone with the link");
+- QuickBooks through `/api/qbo/report` (`qbo.js`), which only serves the trial balance and the general ledger of
+  `Petty Cash…` accounts, cached for 50 seconds.
+
+One-time setup for QuickBooks:
+
+1. At developer.intuit.com create an app (QuickBooks Online and Payments, scope *Accounting*) and get its
+   **production** keys. Add the redirect URI `https://<your Railway domain>/qbo/callback`.
+2. In Railway Variables set `QBO_CLIENT_ID`, `QBO_CLIENT_SECRET` and `QBO_REDIRECT_URI` (that same URL). Put
+   `DATA_DIR` on a Railway volume (e.g. mount a volume at `/data` and set `DATA_DIR=/data`) so the QuickBooks
+   tokens survive a redeploy.
+3. Signed in to the site, open `/qbo/connect?co=a` and pick **Arabina Eco Tiny Homes**, then `/qbo/connect?co=v`
+   and pick **79 Ventures**. The server refuses the wrong company. `/api/qbo/status` shows what is connected.
+
+Tokens are stored in `DATA_DIR/qbo-tokens.json` and refreshed automatically; if Intuit revokes them (about 100
+days unused, or a password change), the section shows the reconnect links again.
+
 ## Admin and Fuel Card Log
 
 The **Admin** section holds the admin team's recurring tasks (payroll, statutory payments, tax, bank, filings) and the
