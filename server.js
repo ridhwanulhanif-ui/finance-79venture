@@ -104,6 +104,53 @@ async function serveWorkbook(res, key) {
   }
 }
 
+
+// Shared records for the Admin tasks and the Fuel Card Log: on claude.ai these live in the artifact's
+// database, here in one JSON file. Put DATA_DIR on a Railway volume, or every deploy starts it empty.
+// Only these collections exist, and only for a signed-in user: the site is public until AUTH_USERS is set.
+const DATA_DIR = process.env.DATA_DIR || path.join(__dirname, "data");
+const STORE_FILE = path.join(DATA_DIR, "store.json");
+const STORE_COLS = new Set(["admtasks", "admdone", "fuelcards", "fuelmoves", "fuelcfg"]);
+let store = null;
+function loadStore() {
+  if (store) return store;
+  try { store = JSON.parse(fs.readFileSync(STORE_FILE, "utf8")); } catch { store = {}; }
+  return store;
+}
+function saveStore() {
+  fs.mkdirSync(DATA_DIR, { recursive: true });
+  const tmp = STORE_FILE + ".tmp";
+  fs.writeFileSync(tmp, JSON.stringify(store));
+  fs.renameSync(tmp, STORE_FILE);
+}
+function readJson(req, limit = 64 * 1024) {
+  return new Promise((resolve) => {
+    let body = "", over = false;
+    req.on("data", (c) => { if (over) return; body += c; if (body.length > limit) { over = true; resolve(undefined); } });
+    req.on("end", () => { if (over) return; try { const v = JSON.parse(body || "{}"); resolve(v && typeof v === "object" && !Array.isArray(v) ? v : undefined); } catch { resolve(undefined); } });
+    req.on("error", () => resolve(undefined));
+  });
+}
+async function handleStore(req, res, urlPath, user) {
+  const send = (code, obj) => { res.writeHead(code, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" }); res.end(JSON.stringify(obj)); };
+  if (!auth.enabled) { send(403, { error: "sign_in_not_configured" }); return; }
+  const m = /^\/api\/store\/([a-z]+)(?:\/([A-Za-z0-9_\-.~:@+]{1,200}))?$/.exec(urlPath);
+  if (!m || !STORE_COLS.has(m[1])) { send(404, { error: "unknown_collection" }); return; }
+  const [, col, id] = m, S = loadStore(), C = (S[col] = S[col] || {});
+  if (req.method === "GET" && !id) { send(200, { docs: Object.entries(C).map(([k, v]) => ({ id: k, data: v })) }); return; }
+  if (req.method === "GET") { send(C[id] ? 200 : 404, C[id] ? { id, data: C[id] } : { error: "not_found" }); return; }
+  if (!id) { send(405, { error: "method" }); return; }
+  if (req.method === "DELETE") { delete C[id]; saveStore(); send(200, { ok: true }); return; }
+  if (req.method !== "PUT" && req.method !== "PATCH") { send(405, { error: "method" }); return; }
+  const body = await readJson(req);
+  if (!body) { send(400, { error: "bad_body" }); return; }
+  if (Object.keys(C).length >= 20000 && !C[id]) { send(507, { error: "store_full" }); return; }
+  C[id] = req.method === "PATCH" ? { ...(C[id] || {}), ...body } : body;
+  saveStore();
+  console.log(`store ${req.method} ${col}/${id} by ${user}`);
+  send(200, { ok: true });
+}
+
 const TYPES = {
   ".html": "text/html; charset=utf-8",
   ".css": "text/css; charset=utf-8",
@@ -208,6 +255,14 @@ const server = http.createServer(async (req, res) => {
   if (urlPath === "/api/me") {
     res.writeHead(200, { "Content-Type": "application/json; charset=utf-8", "Cache-Control": "no-store" });
     res.end(JSON.stringify({ user, auth: auth.enabled }));
+    return;
+  }
+
+  if (urlPath.startsWith("/api/store/")) {
+    handleStore(req, res, urlPath, user).catch((err) => {
+      console.error("store failed:", (err && err.message) || err);
+      if (!res.headersSent) { res.writeHead(500, { "Content-Type": "application/json; charset=utf-8" }); res.end(JSON.stringify({ error: "store_failed" })); }
+    });
     return;
   }
 

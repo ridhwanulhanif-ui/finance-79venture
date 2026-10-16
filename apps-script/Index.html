@@ -307,7 +307,7 @@ table.cs td.num{min-width:70px}
 <!-- Side menu: every view, grouped as in the View list, under the BOD Review heading. -->
 <nav class="snav" id="snav" aria-label="Views">
   <div class="snav-top"><div><b>Finance</b><span>79 Ventures &amp; Arabina</span></div><button type="button" id="snavFold" title="Hide menu" aria-label="Hide menu">&laquo;</button></div>
-  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button><button type="button" role="tab" data-mod="fp">Financing Profile</button></div>
+  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button><button type="button" role="tab" data-mod="fp">Financing Profile</button><button type="button" role="tab" data-mod="ad">Admin</button></div>
   <div class="snav-q" id="snavQ"></div>
   <div class="snav-list" id="snavList"></div>
 </nav>
@@ -383,6 +383,10 @@ table.cs td.num{min-width:70px}
         <optgroup label="Financing Profile" data-mod="fp">
           <option value="fp">Financing Profile</option>
         </optgroup>
+        <optgroup label="Admin" data-mod="ad">
+          <option value="ad">Admin Tasks</option>
+          <option value="sc">Fuel Card Log</option>
+        </optgroup>
       </select>
     </label>
     <div class="vsearch"><input type="search" id="viewQ" placeholder="Search views… e.g. tax, BS, zakat" autocomplete="off" aria-label="Search views" aria-controls="viewQl"><div id="viewQl" class="vsl" role="listbox" hidden></div></div>
@@ -392,6 +396,8 @@ table.cs td.num{min-width:70px}
       <button data-view="pc" aria-pressed="false">Petty Cash</button>
       <button data-view="am" aria-pressed="false">Asset Management</button>
       <button data-view="fp" aria-pressed="false">Financing Profile</button>
+      <button data-view="ad" aria-pressed="false">Admin Tasks</button>
+      <button data-view="sc" aria-pressed="false">Fuel Card Log</button>
       <button data-view="ent" aria-pressed="false">Consol by entity</button>
       <button data-view="con" aria-pressed="false">Consol only</button>
       <button data-view="v" aria-pressed="false">P&amp;L 79V</button>
@@ -3117,7 +3123,7 @@ function renderEq(){
   // The summary stays on every view: the period's result and the position behind it are
   // context for whatever is being looked at, not a feature of the P&L views alone.
   // The board page answers its own questions; the dense bands would sit on top of them.
-  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am'||state.view==='fp';
+  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc';
   // The bands can be folded away on the detail views so the table starts at the top; the
   // homepage is the bands themselves, so they always show there.
   { let off=false; try{ off=store.get('consol.eqhide')==='1'; }catch(e){}
@@ -4596,7 +4602,11 @@ function wrWireDraft(){
 // and when. Submitting raises the alert here (badge and banner for everyone who opens the page) and,
 // when recipients are set, emails them from the submitter's own Gmail.
 let userRef=null, wrNames={}, wrCfg=null, wrFlowErr=null, wrBusyFlow=false;
-async function wrUserInit(){ if(userRef!==null) return userRef; try{ userRef=await claude.use('user'); }catch(e){ userRef=false; } return userRef; }
+async function wrUserInit(){ if(userRef!==null) return userRef; try{ userRef=await claude.use('user'); }catch(e){ userRef=false; }
+  // Railway: the signed-in account name stands in for the claude.ai profile.
+  if(!userRef&&/^https?:$/.test(location.protocol)){ try{ const me=await (await fetch('/api/me',{cache:'no-store'})).json();
+    if(me&&me.user) userRef={id:async()=>me.user,profiles:async ids=>Object.fromEntries(ids.map(i=>[i,{name:i}]))}; }catch(e){} }
+  return userRef; }
 async function wrResolveNames(ids){
   const u=await wrUserInit(); const need=ids.filter(x=>x&&!(x in wrNames)); if(!u||!need.length) return;
   try{ const ps=await u.profiles(need); need.forEach(id=>{ wrNames[id]=(ps[id]&&ps[id].name)||'User'; }); if(state.view==='pc'&&pcTab==='wr'&&!wrDraft) renderPC(); }catch(e){}
@@ -5356,6 +5366,8 @@ function renderTable(){
   if(state.view==='am'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     if(!amTried&&(mcp||MODE==='web')) setTimeout(amLoad,0); return renderAM(); }
   if(state.view==='fp'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderFP(); }
+  if(state.view==='ad'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderAD(); }
+  if(state.view==='sc'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderSC(); }
   const SECT={pc:['PETTY CASH','Petty cash automation'],am:['ASSET MANAGEMENT','Fixed asset register and depreciation']};
   if(SECT[state.view]){ const [t,d]=SECT[state.view]; if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     $('tablebox').innerHTML=`<div class="stmt"><h3>${t}</h3><p class="sub2">This section is being set up. ${d} will live here, separate from the BOD Review views.</p></div>`; return; }
@@ -5506,13 +5518,13 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view; navSync();
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   // Petty Cash does not need the P&L workbook, so it still opens while that is loading or has failed.
-  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc'||state.view==='am'||state.view==='fp') renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc','am','fp'].includes(sv)){ state.view=sv;
+  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc') renderTable(); }));
+(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc','am','fp','ad','sc'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 // ===== Financing Profile: read live from QuickBooks through the viewer's own connector =====
 // What a bank asks for first: two years of results, the position, existing facilities and what
 // they cost a month, debt service cover, and how much more the company could carry.
-const FP={e:'v',asAt:null,data:{},busy:false,err:null,prog:''};
+const FP={e:'v',asAt:null,data:{},busy:false,err:null,prog:'',use:{},useBusy:false,useCalls:0,useProg:'',useSel:null};
 const fpNum=v=>{ if(v==null||v==='') return null; const n=parseFloat(String(v).replace(/,/g,'')); return isFinite(n)?n:null; };
 async function fpRun(e,input,label){
   const ids=await qdCompanies(), cid=ids[e]; let rows=[], meta=null, cursor=null, pages=0;
@@ -5536,6 +5548,197 @@ const fpKids=(R,p)=>R.rows.filter(x=>x.path.startsWith(p+'/Rows/Row/')&&!x.path.
 const fpSum=(R,re,i,kind)=>R.rows.filter(x=>(!kind||x.kind===kind)&&re.test(x.label)).reduce((a,x)=>a+(x.v[i]||0),0);
 const fpGrp=(R,g,i)=>{ const x=R.rows.find(r=>r.group===g&&r.kind==='s'); return x?(x.v[i]||0):0; };
 const fpSlab=(R,re,i)=>{ const x=R.rows.find(r=>r.kind==='s'&&re.test(r.slabel)); return x?(x.v[i]||0):0; };
+async function fpGL(e,refs,from,to){
+  const ids=await qdCompanies(), cid=ids[e]; let rows=[], meta=null, cursor=null, pages=0;
+  for(;;){
+    const inp=cursor?{company_id:cid,cursor}:{company_id:cid,report_type:'general_ledger',account:refs,start_date:from,end_date:to,
+      columns:['tx_date','txn_type','doc_num','name','memo','split_acc','subt_nat_amount'],response_mode:'raw',row_page_size:500};
+    const r=await mcp.callTool(QBS,'run_report',inp,{cache:false}); const p=payloadOf(r)||{}, rr=p.raw_report;
+    if(!rr) throw {code:'tool_error',message:'QuickBooks returned no ledger.'};
+    if(!meta) meta=rr.metadata; rows=rows.concat(rr.rows||[]); pages++; FP.prog='Financing ledger'+(pages>1?' (page '+pages+')':''); fpStatus();
+    if(p.continuation_cursor&&pages<40) cursor=p.continuation_cursor; else break; }
+  const keys=((meta&&meta.Columns&&meta.Columns.Column)||[]).map(c=>((c.MetaData||[]).find(m=>m.Name==='ColKey')||{}).Value);
+  const sec={}, out=[];
+  rows.forEach(x=>{ const r=x.row||{};
+    if(r.Header&&r.Header.ColData){ sec[x.path]=String(r.Header.ColData[0].value||''); return; }
+    const cd=r.ColData; if(!cd) return; const v=k=>{ const i=keys.indexOf(k); return i>=0&&cd[i]?cd[i]:{}; };
+    const d=String(v('tx_date').value||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    // the account a line belongs to, and the top-level account above it
+    const chain=[]; let pp=x.path; while(/\/Rows\/Row\/\d+$/.test(pp)){ pp=pp.replace(/\/Rows\/Row\/\d+$/,''); if(sec[pp]) chain.unshift(sec[pp]); }
+    out.push({d,typ:String(v('txn_type').value||''),tid:String(v('txn_type').id||''),num:String(v('doc_num').value||''),name:String(v('name').value||''),
+      memo:String(v('memo').value||''),split:String(v('split_acc').value||''),amt:parseFloat(v('subt_nat_amount').value)||0,acct:chain[chain.length-1]||'',top:chain[0]||''}); });
+  return out;
+}
+// One line per lender: the money received (a loan's principal is the amount booked less the profit
+// booked with it to "Interest Payable"), what has been paid back, and what is still owed.
+function fpFunders(D,C){
+  if(!D.gl) return null; const L=new Map();
+  D.gl.forEach(t=>{ const inv=/^Investor Financing$/i.test(t.top), acct=inv?t.acct:t.top; if(inv&&acct===t.top) return;
+    const k=acct; if(!L.has(k)) L.set(k,{acct,inv,tx:[],names:{}}); const o=L.get(k); o.tx.push(t); if(t.name&&!/interest payable/i.test(t.acct)) o.names[t.name]=1; });
+  const out=[];
+  L.forEach(o=>{ const main=o.tx.filter(t=>!/interest payable/i.test(t.acct)), ip=o.tx.filter(t=>/interest payable/i.test(t.acct));
+    const draws=main.filter(t=>t.amt>0.004&&!/profit for investors|refund/i.test(t.memo));
+    const dIds=new Set(draws.map(t=>t.tid));
+    const rec=draws.map(t=>({d:t.d,typ:t.typ,memo:t.memo,tid:t.tid,split:t.split,gross:t.amt,prin:t.amt+ip.filter(x=>x.tid===t.tid).reduce((a,x)=>a+x.amt,0)}));
+    const got=rec.reduce((a,x)=>a+x.prin,0), paid=-main.filter(t=>fpIsPay(t,dIds)).reduce((a,t)=>a+t.amt,0);
+    const prof=main.filter(t=>t.amt>0&&/profit for investors/i.test(t.memo)).reduce((a,t)=>a+t.amt,0);
+    const f=C.fac.find(x=>x.name===o.acct), i=C.inv.find(x=>('Financing - '+x.name)===o.acct||x.name===o.acct.replace(/^Financing\s*-\s*/i,''));
+    const bal=o.inv?(i?i.amt:main.reduce((a,t)=>a+t.amt,0)):(f?f.net:0);
+    const who=o.inv?(Object.keys(o.names)[0]||o.acct.replace(/^Financing\s*-\s*/i,'')):o.acct;
+    const type=o.inv?'Investor / private financing':(f?f.type:(/\b[A-Z]{1,3}\s?\d{3,4}\b/.test(o.acct)?'Hire purchase':'Term financing'));
+    if(!rec.length&&Math.abs(bal)<1) return;
+    out.push({who,acct:o.acct,type,rec,first:rec.length?rec[0].d:null,got,paid,prof,bal,live:Math.abs(bal)>=1,pay:fpPayments(main,dIds,o.inv)});
+  });
+  out.sort((a,b)=>(b.live-a.live)||((a.first||'')<(b.first||'')?1:-1));
+  return out;
+}
+// Each repayment with its date and instalment number. The number comes from the memo ("06/72",
+// "(1/300)"); payments with no number take their place in the sequence around the numbered ones.
+// A refund from the lender cancels the payment it returns.
+// A repayment: money out of the facility, except the set-up lines of the journal that took it up;
+// a first instalment booked inside that journal still counts.
+const fpIsPay=(t,dIds)=>t.amt<0&&(!dIds.has(t.tid)||/ansuran|instal|bayaran|repayment/i.test(t.memo||''));
+function fpPayments(main,dIds,inv){
+  let ps=main.filter(t=>fpIsPay(t,dIds)).map(t=>({d:t.d,amt:-t.amt,memo:t.memo||'',typ:t.typ}));
+  main.filter(t=>t.amt>0&&/refund/i.test(t.memo||'')).forEach(t=>{ const i=ps.findIndex(x=>!x.gone&&Math.abs(x.amt-t.amt)<0.01&&x.d<=t.d); if(i>=0) ps[i].gone=1; });
+  ps=ps.filter(x=>!x.gone).sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+  if(inv) return {list:ps,N:null};
+  const Ns={};
+  ps.forEach(x=>{ const m=x.memo.match(/\b0*(\d{1,3})\s*\/\s*0*(\d{2,3})\b/); if(m&&+m[2]>=+m[1]&&+m[2]>=12){ x.k=+m[1]; x.N=+m[2]; Ns[x.N]=(Ns[x.N]||0)+1; } });
+  const N=+(Object.keys(Ns).sort((a,b)=>Ns[b]-Ns[a])[0]||0)||null, seen={};
+  const j=ps.findIndex(x=>x.k!=null);
+  ps.forEach((x,i)=>{ if(x.k==null) x.k=j<0?i+1:(i<j?ps[j].k-(j-i):(ps[i-1].k||0)+1);
+    if(seen[x.k]) x.dup=1; seen[x.k]=1; if(x.k<1) x.k=null; });
+  return {list:ps,N};
+}
+// Where each financing went. Money is interchangeable once it sits in a bank account, so the trace
+// follows one rule: payments out of the account that received the financing come out of the
+// financing first, until it is used up; transfers to the company's other bank accounts carry it
+// along. Only accounts still holding financing money are read, a month at a time.
+async function fpLedger(e,inp){
+  const ids=await qdCompanies(), cid=ids[e]; let rows=[], meta=null, cursor=null, pages=0;
+  for(;;){
+    const q=cursor?{company_id:cid,cursor}:Object.assign({company_id:cid,report_type:'general_ledger',
+      columns:['tx_date','txn_type','doc_num','name','memo','split_acc','subt_nat_amount'],response_mode:'raw',row_page_size:500},inp);
+    const r=await mcp.callTool(QBS,'run_report',q,{cache:false}); const p=payloadOf(r)||{}, rr=p.raw_report;
+    if(!rr) throw {code:'tool_error',message:'QuickBooks returned no ledger.'};
+    if(!meta) meta=rr.metadata; rows=rows.concat(rr.rows||[]); pages++; FP.useCalls++; fpUseStat();
+    if(p.continuation_cursor&&pages<60) cursor=p.continuation_cursor; else break; }
+  const keys=((meta&&meta.Columns&&meta.Columns.Column)||[]).map(c=>((c.MetaData||[]).find(m=>m.Name==='ColKey')||{}).Value);
+  const sec={}, out=[];
+  rows.forEach(x=>{ const r=x.row||{};
+    if(r.Header&&r.Header.ColData){ sec[x.path]=String(r.Header.ColData[0].value||''); return; }
+    const cd=r.ColData; if(!cd) return; const v=k=>{ const i=keys.indexOf(k); return i>=0&&cd[i]?cd[i]:{}; };
+    const d=String(v('tx_date').value||''); if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    const chain=[]; let pp=x.path; while(/\/Rows\/Row\/\d+$/.test(pp)){ pp=pp.replace(/\/Rows\/Row\/\d+$/,''); if(sec[pp]) chain.unshift(sec[pp]); }
+    out.push({d,typ:String(v('txn_type').value||''),tid:String(v('txn_type').id||''),num:String(v('doc_num').value||''),name:String(v('name').value||''),
+      memo:String(v('memo').value||''),split:String(v('split_acc').value||''),amt:parseFloat(v('subt_nat_amount').value)||0,acct:chain.join(':')}); });
+  return out;
+}
+function fpUseStat(){ const s=$('fpUseStat'); if(s) s.textContent=FP.useBusy?('Tracing… '+FP.useProg+' ('+FP.useCalls+' QuickBooks reads)'):''; }
+async function fpUseRun(){
+  const key=FP.e+'|'+FP.asAt, D=FP.data[key]; if(!D||FP.useBusy) return;
+  FP.useBusy=true; FP.useCalls=0; FP.useProg=''; FP.use[key]={}; renderFP();
+  try{
+    const e=FP.e, end=D.end, FU=fpFunders(D,fpCalc(D))||[];
+    const cab=D.bs.rows.find(x=>x.kind==='s'&&/^(cash at bank|bank accounts?|cash and cash equivalents)$/i.test(x.label));
+    const banks=new Set(cab?fpKids(D.bs,cab.path).filter(k=>k.label).map(k=>cab.label+':'+k.label):[]);
+    const res=FU.map(f=>({who:f.who,acct:f.acct,type:f.type,recv:[],direct:[],uses:[],left:{}})), pend=[];
+    const dateRe=/opening balance/i;
+    for(let fi=0;fi<FU.length;fi++) for(const r of FU[fi].rec){
+      if(banks.has(r.split)){ pend.push({fi,tid:r.tid,bank:r.split,d:r.d}); continue; }
+      if(r.split==='-Split-'&&cab){ // a journal: find which bank account took the cash that day
+        FP.useProg='finding where '+FU[fi].who+' was paid in'; fpUseStat();
+        const day=await fpLedger(e,{account:{name:cab.label},start_date:r.d,end_date:r.d});
+        const hit=day.find(x=>x.tid===r.tid&&x.amt>0&&banks.has(x.acct));
+        if(hit){ pend.push({fi,tid:r.tid,bank:hit.acct,d:r.d}); continue; } }
+      res[fi].direct.push({d:r.d,amt:r.prin,memo:r.memo,cat:dateRe.test(r.memo)?'Opening balance (received before these books)':r.split&&r.split!=='-Split-'?r.split:'Booked by journal, not through a bank account'}); }
+    pend.sort((a,b)=>a.d<b.d?-1:a.d>b.d?1:0);
+    const pool={}, iso=d=>d.toISOString().slice(0,10);
+    const mEnd=s=>{ const d=new Date(s+'T00:00:00Z'); return iso(new Date(Date.UTC(d.getUTCFullYear(),d.getUTCMonth()+1,0))); };
+    const next=s=>{ const d=new Date(s+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+1); return iso(d); };
+    const live=b=>(pool[b]||[]).some(t=>t.left>0.5);
+    const xfer=x=>x.amt<0&&banks.has(x.split)&&x.split!==x.acct;
+    const ord=(a,b)=>a.d<b.d?-1:a.d>b.d?1:(xfer(b)-xfer(a))||(a.k-b.k);
+    let t0=pend.length?pend[0].d:null, k=0, win=0, through=null;
+    while(t0&&t0<=end&&win++<24){
+      const t1=mEnd(t0)<end?mEnd(t0):end, got={}; let ev=[];
+      const load=async(b,from)=>{ got[b]=1; FP.useProg=b.split(':').pop()+', '+from.slice(0,7); fpUseStat();
+        const rows=(await fpLedger(e,{account:{fully_qualified_name:b},start_date:from,end_date:t1})).filter(x=>x.acct===b);
+        rows.forEach(x=>{ x.k=k++; }); return rows; };
+      const want=new Set(Object.keys(pool).filter(live)); pend.filter(p=>!p.on&&!p.miss&&p.d<=t1).forEach(p=>want.add(p.bank));
+      for(const b of want) ev=ev.concat(await load(b,t0));
+      ev.sort(ord);
+      for(let i=0;i<ev.length;i++){ const x=ev[i];
+        if(x.amt>0){ const p=pend.find(p=>!p.on&&p.tid===x.tid&&p.bank===x.acct);
+          if(p){ p.on=true; (pool[x.acct]=pool[x.acct]||[]).push({fi:p.fi,left:x.amt}); res[p.fi].recv.push({d:x.d,bank:x.acct,amt:x.amt}); }
+          continue; }
+        const q=pool[x.acct]; if(!(x.amt<0)||!q||!q.length) continue;
+        let out=-x.amt; const tb=xfer(x)?x.split:null;
+        while(out>0.004&&q.length){ const tr=q[0], a=Math.min(tr.left,out); tr.left-=a; out-=a;
+          if(tb) (pool[tb]=pool[tb]||[]).push({fi:tr.fi,left:a});
+          else res[tr.fi].uses.push({d:x.d,name:x.name,memo:x.memo,cat:x.split||'Not recorded',typ:x.typ,num:x.num,bank:x.acct,amt:a});
+          if(tr.left<0.005) q.shift(); }
+        if(tb&&!got[tb]){ const more=await load(tb,x.d); ev=ev.slice(0,i+1).concat(ev.slice(i+1).concat(more).sort(ord)); } }
+      pend.filter(p=>!p.on&&p.d<=t1).forEach(p=>p.miss=true); through=t1;
+      if(Object.keys(pool).some(live)) t0=next(t1);
+      else { const p=pend.find(p=>!p.on&&!p.miss&&p.d>t1); t0=p?p.d:null; } }
+    pend.filter(p=>!p.on).forEach(p=>{ const r=FU[p.fi].rec.find(r=>r.tid===p.tid); res[p.fi].direct.push({d:p.d,amt:r?r.prin:0,memo:r?r.memo:'',cat:'Not found in '+p.bank.split(':').pop()+' that day'}); });
+    Object.keys(pool).forEach(b=>pool[b].forEach(t=>{ if(t.left>0.5) res[t.fi].left[b]=(res[t.fi].left[b]||0)+t.left; }));
+    FP.use[key]={res,through,at:Date.now()};
+  }catch(err){ FP.use[key]={err}; }
+  FP.useBusy=false; renderFP();
+}
+function fpPayHTML(x){
+  const P=x.pay; if(!P||!P.list.length) return '';
+  const dd=s=>s.split('-').reverse().join('/'), N=P.N, last=P.list[P.list.length-1];
+  const kN=p=>p.k==null?'':(String(p.k).padStart(N&&N>=100?3:2,'0')+(N?'/'+N:''));
+  let next='';
+  if(N&&x.live&&last.k!=null&&last.k<N){ const t=new Date(last.d); t.setMonth(t.getMonth()+(N-last.k));
+    next=`<div class="note">Next: ${kN({k:last.k+1})} · last instalment about ${MONTHS[t.getMonth()]} ${t.getFullYear()} · ${N-last.k} to go</div>`; }
+  else if(!x.live) next='<div class="note">Settled</div>';
+  const rows=P.list.map(p=>`<div class="note" style="display:flex;gap:10px;justify-content:space-between"><span>${dd(p.d)}${x.inv?'':' · '+(kN(p)?'Instalment '+kN(p):'Instalment')}${p.dup?' <b style="color:var(--bad)">(paid twice)</b>':''}${!x.inv&&/refund/i.test(p.memo)&&/request/i.test(p.memo)?' <i>refund requested</i>':''}</span><span>RM${fmt(p.amt)}</span></div>`).join('');
+  return `<div class="note">${x.inv?P.list.length+' repayment(s)':(last.k!=null?'Paid '+kN(last):P.list.length+' payment(s)')}</div>${next}<details style="margin-top:3px;text-align:left"><summary class="hint" style="cursor:pointer">${P.list.length} payment date(s)</summary>${rows}</details>`;
+}
+function fpUseHTML(){
+  const key=FP.e+'|'+FP.asAt, U=FP.use[key]||{}, dd=s=>s?s.split('-').reverse().join('/'):'–', R=x=>Math.abs(x)<0.5?'–':'RM'+fmt0(x);
+  const bk=b=>esc(String(b).split(':').pop());
+  let h=`<h4>Where the financing went</h4>`;
+  if(!U.res){
+    return h+`<p class="hint">Follows each loan and investment from the bank account it was paid into, payment by payment, and groups what it paid for by QuickBooks account. Reads the bank ledgers live, so it can take a minute.</p>
+    ${U.err?`<div class="msg err">${qdErr(U.err)}</div>`:''}<div class="fpbar"><button type="button" id="fpUseGo"${FP.useBusy?' disabled':''}>${FP.useBusy?'Tracing…':'Trace where the money went'}</button><span class="hint" id="fpUseStat"></span></div>`; }
+  const L=U.res.map((x,i)=>({x,i})).filter(o=>o.x.recv.length||o.x.direct.length);
+  if(!L.length) return h+'<p class="hint">No financing receipts to trace.</p>';
+  if(FP.useSel==null||(FP.useSel!=='all'&&!U.res[FP.useSel])) FP.useSel=L[0].i;
+  const pick=FP.useSel==='all'?L.map(o=>o.x):[U.res[FP.useSel]];
+  const recv=[].concat(...pick.map(x=>x.recv)), dir=[].concat(...pick.map(x=>x.direct)), uses=[].concat(...pick.map(x=>x.uses));
+  const left={}; pick.forEach(x=>Object.keys(x.left).forEach(b=>left[b]=(left[b]||0)+x.left[b]));
+  const inBank=recv.reduce((a,r)=>a+r.amt,0), spent=uses.reduce((a,u)=>a+u.amt,0), stay=Object.values(left).reduce((a,v)=>a+v,0), dsum=dir.reduce((a,r)=>a+r.amt,0);
+  h+=`<div class="fpbar"><label>Financing <select id="fpUseSel"><option value="all"${FP.useSel==='all'?' selected':''}>All financing together</option>${L.map(o=>`<option value="${o.i}"${FP.useSel===o.i?' selected':''}>${esc(o.x.who)}</option>`).join('')}</select></label>
+    <button type="button" id="fpUseGo"${FP.useBusy?' disabled':''}>${FP.useBusy?'Tracing…':'Trace again'}</button><span class="hint" id="fpUseStat"></span></div>`;
+  h+=`<table class="tc" style="max-width:720px">${recv.map(r=>`<tr><td>Paid into ${bk(r.bank)}<span class="note">${dd(r.d)}${FP.useSel==='all'?' · '+esc(pick.find(x=>x.recv.includes(r)).who):''}</span></td><td class="r">${R(r.amt)}</td></tr>`).join('')}
+    ${dir.map(r=>`<tr><td>${esc(r.cat)}<span class="note">${dd(r.d)} · ${esc(r.memo||'')}</span></td><td class="r">${R(r.amt)}</td></tr>`).join('')}
+    <tr class="sub"><td>Spent from the bank, traced below<span class="note">${uses.length} payments up to ${dd(U.through)}</span></td><td class="r">${R(spent)}</td></tr>
+    ${Object.keys(left).map(b=>`<tr><td>Not yet spent: still in ${bk(b)}</td><td class="r">${R(left[b])}</td></tr>`).join('')}</table>`;
+  if(uses.length){
+    const G=new Map(); uses.forEach(u=>{ const sp=u.cat==='-Split-', top=sp?'Payments split over several accounts':u.cat.split(':')[0], sub=sp?'':u.cat.split(':').slice(1).join(' › ');
+      if(!G.has(top)) G.set(top,{amt:0,subs:new Map()}); const g=G.get(top); g.amt+=u.amt;
+      if(!g.subs.has(sub)) g.subs.set(sub,{amt:0,tx:[]}); const s=g.subs.get(sub); s.amt+=u.amt; s.tx.push(u); });
+    const gs=[...G.entries()].sort((a,b)=>b[1].amt-a[1].amt), bar=p=>`<div style="height:6px;border-radius:3px;background:currentColor;opacity:.35;width:${Math.max(1,Math.round(p*100))}%"></div>`;
+    h+=`<p class="hint">What the money paid for, by QuickBooks account. Open a line to see each payment.</p>
+    <div style="overflow-x:auto"><table class="tc" style="min-width:640px;max-width:900px"><tr class="sub"><td>Paid for</td><td class="r">Amount</td><td class="r">Share</td><td style="width:22%"></td></tr>
+    ${gs.map(([top,g])=>{ const ss=[...g.subs.entries()].sort((a,b)=>b[1].amt-a[1].amt);
+      const one=(name,s)=>`<details><summary style="cursor:pointer">${esc(name)} <span class="hint">· ${s.tx.length} payment${s.tx.length>1?'s':''}</span></summary>${s.tx.sort((a,b)=>b.amt-a.amt).map(u=>`<div class="note">${dd(u.d)} · ${esc(u.name||'–')} · ${esc(u.memo||u.typ)} · RM${fmt0(u.amt)}<span class="hint">(${bk(u.bank)})</span></div>`).join('')}</details>`;
+      const solo=ss.length===1&&!ss[0][0];
+      return `<tr class="${solo?'':'sub'}"><td>${solo?one(top,ss[0][1]):`<b>${esc(top)}</b>`}</td><td class="r">${R(g.amt)}</td><td class="r">${(g.amt/spent*100).toFixed(1)}%</td><td>${bar(g.amt/spent)}</td></tr>`
+        +(solo?'':ss.map(([sub,s])=>`<tr><td style="padding-left:18px">${one(sub||top,s)}</td><td class="r">${R(s.amt)}</td><td class="r"></td><td></td></tr>`).join('')); }).join('')}
+    <tr class="sub"><td>Total traced</td><td class="r">${R(spent)}</td><td class="r">100%</td><td></td></tr></table></div>`;
+    const P=new Map(); uses.forEach(u=>{ const n=u.name||u.memo||'–'; P.set(n,(P.get(n)||0)+u.amt); });
+    const top=[...P.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
+    h+=`<p class="hint">Largest payees</p><table class="tc" style="max-width:640px">${top.map(([n,a])=>`<tr><td>${esc(n)}</td><td class="r">${R(a)}</td><td class="r">${(a/spent*100).toFixed(1)}%</td></tr>`).join('')}</table>`; }
+  h+=`<p class="hint">Money is interchangeable once it is in a bank account, so this uses one rule: payments out of the account that received the financing are taken from the financing first until it is used up, and transfers to the company's other bank accounts carry it along. Customer receipts and refunds coming in are not netted off, and a top-up to petty cash or a fixed deposit counts as a use. Read as a guide to how the money was used, not as a bank-certified statement.</p>`;
+  return h;
+}
 function fpMonthEnd(y,m){ const d=new Date(y,m+1,0); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
 async function fpLoad(force){
   if(FP.busy) return; const e=FP.e, key=e+'|'+FP.asAt; if(FP.data[key]&&!force){ renderFP(); return; }
@@ -5548,7 +5751,16 @@ async function fpLoad(force){
     const ar=await fpRun(e,{report_type:'aged_receivables',as_of_date:end},'Receivables ageing');
     const ap=await fpRun(e,{report_type:'aged_payables',as_of_date:end},'Payables ageing');
     const cs=await fpRun(e,{report_type:'customer_sales',start_date:y+'-01-01',end_date:end,accounting_method:'Accrual'},'Sales by customer');
-    FP.data[key]={pl,bs,ar,ap,cs,y,mN,end,at:Date.now()};
+    // Who funded the company: the ledger of every loan and investor account since three years back.
+    let gl=null, glErr=null;
+    try{ const ncl=bs.rows.find(x=>x.kind==='s'&&/^Total Non-current Liabilities|^Total Long-term Liabilities/i.test(x.slabel));
+      // each loan with its "Interest Payable" sub-account, so the profit booked at take-up comes off the principal
+      const refs=[]; (ncl?fpKids(bs,ncl.path):[]).forEach(x=>{ if(!x.label) return; refs.push({name:x.label});
+        if(x.kind==='s') fpKids(bs,x.path).filter(k=>/interest payable/i.test(k.label)).forEach(k=>refs.push({fully_qualified_name:x.label+':'+k.label})); });
+      if(bs.rows.some(x=>x.kind==='s'&&/^Investor Financing$/i.test(x.label))) refs.push({name:'Investor Financing'});
+      if(refs.length) gl=await fpGL(e,refs,(y-3)+'-01-01',end); }
+    catch(err){ glErr=(err&&err.code)||'error'; }
+    FP.data[key]={pl,bs,ar,ap,cs,gl,glErr,y,mN,end,at:Date.now()};
   }catch(err){ FP.err=err; }
   FP.busy=false; renderFP();
 }
@@ -5589,27 +5801,106 @@ function fpCalc(D){
   top.sort((a,b)=>b.amt-a.amt);
   return {fy,ytd,ann,now,dec,fac,inv,invTot,monthly,debt,ebA,dscr,ar:age(ar),arCols:ar.cols,ap:age(ap),apCols:ap.cols,top,csTot,rel,cols:bs.cols,L};
 }
+// ----- Financing Profile workbook: the same figures as an Excel file, so the profile also opens where
+// there is no QuickBooks connector (Railway). Export it on claude.ai, or have Claude fill it from
+// QuickBooks, then Import it here. Sheet and line names are fixed; the import matches them by name.
+const FPX={
+  res:[['Revenue','rev'],['Cost of sales','cogs'],['Gross profit','gp'],['Other income','oi'],['Operating expenses','opex'],['Other expenses','ox'],
+    ['Net profit','ni'],['Finance cost','fin'],['Depreciation','dep'],['Tax expense','tax'],['Sales to related company','rel']],
+  pos:[['Cash and deposits','cash'],['Trade receivables','ar'],['Inventory and goods in transit','inv'],['Total current assets','ca'],['Non-current assets','nca'],
+    ['Total assets','ta'],['Trade payables','ap'],['Customer deposits','dep'],['Total current liabilities','cl'],['Non-current liabilities','ncl'],['Equity','eq'],['Due to related company','rel']],
+  age:['Current','1 - 30','31 - 60','61 - 90','91 and Over','Total'],
+  ent:{v:'79 Ventures Sdn Bhd',a:'Arabina Eco Tiny Homes Sdn Bhd'}
+};
+FP.file={};
+(()=>{ ['v','a'].forEach(e=>{ try{ const x=JSON.parse(store.get('consol.fpfile.'+e)||'null'); if(x&&x.C) FP.file[e]=x; }catch(err){} }); })();
+function fpToWb(D,C,e){
+  const wb=XLSX.utils.book_new(), r2=x=>x==null||!isFinite(x)?null:Math.round(x*100)/100, add=(n,a,w)=>{ const s=XLSX.utils.aoa_to_sheet(a); s['!cols']=w.map(c=>({wch:c})); XLSX.utils.book_append_sheet(wb,s,n); };
+  add('Info',[['Field','Value'],['Company',FPX.ent[e]],['Period end',D.end],['Prior year end',C.cols[0]||('Dec '+(D.y-1))],['Pulled from QuickBooks',new Date(D.at).toISOString().slice(0,16).replace('T',' ')],['Basis','Accrual, management accounts, unaudited']],[24,40]);
+  add('Results',[['Line','FY'+(D.y-1),'YTD '+D.end.slice(0,7)],...FPX.res.map(([l,k])=>k==='rel'?[l,null,r2(C.rel)]:[l,r2(C.fy[k]),r2(C.ytd[k])])],[28,16,16]);
+  add('Position',[['Line','Prior year end','As at'],...FPX.pos.map(([l,k])=>[l,r2(C.dec[k]),r2(C.now[k])])],[32,16,16]);
+  add('Facilities',[['Facility','Type','Principal','Balance incl. future profit','Monthly instalment'],
+    ...C.fac.map(f=>[f.name,f.type,r2(f.net),r2(f.gross),r2(f.inst)]),...C.inv.map(f=>[f.name,'Investor',r2(f.amt),null,null])],[40,16,16,26,18]);
+  add('Ageing',[['Bucket','Receivables','Payables'],...FPX.age.map((b,i)=>[b,r2(C.ar[i]),r2(C.ap[i])])],[14,16,16]);
+  add('Customers',[['Customer','Sales YTD'],...C.top.map(x=>[x.name,r2(x.amt)])],[44,16]);
+  return wb;
+}
+// Read one workbook back into what renderFP draws. Throws a message naming what is missing.
+function fpFromWb(wb,fname){
+  const sh=n=>{ const k=wb.SheetNames.find(s=>s.trim().toLowerCase()===n.toLowerCase()); if(!k) throw new Error('Sheet "'+n+'" is missing.'); return XLSX.utils.sheet_to_json(wb.Sheets[k],{header:1,raw:true,defval:null}); };
+  const num=v=>{ if(v==null||v==='') return 0; if(typeof v==='number') return v; const s=String(v).trim(), neg=/^\(.*\)$/.test(s), n=parseFloat(s.replace(/[(),\sRM]/gi,'')); return isFinite(n)?(neg?-n:n):0; };
+  const kv=(rows,list,need)=>{ const m={}; rows.slice(1).forEach(r=>{ if(r[0]!=null) m[String(r[0]).trim().toLowerCase()]=r; });
+    const a={}, b={}; list.forEach(([l,k])=>{ const r=m[l.toLowerCase()]; if(!r){ if(need&&k!=='rel') throw new Error('Line "'+l+'" is missing.'); a[k]=0; b[k]=0; return; } a[k]=num(r[1]); b[k]=num(r[2]); }); return [a,b]; };
+  const info={}; sh('Info').slice(1).forEach(r=>{ if(r[0]!=null) info[String(r[0]).trim().toLowerCase()]=r[1]; });
+  const co=String(info['company']||''), e=/arabina/i.test(co)?'a':/79\s*ventures/i.test(co)?'v':null;
+  if(!e) throw new Error('Info → Company must be 79 Ventures Sdn Bhd or Arabina Eco Tiny Homes Sdn Bhd.');
+  let end=info['period end']; if(typeof end==='number'){ const d=XLSX.SSF.parse_date_code(end); end=d.y+'-'+String(d.m).padStart(2,'0')+'-'+String(d.d).padStart(2,'0'); }
+  end=String(end||'').trim(); if(!/^\d{4}-\d{2}-\d{2}$/.test(end)) throw new Error('Info → Period end must be a date like 2026-09-30.');
+  const y=+end.slice(0,4), mN=+end.slice(5,7);
+  const [fy,ytd]=kv(sh('Results'),FPX.res,true), [dec,now]=kv(sh('Position'),FPX.pos,true);
+  const rel=ytd.rel; delete fy.rel; delete ytd.rel;
+  [fy,ytd].forEach(x=>{ x.pbt=x.ni+x.tax; x.ebitda=x.pbt+x.fin+x.dep; });
+  const fac=[], inv=[];
+  sh('Facilities').slice(1).forEach(r=>{ if(r[0]==null||String(r[0]).trim()==='') return; const name=String(r[0]).trim(), type=String(r[1]||'').trim();
+    if(/investor/i.test(type)){ const amt=num(r[2]); if(Math.abs(amt)>=1) inv.push({name,amt}); return; }
+    const net=num(r[2]), gross=num(r[3])||net, inst=num(r[4]); if(Math.abs(net)<1) return;
+    fac.push({name,type:/hire/i.test(type)?'Hire purchase':'Term financing',net,gross,inst,left:inst?Math.ceil(gross/inst):null}); });
+  const ag=sh('Ageing'), am={}; ag.slice(1).forEach(r=>{ if(r[0]!=null) am[String(r[0]).replace(/\s+/g,' ').trim().toLowerCase()]=r; });
+  const arA=FPX.age.map(b=>num((am[b.toLowerCase()]||[])[1])), apA=FPX.age.map(b=>num((am[b.toLowerCase()]||[])[2]));
+  let top=[]; try{ top=sh('Customers').slice(1).filter(r=>r[0]!=null&&num(r[1])>0).map(r=>({name:String(r[0]).trim(),amt:num(r[1])})); }catch(err){}
+  top.sort((a,b)=>b.amt-a.amt);
+  const invTot=inv.reduce((a,x)=>a+x.amt,0), monthly=fac.reduce((a,x)=>a+x.inst,0), debt=fac.reduce((a,x)=>a+x.net,0)+invTot, ann=12/mN, ebA=ytd.ebitda*ann;
+  const C={fy,ytd,ann,now,dec,fac,inv,invTot,monthly,debt,ebA,dscr:monthly?ebA/(monthly*12):null,ar:arA,arCols:FPX.age,ap:apA,apCols:FPX.age,
+    top,csTot:top.reduce((a,x)=>a+x.amt,0),rel,cols:[String(info['prior year end']||('Dec '+(y-1)))],L:1};
+  const pulled=info['pulled from quickbooks'];
+  return {e,D:{C,y,mN,end,at:pulled&&!isNaN(Date.parse(pulled))?Date.parse(pulled):Date.now(),file:fname||'',src:'file'}};
+}
+async function fpImport(files){
+  const ok=[], bad=[];
+  for(const f of files){ try{ const r=fpFromWb(XLSX.read(new Uint8Array(await f.arrayBuffer()),{type:'array',cellFormula:false,cellStyles:false}),f.name);
+      FP.file[r.e]=r.D; store.set('consol.fpfile.'+r.e,JSON.stringify(r.D)); ok.push(r.e); }
+    catch(e){ bad.push(esc(f.name)+': '+esc((e&&e.message)||'could not be read')); } }
+  if(ok.length) FP.e=ok[ok.length-1];
+  FP.imsg=(ok.length?'Imported '+ok.map(e=>FPX.ent[e]).join(' and ')+'.':'')+(bad.length?' Not imported: '+bad.join('; '):''); FP.ibad=!!bad.length;
+  renderFP();
+}
+async function fpExport(){
+  const D=FP.data[FP.e+'|'+FP.asAt]; if(!D) return; const C=fpCalc(D), wb=fpToWb(D,C,FP.e);
+  const name='Financing Profile '+(FP.e==='v'?'79V':'Arabina')+' '+D.end+'.xlsx', blob=new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(downloads){ try{ await downloads.save({filename:name,data:blob}); }catch(e){} return; }
+  const u=URL.createObjectURL(blob), a=document.createElement('a'); a.href=u; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(u),2000);
+}
 function renderFP(){
   // Outside claude.ai there is no QuickBooks connector, so the page falls back to the workbook's
   // financing readiness check, which reads the same P&L and balance sheets as the rest of the site.
-  if(MODE!=='claude'){ renderFin();
-    $('tablebox').insertAdjacentHTML('afterbegin','<div class="stmt" style="padding-bottom:0"><h3>FINANCING PROFILE</h3><p class="sub2">The full profile reads QuickBooks live, so it opens in the dashboard on claude.ai. Here it shows the financing readiness check from the consolidation workbook.</p></div>');
-    return; }
+  // Here it draws from an imported Financing Profile workbook when there is one.
+  const imp=`<button type="button" id="fpImp">Import Excel…</button><input type="file" id="fpIn" accept=".xlsx,.xls" multiple hidden>`;
+  const imsg=FP.imsg?`<div class="msg${FP.ibad?' err':''}" style="margin:8px 0">${FP.imsg}</div>`:'';
+  let seen=null; try{ seen=store.get('consol.fpnew1'); }catch(e){}
+  const news=seen?'':`<div class="msg" style="margin:8px 0" id="fpNew"><b>New in Financing Profile</b><ul style="margin:4px 0 0">
+    <li><b>Export Excel</b> (on claude.ai, beside Refresh from QuickBooks) saves this profile as an Excel workbook.</li>
+    <li><b>Import Excel…</b> shows the profile from that workbook. Use it on Railway, which cannot reach QuickBooks.</li>
+    <li>The workbook can also be prepared by Claude from QuickBooks with the prompt in docs/financing-profile-prompt.md in the finance-79venture repo.</li></ul>
+    <button type="button" id="fpNewX" style="margin-top:6px">Got it</button></div>`;
+  if(MODE!=='claude'&&!FP.file.v&&!FP.file.a){ renderFin();
+    $('tablebox').insertAdjacentHTML('afterbegin','<div class="stmt" style="padding-bottom:0"><h3>FINANCING PROFILE</h3><p class="sub2">The full profile reads QuickBooks live, so it opens in the dashboard on claude.ai. Here, import the Financing Profile Excel file (exported from the dashboard on claude.ai, or prepared by Claude from QuickBooks) to see it. Until then this shows the financing readiness check from the consolidation workbook.</p><div class="fpbar">'+imp+'</div>'+news+imsg+'</div>');
+    fpWire(); return; }
   if(!FP.asAt){ const d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1); FP.asAt=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
   const R=x=>x==null||Math.abs(x)<0.5?'–':'RM'+fmt0(x), P1=x=>x==null||!isFinite(x)?'–':(x*100).toFixed(1)+'%', X=x=>x==null||!isFinite(x)?'–':x.toFixed(2)+'×';
   const opts=[]; { const d=new Date(); d.setDate(1); for(let k=1;k<=12;k++){ const t=new Date(d.getFullYear(),d.getMonth()-k,1); const v=t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0'); opts.push(`<option value="${v}"${v===FP.asAt?' selected':''}>${MONTHS[t.getMonth()]} ${t.getFullYear()}</option>`); } }
-  let h=`<div class="stmt fp"><h3>FINANCING PROFILE</h3><p class="sub2">Prepared from QuickBooks (accrual basis, management accounts, unaudited). Read live through your QuickBooks connector each time it loads.</p>
+  let h=`<div class="stmt fp"><h3>FINANCING PROFILE</h3><p class="sub2">Prepared from QuickBooks (accrual basis, management accounts, unaudited). ${MODE==='claude'?'Read live through your QuickBooks connector each time it loads.':'From the imported Financing Profile file; import a newer one to update it.'}</p>
   <div class="fpbar"><div class="seg" role="group" aria-label="Company">${[['v','79 Ventures Sdn Bhd'],['a','Arabina Eco Tiny Homes Sdn Bhd']].map(([k,t])=>`<button type="button" data-fpe="${k}" aria-pressed="${FP.e===k}">${t}</button>`).join('')}</div>
-  <label>As at <select id="fpAs">${opts.join('')}</select></label><button type="button" id="fpRe">Refresh from QuickBooks</button><span class="hint" id="fpStat"></span></div>`;
-  const D=FP.data[FP.e+'|'+FP.asAt];
+  ${MODE==='claude'?`<label>As at <select id="fpAs">${opts.join('')}</select></label><button type="button" id="fpRe">Refresh from QuickBooks</button>${FP.data[FP.e+'|'+FP.asAt]?'<button type="button" id="fpExp">Export Excel</button>':''}`:''}${imp}<span class="hint" id="fpStat"></span></div>${news}${imsg}`;
+  const D=MODE==='claude'?FP.data[FP.e+'|'+FP.asAt]:FP.file[FP.e];
+  if(!D&&MODE!=='claude'){ $('tablebox').innerHTML=h+`<p class="hint">No Financing Profile file imported for ${FPX.ent[FP.e]} yet. Use <b>Import Excel…</b> above.</p></div>`; fpWire(); return; }
   if(FP.err) h+=`<div class="msg err">${qdErr(FP.err)}</div>`;
   if(!D&&!mcp&&!FP.err){ $('tablebox').innerHTML=h+'<p class="hint">Connecting to QuickBooks…</p></div>'; fpWire(); return; }
   if(!D){ h+=FP.busy?'<p class="hint">Reading QuickBooks…</p>':(FP.err?'':'<p class="hint">Loading…</p>'); $('tablebox').innerHTML=h+'</div>'; fpWire(); fpStatus(); if(!FP.busy&&!FP.err) fpLoad(); return; }
-  const C=fpCalc(D), y=D.y, mo=MONTHS[D.mN-1]+' '+y, ytdL=`Jan–${MONTHS[D.mN-1]} ${y}`;
+  const C=D.C||fpCalc(D), y=D.y, mo=MONTHS[D.mN-1]+' '+y, ytdL=`Jan–${MONTHS[D.mN-1]} ${y}`;
   const st=(v,ok,warn,hi)=>v==null||!isFinite(v)?'':(hi?(v>=ok?'st-g':v>=warn?'st-w':'st-b'):(v<=ok?'st-g':v<=warn?'st-w':'st-b'));
   const gear=C.now.eq?C.debt/C.now.eq:null, cr=C.now.cl?C.now.ca/C.now.cl:null, dE=C.ebA?C.debt/C.ebA:null;
   const room=C.ebA>0?Math.max(0,C.ebA/1.25/12-C.monthly):0;
-  h+=`<p class="hint" style="margin:6px 0 12px">As at ${D.end.split('-').reverse().join('/')} · read ${new Date(D.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}. Year to date is ${ytdL}; annualised figures scale it to twelve months.</p>
+  h+=`<p class="hint" style="margin:6px 0 12px">As at ${D.end.split('-').reverse().join('/')} · ${D.src==='file'?`from ${esc(D.file||'imported file')}, pulled from QuickBooks ${new Date(D.at).toLocaleString('en-GB',{day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'})}`:`read ${new Date(D.at).toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`}. Year to date is ${ytdL}; annualised figures scale it to twelve months.</p>
   <div class="bekpi fpk">
     <div><span>Revenue FY${y-1}</span><b>${R(C.fy.rev)}</b><span>${ytdL}: ${R(C.ytd.rev)}</span></div>
     <div><span>EBITDA, annualised</span><b>${R(C.ebA)}</b><span>FY${y-1}: ${R(C.fy.ebitda)}</span></div>
@@ -5644,6 +5935,19 @@ function renderFP(){
     ${C.inv.map(f=>`<tr><td>Investor financing: ${esc(f.name)}<span class="note">profit paid monthly; shown under current liabilities</span></td><td class="wide">Investor</td><td class="r">${R(f.amt)}</td><td class="r wide">–</td><td class="r">–</td><td class="r wide">–</td></tr>`).join('')}
     <tr class="sub"><td>Total</td><td class="wide"></td><td class="r">${R(C.debt)}</td><td class="r wide"></td><td class="r">${R(C.monthly)}</td><td class="r wide"></td></tr></table></div>
     <p class="hint">Monthly instalment is how much each balance fell in the latest months, as booked. A facility drawn in the last few months shows none yet; check it against the offer letter.</p>`;
+  if(D.src==='file') h+=`<h4>Who has funded the company</h4><p class="hint">Not in the imported file: this section reads the QuickBooks ledger, so it shows in the dashboard on claude.ai.</p>`;
+  else { const FU=fpFunders(D,C), dd=s=>s?s.split('-').reverse().join('/'):'–';
+    h+=`<h4>Who has funded the company</h4>`;
+    if(!FU) h+=`<p class="hint">The financing ledger could not be read${D.glErr?' ('+esc(D.glErr)+')':''}. Press Refresh from QuickBooks to try again.</p>`;
+    else if(!FU.length) h+='<p class="hint">No loans or investor financing found in QuickBooks.</p>';
+    else{ const act=FU.filter(x=>x.live);
+      h+=`<p class="hint">Every lender and investor in the QuickBooks ledger since ${D.y-3}: ${act.length} still owed, ${FU.length-act.length} settled. For bank and agency financing the books record the full amount repayable; the principal here is that less the profit booked with it.</p>
+      <div style="overflow-x:auto"><table class="tc" style="min-width:760px"><tr class="sub"><td>Funded by</td><td>Type</td><td class="r">First received</td><td class="r">Received (principal)</td><td class="r wide">Paid back so far</td><td class="r">Owed now</td><td>Status</td></tr>
+      ${FU.map(x=>`<tr><td><b>${esc(x.who)}</b>${x.who!==x.acct?`<span class="note">${esc(x.acct)}</span>`:''}<details style="margin-top:3px"><summary class="hint" style="cursor:pointer">${x.rec.length} receipt(s)</summary>${x.rec.map(r=>`<div class="note">${dd(r.d)} · ${esc(r.typ)} · RM${fmt0(r.prin)}${Math.abs(r.gross-r.prin)>1?` (booked RM${fmt0(r.gross)} incl. profit)`:''} · ${esc(r.memo||'')}</div>`).join('')}${x.prof>0.5?`<div class="note">Profit accrued to the investor: RM${fmt0(x.prof)}</div>`:''}</details></td>
+        <td>${x.type}</td><td class="r">${dd(x.first)}</td><td class="r">${R(x.got)}</td><td class="r wide">${R(x.paid)}${fpPayHTML(x)}</td><td class="r"><b>${R(x.bal)}</b></td>
+        <td class="${x.live?'':'st-g'}" style="white-space:nowrap">${x.live?'Running':'✓ Settled'}</td></tr>`).join('')}
+      <tr class="sub"><td colspan="3">Total</td><td class="r">${R(FU.reduce((a,x)=>a+x.got,0))}</td><td class="r wide">${R(FU.reduce((a,x)=>a+x.paid,0))}</td><td class="r">${R(FU.reduce((a,x)=>a+x.bal,0))}</td><td></td></tr></table></div>
+      <p class="hint">Paid back so far counts instalments as paid, principal and profit together. A loan taken up in the books after it was drawn shows the take-up date; check the offer letter for the drawdown date.</p>`; h+=fpUseHTML(); } }
   // debt service
   h+=`<h4>Debt service</h4><table class="tc" style="max-width:640px">
     <tr><td>EBITDA, annualised<span class="note">${ytdL} × 12 ÷ ${D.mN}</span></td><td class="r">${R(C.ebA)}</td></tr>
@@ -5666,6 +5970,414 @@ function fpWire(){
   document.querySelectorAll('[data-fpe]').forEach(b=>b.addEventListener('click',()=>{ FP.e=b.dataset.fpe; FP.err=null; renderFP(); }));
   const s=$('fpAs'); if(s) s.addEventListener('change',()=>{ FP.asAt=s.value; FP.err=null; renderFP(); });
   const r=$('fpRe'); if(r) r.addEventListener('click',()=>{ FP.err=null; fpLoad(true); });
+  const ug=$('fpUseGo'); if(ug) ug.addEventListener('click',()=>fpUseRun());
+  const us=$('fpUseSel'); if(us) us.addEventListener('change',()=>{ FP.useSel=us.value==='all'?'all':Number(us.value); renderFP(); });
+  const x=$('fpExp'); if(x) x.addEventListener('click',fpExport);
+  const nx=$('fpNewX'); if(nx) nx.addEventListener('click',()=>{ store.set('consol.fpnew1','1'); const n=$('fpNew'); if(n) n.remove(); });
+  const i=$('fpImp'), f=$('fpIn'); if(i&&f){ i.addEventListener('click',()=>f.click()); f.addEventListener('change',ev=>{ const fs=Array.from(ev.target.files||[]); if(fs.length) fpImport(fs); }); }
+}
+
+// On the Railway site there is no artifact database: the same calls go to /api/store on the server,
+// which keeps the Admin tasks and the Fuel Card Log for signed-in users. Others' changes show within 20 s.
+let webDbP=null;
+function webDb(){
+  if(webDbP) return webDbP;
+  webDbP=(async()=>{
+    if(!/^https?:$/.test(location.protocol)) return null;
+    const ping=await fetch('/api/store/fuelcfg',{cache:'no-store'}).catch(()=>null); if(!ping||!ping.ok) return null;
+    const api=async(col,id,method,body)=>{ const r=await fetch('/api/store/'+col+(id?'/'+encodeURIComponent(id):''),{method:method||'GET',cache:'no-store',
+        headers:body?{'Content-Type':'application/json'}:{},body:body?JSON.stringify(body):undefined});
+      if(!r.ok) throw {code:r.status===401||r.status===403?'invalid_argument':'http_'+r.status}; return r.json(); };
+    const subs=[], poll=async s=>{ try{ s.f((await api(s.col)).docs); }catch(e){ if(s.err) s.err(e); } };
+    const refresh=col=>Promise.all(subs.filter(s=>s.col===col).map(poll));
+    setInterval(()=>{ if(!document.hidden) subs.forEach(poll); },20000);
+    const sub=(col,f,err)=>{ const s={col,f,err}; subs.push(s); poll(s); return ()=>{ const i=subs.indexOf(s); if(i>=0) subs.splice(i,1); }; };
+    const doc=(col,id)=>({set:async d=>{ await api(col,id,'PUT',d); await refresh(col); },update:async d=>{ await api(col,id,'PATCH',d); await refresh(col); },
+      delete:async()=>{ await api(col,id,'DELETE'); await refresh(col); },
+      onSnapshot:(ok,err)=>sub(col,docs=>{ const d=docs.find(x=>x.id===id); ok({exists:!!d,data:()=>d?d.data:{}}); },err)});
+    return {collection:col=>({doc:id=>doc(col,id),onSnapshot:(ok,err)=>sub(col,docs=>ok({docs:docs.map(d=>({id:d.id,data:()=>d.data}))}),err)}),
+      doc:path=>{ const [c,i]=String(path).split('/'); return doc(c,i); }};
+  })();
+  return webDbP;
+}
+async function useDb(){ try{ if(window.claude&&claude.use) return await claude.use('db'); }catch(e){} return await webDb(); }
+// ===== ADMIN: the admin team's recurring work (payroll, statutory, tax, bank, petty cash, filings) =====
+// Each task repeats daily, weekly, monthly, quarterly or yearly, or happens once, with a due day. Ticking a
+// task marks it done for the current period only, so a monthly task comes back next month. Tasks and ticks
+// live in this artifact's database, so everyone who opens the page sees the same list and who did what.
+const AD_COL='admtasks', AD_DONE='admdone';
+const AD_FREQ={daily:'Daily',weekly:'Weekly',monthly:'Monthly',quarterly:'Quarterly',yearly:'Yearly',once:'Once'};
+const AD_WD=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+// Suggested list, added on request. The statutory dates are fixed by law; the rest are a starting point to
+// change to how the team works. [category, task, frequency, due, company, PIC, notes]
+const AD_SEED=[
+ ['Payroll','Payroll processed and payslips issued','monthly','28','Both','',''],
+ ['Statutory','EPF (KWSP) contribution paid','monthly','15','Both','','For the previous month\'s wages'],
+ ['Statutory','SOCSO (PERKESO) and EIS paid','monthly','15','Both','',''],
+ ['Statutory','PCB / MTD paid to LHDN','monthly','15','Both','',''],
+ ['Statutory','HRD Corp levy paid','monthly','15','79V','',''],
+ ['Tax','CP204 instalment paid','monthly','15','79V','','Amount in Tax & CP204'],
+ ['Bank','Bank reconciliation for every account','monthly','7','Both','','Bank Reconciliation Check view'],
+ ['Bank','Loan and hire purchase instalments paid','monthly','10','Both','','Check each lender\'s own due date'],
+ ['Payments','Office rental paid','monthly','7','79V','',''],
+ ['Payments','Utilities paid (electricity, water, internet)','monthly','20','Both','',''],
+ ['Billing','Management fee invoice 79V to Arabina','monthly','31','Both','','Last day of the month'],
+ ['Closing','Month-end close and management accounts to BOD','monthly','10','Both','',''],
+ ['Assets','Fixed asset register updated','monthly','5','Both','','Asset Management section'],
+ ['Petty cash','Petty cash weekly report submitted','weekly','1','Both','','Petty Cash › Weekly Report'],
+ ['Payments','Supplier bills keyed into QuickBooks and paid','weekly','5','Both','',''],
+ ['Billing','Customer invoices, receipts and deposit follow-up','weekly','5','Both','',''],
+ ['Tax','EA forms issued to staff','yearly','02-28','Both','',''],
+ ['Tax','Form E and CP8D submitted','yearly','03-31','Both','',''],
+ ['Tax','Form C submitted','yearly','07-31','Both','','FYE 31 Dec; e-Filing allows until 31 Aug'],
+ ['Tax','CP204 estimate for next year submitted','yearly','12-02','Both','','30 days before the basis period begins'],
+ ['Compliance','SSM annual return lodged','yearly','','Both','','Set the date: within 30 days of the incorporation anniversary'],
+ ['Compliance','Business zakat paid','yearly','12-31','Both','','Business Zakat view']];
+let adTasks=null, adDone=null, adDbRef=null, adSub=null, adErr=null, adMsg=null, adBusy=false, adEdit=null, adNames={};
+let adTab=store.get('consol.adTab')||'now', adCo=store.get('consol.adCo')||'';
+const adIso=d=>d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+const adDay=d=>d.toLocaleDateString('en-GB',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+// The period a task is in today, and its due date in that period.
+function adPeriod(t,ref){
+  const d=new Date(ref.getFullYear(),ref.getMonth(),ref.getDate()), y=d.getFullYear(), m=d.getMonth(), s=String(t.due==null?'':t.due).trim();
+  const at=(yy,mm,dd)=>new Date(yy,mm,Math.min(Math.max(1,dd),new Date(yy,mm+1,0).getDate()));
+  if(t.freq==='daily') return {key:adIso(d),label:'Today',due:d};
+  if(t.freq==='weekly'){ const mon=new Date(y,m,d.getDate()-(d.getDay()+6)%7), wd=s===''?5:(+s)%7;
+    return {key:'W'+adIso(mon),label:'Week of '+mon.toLocaleDateString('en-GB',{day:'numeric',month:'short'}),due:new Date(mon.getFullYear(),mon.getMonth(),mon.getDate()+(wd+6)%7)}; }
+  if(t.freq==='quarterly'){ const q=Math.floor(m/3); return {key:y+'-Q'+(q+1),label:'Q'+(q+1)+' '+y,due:s?at(y,q*3+2,+s||31):null}; }
+  if(t.freq==='yearly'){ const x=s.match(/^(\d{1,2})-(\d{1,2})$/); return {key:String(y),label:String(y),due:x?at(y,+x[1]-1,+x[2]):null}; }
+  if(t.freq==='once') return {key:'once',label:'One-off',due:/^\d{4}-\d{2}-\d{2}$/.test(s)?new Date(s+'T00:00:00'):null};
+  return {key:y+'-'+String(m+1).padStart(2,'0'),label:MONTHS[m]+' '+y,due:s?at(y,m,+s||1):null};
+}
+function adDueTxt(t){
+  const s=String(t.due==null?'':t.due).trim(), th=n=>n+(n%100>=11&&n%100<=13?'th':['th','st','nd','rd'][n%10]||'th');
+  if(t.freq==='daily') return 'Every day';
+  if(t.freq==='weekly') return 'Every '+AD_WD[s===''?5:(+s)%7];
+  if(!s) return '<span class="zw">No due date set</span>';
+  if(t.freq==='monthly') return +s>=28?(+s>=31?'Last day of the month':'By the '+th(+s)):'By the '+th(+s);
+  if(t.freq==='quarterly') return 'By the '+th(+s)+' of the quarter’s last month';
+  if(t.freq==='yearly'){ const x=s.match(/^(\d{1,2})-(\d{1,2})$/); return x?'Every '+(+x[2])+' '+MONTHS[+x[1]-1]:esc(s); }
+  return /^\d{4}-\d{2}-\d{2}$/.test(s)?adDay(new Date(s+'T00:00:00')):esc(s);
+}
+const adDoneId=(t,p)=>t.id+'__'+p.key;
+// Every task with where it stands today: done, overdue, due within three days, later, or no date.
+function adRows(){
+  const now=new Date(), today=new Date(now.getFullYear(),now.getMonth(),now.getDate()), D=new Map((adDone||[]).map(x=>[x.id,x]));
+  return (adTasks||[]).map(t=>{ const p=adPeriod(t,now), dn=D.get(adDoneId(t,p))||null;
+    const days=p.due?Math.round((p.due-today)/864e5):null;
+    const s=dn?'ok':days==null?'nd':days<0?'late':days<=3?'soon':'up';
+    return {t,p,dn,days,s}; });
+}
+function adBadge(){
+  const b=document.querySelector('#snavMods [data-mod="ad"]'); if(!b) return;
+  const n=(adTasks?adRows().filter(r=>r.s==='late').length:0)+(typeof scHrDue==='function'?scHrDue().length:0);
+  b.innerHTML='Admin'+(n?` <span title="${n} overdue task(s) or fuel card HR alert(s)" style="display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--bad);color:#fff;font-size:11px;line-height:18px">${n}</span>`:'');
+}
+async function adDbInit(){
+  if(adSub||adErr) return;
+  try{ adDbRef=await useDb(); }catch(e){ adDbRef=null; }
+  if(!adDbRef){ adErr='The shared task list needs the artifact on claude.ai, or a signed-in account on the Railway site. The suggested list below is shown read-only.'; if(state.view==='ad') renderAD(); return; }
+  const redraw=()=>{ adBadge(); if(state.view==='ad'&&!adEdit) renderAD(); };
+  adSub=adDbRef.collection(AD_COL).onSnapshot(s=>{ adTasks=s.docs.map(d=>({...d.data(),id:d.id})); redraw(); },
+    e=>{ adErr='Could not read the task list ('+esc(e&&e.code||'error')+').'; redraw(); });
+  adDbRef.collection(AD_DONE).onSnapshot(s=>{ adDone=s.docs.map(d=>({...d.data(),id:d.id})); adResolve(); redraw(); },()=>{});
+}
+async function adResolve(){
+  const u=await wrUserInit(); const need=[...new Set((adDone||[]).map(x=>x.by).filter(x=>x&&!(x in adNames)))]; if(!u||!need.length) return;
+  try{ const ps=await u.profiles(need); need.forEach(id=>{ adNames[id]=(ps[id]&&ps[id].name)||'User'; }); if(state.view==='ad'&&!adEdit) renderAD(); }catch(e){}
+}
+const adFail=e=>e&&e.code==='invalid_argument'?'You do not have permission to change the task list in this artifact.':'Save failed ('+esc(e&&e.code||'error')+'). Try again.';
+async function adTick(t,p,on){
+  if(!adDbRef) return;
+  try{ const ref=adDbRef.collection(AD_DONE).doc(adDoneId(t,p));
+    if(on){ const u=await wrUserInit(), me=u?await u.id():null; await ref.set({task:t.id,period:p.key,by:me,at:new Date().toISOString()}); }
+    else await ref.delete(); }
+  catch(e){ adMsg=['err',adFail(e)]; renderAD(); }
+}
+const adNewId=()=>'t'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+async function adSeed(){
+  if(!adDbRef||adBusy) return; const have=new Set((adTasks||[]).map(t=>String(t.title||'').trim().toLowerCase()));
+  const add=AD_SEED.filter(x=>!have.has(x[1].toLowerCase())); if(!add.length){ adMsg=['ok','Every suggested task is already in the list.']; renderAD(); return; }
+  adBusy=true; renderAD();
+  try{ for(let i=0;i<add.length;i++){ const [cat,title,freq,due,co,pic,notes]=add[i];
+      await adDbRef.collection(AD_COL).doc(adNewId()+i).set({cat,title,freq,due,co,pic,notes,at:new Date().toISOString()}); }
+    adMsg=['ok','Added '+add.length+' suggested task(s). Change the dates, company and PIC to suit the team.']; }
+  catch(e){ adMsg=['err',adFail(e)]; }
+  adBusy=false; renderAD();
+}
+async function adSave(){
+  const E=adEdit; if(!E||!adDbRef||adBusy) return;
+  const t={cat:E.cat.trim(),title:E.title.trim(),freq:E.freq,due:String(E.due||'').trim(),co:E.co,pic:E.pic.trim(),notes:E.notes.trim()};
+  const bad=!t.title?'Enter the task.':t.freq==='monthly'&&t.due&&!(+t.due>=1&&+t.due<=31)?'Monthly due day must be 1 to 31.'
+    :t.freq==='quarterly'&&t.due&&!(+t.due>=1&&+t.due<=31)?'Quarterly due day must be 1 to 31.'
+    :t.freq==='yearly'&&t.due&&!/^\d{1,2}-\d{1,2}$/.test(t.due)?'Yearly due date must be month-day, e.g. 07-31.'
+    :t.freq==='once'&&t.due&&!/^\d{4}-\d{2}-\d{2}$/.test(t.due)?'Pick the date.':'';
+  if(bad){ E.err=bad; renderAD(); return; }
+  adBusy=true; renderAD();
+  try{ await adDbRef.collection(AD_COL).doc(E.id||adNewId()).set({...t,at:new Date().toISOString()}); adMsg=['ok',(E.id?'Saved ':'Added ')+'<b>'+esc(t.title)+'</b>.']; adEdit=null; }
+  catch(e){ E.err=adFail(e); }
+  adBusy=false; renderAD();
+}
+async function adDel(t){
+  if(!adDbRef||!confirm('Delete the task "'+t.title+'"? Its ticks stay in the history but the task disappears from the list.')) return;
+  try{ await adDbRef.collection(AD_COL).doc(t.id).delete(); adMsg=['ok','Deleted <b>'+esc(t.title)+'</b>.']; adEdit=null; }catch(e){ adMsg=['err',adFail(e)]; }
+  renderAD();
+}
+const AD_ST={ok:['● Done','zg'],late:['■ Overdue','zb'],soon:['▲ Due soon','zw'],up:['○ Upcoming','hint'],nd:['– No date','hint']};
+function renderADNow(){
+  const all=adRows(), rows=all.filter(r=>!adCo||r.t.co===adCo||r.t.co==='Both'), C=k=>rows.filter(r=>r.s===k).length;
+  let h=`<div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><div class="seg" role="group" aria-label="Company">${[['','Both companies'],['79V','79V'],['Arabina','Arabina']].map(([k,l])=>`<button type="button" data-adco="${k}" aria-pressed="${adCo===k}">${l}</button>`).join('')}</div>
+    <span class="hint">Today is ${adDay(new Date())}. A tick counts for the current period only.</span></div>
+   <div class="bekpi"><div><span>Tasks this period</span><b>${rows.length}</b></div><div><span>Done</span><b class="zg">${C('ok')}</b></div>
+    <div><span>Overdue</span><b class="${C('late')?'zb':''}">${C('late')}</b></div><div><span>Due in the next 3 days</span><b class="${C('soon')?'zw':''}">${C('soon')}</b></div></div>`;
+  if(!rows.length) return h+'<p class="sub2">No tasks yet. Open <b>Task list</b> to add them, or add the suggested list.</p>';
+  const ord={late:0,soon:1,up:2,nd:3,ok:4};
+  Object.keys(AD_FREQ).forEach(f=>{ const L=rows.filter(r=>(r.t.freq||'monthly')===f).sort((a,b)=>ord[a.s]-ord[b.s]||((a.p.due||0)-(b.p.due||0)));
+    if(!L.length) return;
+    h+=`<h3 style="font-size:13.5px;margin:16px 0 4px">${AD_FREQ[f]} <span class="hint" style="font-weight:400">· ${L.filter(r=>r.s==='ok').length} of ${L.length} done · ${esc(L[0].p.label)}</span></h3>
+     <div style="overflow-x:auto"><table class="tc" style="min-width:820px"><tr class="sub"><td style="width:34px"></td><td>Task</td><td>Company</td><td>PIC</td><td>Due</td><td>Status</td><td>Done by</td></tr>`;
+    L.forEach(r=>{ const t=r.t, st=AD_ST[r.s];
+      const due=r.p.due?(f==='daily'?'Today':adDay(r.p.due))+(r.s==='late'?`<span class="note zb">${-r.days} day(s) late</span>`:r.s==='soon'?`<span class="note">${r.days?'in '+r.days+' day(s)':'today'}</span>`:''):adDueTxt(t);
+      h+=`<tr><td><input type="checkbox" data-adtick="${esc(t.id)}" aria-label="Done: ${esc(t.title)}"${r.dn?' checked':''}${adDbRef?'':' disabled'}></td>
+        <td style="white-space:normal"><b style="${r.s==='ok'?'text-decoration:line-through;opacity:.7':''}">${esc(t.title)}</b>${t.cat?` <span class="tag" style="color:var(--muted)">${esc(t.cat)}</span>`:''}${t.notes?`<span class="note">${esc(t.notes)}</span>`:''}</td>
+        <td>${esc(t.co||'Both')}</td><td>${esc(t.pic||'–')}</td><td style="white-space:nowrap">${due}</td>
+        <td class="${st[1]}" style="font-weight:700;white-space:nowrap">${st[0]}</td><td style="white-space:nowrap">${r.dn?`${esc(adNames[r.dn.by]||(r.dn.by?'…':'–'))}<span class="note">${dt(Date.parse(r.dn.at))}</span>`:''}</td></tr>`; });
+    h+='</table></div>'; });
+  return h;
+}
+function renderADList(){
+  const inS='font:inherit;padding:4px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)';
+  let h=`<div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><button type="button" class="primary" id="adNew"${adDbRef?'':' disabled'}>+ New task</button>
+    <button type="button" id="adSeed"${adDbRef&&!adBusy?'':' disabled'}>${adBusy?'Saving…':'Add suggested tasks'}</button><span class="hint">Suggested tasks already in the list are skipped.</span></div>`;
+  const E=adEdit;
+  if(E){ const ph={daily:'',weekly:'',monthly:'Day 1–31, e.g. 15',quarterly:'Day 1–31 of the last month',yearly:'Month-day, e.g. 07-31',once:''}[E.freq];
+    const dueCtl=E.freq==='daily'?'<span class="hint">every day</span>':E.freq==='weekly'?`<select data-ade="due" style="${inS}">${[1,2,3,4,5,6,0].map(d=>`<option value="${d}"${String(E.due===''?5:E.due)===String(d)?' selected':''}>${AD_WD[d]}</option>`).join('')}</select>`
+      :E.freq==='once'?`<input type="date" data-ade="due" value="${esc(E.due)}" style="${inS}">`:`<input data-ade="due" value="${esc(E.due)}" placeholder="${ph}" style="${inS};width:220px">`;
+    h+=`<div class="anbox" style="margin:8px 0 12px"><b>${E.id?'Edit task':'New task'}</b>
+     <div class="inp" style="grid-template-columns:minmax(120px,200px) minmax(0,420px);margin-top:8px">
+      <label>Task</label><input data-ade="title" value="${esc(E.title)}" style="${inS}">
+      <label>Category</label><input data-ade="cat" value="${esc(E.cat)}" placeholder="e.g. Payroll, Tax, Bank" style="${inS}">
+      <label>Repeats</label><select data-ade="freq" style="${inS}">${Object.entries(AD_FREQ).map(([k,l])=>`<option value="${k}"${E.freq===k?' selected':''}>${l}</option>`).join('')}</select>
+      <label>Due</label><div>${dueCtl}</div>
+      <label>Company</label><select data-ade="co" style="${inS}">${['Both','79V','Arabina'].map(c=>`<option${E.co===c?' selected':''}>${c}</option>`).join('')}</select>
+      <label>PIC</label><input data-ade="pic" value="${esc(E.pic)}" placeholder="Person in charge" style="${inS}">
+      <label>Notes</label><input data-ade="notes" value="${esc(E.notes)}" style="${inS}"></div>
+     ${E.err?`<div class="msg err" style="margin:8px 0">${E.err}</div>`:''}
+     <div class="controls" style="gap:8px;margin:10px 0 0"><button type="button" class="primary" id="adSave"${adBusy?' disabled':''}>${adBusy?'Saving…':'Save task'}</button><button type="button" id="adCancel">Cancel</button>${E.id?'<button type="button" id="adDel">Delete task</button>':''}</div></div>`; }
+  const L=(adTasks||[]).slice().sort((a,b)=>Object.keys(AD_FREQ).indexOf(a.freq)-Object.keys(AD_FREQ).indexOf(b.freq)||String(a.cat||'').localeCompare(String(b.cat||''))||String(a.title).localeCompare(String(b.title)));
+  if(!L.length) return h+'<p class="sub2">The list is empty. Press <b>Add suggested tasks</b> for a starting list of payroll, statutory, tax, bank and filing work, or add your own.</p>';
+  h+=`<div style="overflow-x:auto"><table class="tc" style="min-width:820px"><tr class="sub"><td>Task</td><td>Category</td><td>Repeats</td><td>Due</td><td>Company</td><td>PIC</td><td></td></tr>
+    ${L.map(t=>`<tr><td style="white-space:normal"><b>${esc(t.title)}</b>${t.notes?`<span class="note">${esc(t.notes)}</span>`:''}</td><td>${esc(t.cat||'')}</td><td>${AD_FREQ[t.freq]||'Monthly'}</td><td>${adDueTxt(t)}</td><td>${esc(t.co||'Both')}</td><td>${esc(t.pic||'–')}</td>
+      <td><button type="button" data-aded="${esc(t.id)}"${adDbRef?'':' disabled'}>Edit</button></td></tr>`).join('')}</table></div>`;
+  return h;
+}
+function renderAD(){
+  if(state.view!=='ad') return;
+  adDbInit();
+  // Without the database the suggested list is shown so the page is never empty, but nothing can be ticked.
+  if(!adDbRef&&adErr&&!adTasks) adTasks=AD_SEED.map(([cat,title,freq,due,co,pic,notes],i)=>({id:'seed'+i,cat,title,freq,due,co,pic,notes}));
+  const tabs=`<div class="seg" role="group" aria-label="Admin" style="margin:14px 18px 0">${[['now','This period'],['all','Task list']].map(([k,l])=>`<button type="button" data-adt="${k}" aria-pressed="${adTab===k}">${l}</button>`).join('')}</div>`;
+  let h=`<div class="stmt"><h3>ADMIN: RECURRING WORK</h3><p class="sub2">The admin team's regular tasks for 79 Ventures and Arabina: payroll, statutory payments, tax, bank, petty cash and filings. Tick a task when it is done; the tick is shared with everyone who opens this page and records who did it and when.</p>`;
+  if(adErr) h+=`<div class="msg" style="margin:8px 0;border-color:#b7791f">${adErr}</div>`;
+  if(adMsg) h+=`<div class="msg ${adMsg[0]}" style="margin:8px 0">${adMsg[1]}</div>`;
+  h+=(adTasks==null?'<p class="hint">Reading the task list…</p>':adTab==='all'?renderADList():renderADNow())+'</div>';
+  $('tablebox').innerHTML=tabs+h;
+  const B=$('tablebox');
+  B.querySelectorAll('[data-adt]').forEach(b=>b.addEventListener('click',()=>{ adTab=b.dataset.adt; store.set('consol.adTab',adTab); adMsg=null; renderAD(); }));
+  B.querySelectorAll('[data-adco]').forEach(b=>b.addEventListener('click',()=>{ adCo=b.dataset.adco; store.set('consol.adCo',adCo); renderAD(); }));
+  B.querySelectorAll('[data-adtick]').forEach(c=>c.addEventListener('change',()=>{ const r=adRows().find(x=>x.t.id===c.dataset.adtick); if(r) adTick(r.t,r.p,c.checked); }));
+  const n=$('adNew'); if(n) n.addEventListener('click',()=>{ adMsg=null; adEdit={id:null,cat:'',title:'',freq:'monthly',due:'',co:'Both',pic:'',notes:'',err:null}; renderAD(); });
+  const sd=$('adSeed'); if(sd) sd.addEventListener('click',adSeed);
+  B.querySelectorAll('[data-aded]').forEach(b=>b.addEventListener('click',()=>{ const t=(adTasks||[]).find(x=>x.id===b.dataset.aded); if(!t) return; adMsg=null;
+    adEdit={id:t.id,cat:t.cat||'',title:t.title||'',freq:t.freq||'monthly',due:t.due==null?'':String(t.due),co:t.co||'Both',pic:t.pic||'',notes:t.notes||'',err:null}; renderAD(); window.scrollTo({top:$('tablebox').offsetTop-10,behavior:'smooth'}); }));
+  if(adEdit){
+    B.querySelectorAll('[data-ade]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.ade; adEdit[k]=el.value; if(k==='freq'){ adEdit.due=el.value==='weekly'?'5':''; renderAD(); } }));
+    $('adSave').addEventListener('click',()=>{ B.querySelectorAll('[data-ade]').forEach(el=>{ adEdit[el.dataset.ade]=el.value; }); adSave(); });
+    $('adCancel').addEventListener('click',()=>{ adEdit=null; renderAD(); });
+    const d=$('adDel'); if(d) d.addEventListener('click',()=>{ const t=(adTasks||[]).find(x=>x.id===adEdit.id); if(t) adDel(t); });
+  }
+}
+
+// ===== FUEL CARD LOG: who has each Shell Fleet (Radius) card, from check-out to check-in =====
+// Per the internal memo of 5 Oct 2026 the cards are for company vehicles on site work only, and every
+// transaction's receipt goes to Accounts. Each check-out is one record; check-in completes it. Cards and
+// moves live in this artifact's database, so everyone who opens the page sees the same log.
+const SC_CARDS='fuelcards', SC_MOVES='fuelmoves', SC_LATE_H=24;
+let scCards=null, scMoves=null, scDbRef=null, scSub=null, scErr=null, scMsg=null, scBusy=false, scForm=null, scNames={}, scTab=store.get('consol.scTab')||'now';
+const scNowLocal=()=>{ const d=new Date(); d.setMinutes(d.getMinutes()-d.getTimezoneOffset()); return d.toISOString().slice(0,16); };
+const scFail=e=>e&&e.code==='invalid_argument'?'You do not have permission to change the fuel card log in this artifact.':'Save failed ('+esc(e&&e.code||'error')+'). Try again.';
+const scNewId=p=>p+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+async function scDbInit(){
+  if(scSub||scErr) return;
+  try{ scDbRef=await useDb(); }catch(e){ scDbRef=null; }
+  if(!scDbRef){ scErr='The fuel card log needs the artifact on claude.ai, or a signed-in account on the Railway site, where it is shared with everyone who opens it.'; if(state.view==='sc') renderSC(); return; }
+  const redraw=()=>{ adBadge(); if(state.view==='sc'&&!scForm) renderSC(); };
+  scSub=scDbRef.collection(SC_CARDS).onSnapshot(s=>{ scCards=s.docs.map(d=>({...d.data(),id:d.id})); redraw(); },
+    e=>{ scErr='Could not read the fuel cards ('+esc(e&&e.code||'error')+').'; redraw(); });
+  scDbRef.collection(SC_MOVES).onSnapshot(s=>{ scMoves=s.docs.map(d=>({...d.data(),id:d.id})); scResolve(); redraw(); },
+    e=>{ scErr='Could not read the log ('+esc(e&&e.code||'error')+').'; redraw(); });
+}
+async function scResolve(){
+  const u=await wrUserInit(); const need=[...new Set((scMoves||[]).flatMap(m=>[m.outBy,m.inBy]).filter(x=>x&&!(x in scNames)))]; if(!u||!need.length) return;
+  try{ const ps=await u.profiles(need); need.forEach(id=>{ scNames[id]=(ps[id]&&ps[id].name)||'User'; }); if(state.view==='sc'&&!scForm) renderSC(); }catch(e){}
+}
+const scWho=id=>id?esc(scNames[id]||'…'):'–';
+const scOpen=c=>(scMoves||[]).filter(m=>m.card===c.id&&!m.inAt).sort((a,b)=>a.outAt<b.outAt?1:-1)[0]||null;
+const scHrs=m=>(Date.now()-Date.parse(m.outAt))/36e5;
+const scRef=c=>c.ref?String(c.ref):'••'+(c.last4||'');
+async function scSave(){
+  const F=scForm; if(!F||!scDbRef||scBusy) return; const u=await wrUserInit(), me=u?await u.id():null; let bad='';
+  if(F.kind==='card'){ const l4=String(F.last4||'').replace(/\D/g,''), ref=String(F.ref||'').trim().toUpperCase();
+    bad=!ref?'Enter the card reference, e.g. 50567-CARD 3.':l4&&l4.length!==4?'Last 4 digits must be 4 digits, or leave it blank.':(scCards||[]).some(c=>c.id!==F.id&&String(c.ref||'').toUpperCase()===ref&&c.active!==false)?'Card '+esc(ref)+' is already in the register.':'';
+    if(!bad){ scBusy=true; renderSC();
+      try{ await scDbRef.collection(SC_CARDS).doc(F.id||scNewId('c')).set({ref,last4:l4,vehicle:F.vehicle.trim().toUpperCase(),holder:F.holder.trim(),co:F.co,limit:F.limit===''?null:+F.limit,notes:F.notes.trim(),active:F.active!==false,at:new Date().toISOString()});
+        scMsg=['ok',(F.id?'Saved':'Added')+' card <b>'+esc(ref)+'</b>.']; scForm=null; }catch(e){ F.err=scFail(e); } } }
+  else if(F.kind==='out'){ const c=(scCards||[]).find(x=>x.id===F.card);
+    bad=!c?'Choose a card.':scOpen(c)?'That card is already out. Check it in first.':!F.person.trim()?'Enter who takes the card.':!F.site.trim()?'Enter the project site.':!F.outAt?'Enter the date and time.':'';
+    if(!bad){ scBusy=true; renderSC();
+      try{ await scDbRef.collection(SC_MOVES).doc(scNewId('m')).set({card:c.id,ref:scRef(c),last4:c.last4||'',person:F.person.trim(),vehicle:(F.vehicle.trim()||c.vehicle||'').toUpperCase(),site:F.site.trim(),purpose:F.purpose.trim(),
+          outAt:new Date(F.outAt).toISOString(),outBy:me,inAt:null,inBy:null,receipts:null,amount:null,inNotes:''});
+        scMsg=['ok','Card '+esc(scRef(c))+' checked out to <b>'+esc(F.person.trim())+'</b>.']; scForm=null; }catch(e){ F.err=scFail(e); } } }
+  else if(F.kind==='in'){ const m=(scMoves||[]).find(x=>x.id===F.move);
+    bad=!m?'This check-out is no longer in the log.':!F.inAt?'Enter the date and time.':new Date(F.inAt)<new Date(m.outAt)?'Check-in cannot be before check-out.':F.receipts===''?'Say whether the receipts were handed in.':'';
+    if(!bad){ scBusy=true; renderSC();
+      try{ const {id:_id,...rest}=m; await scDbRef.collection(SC_MOVES).doc(m.id).set({...rest,inAt:new Date(F.inAt).toISOString(),inBy:me,receipts:F.receipts,amount:F.amount===''?null:+F.amount,inNotes:F.notes.trim()});
+        scMsg=['ok','Card '+esc(scRef(m))+' checked in from <b>'+esc(m.person)+'</b>.']; scForm=null; }catch(e){ F.err=scFail(e); } } }
+  if(bad) F.err=bad; scBusy=false; renderSC();
+}
+function scFormHTML(){
+  const F=scForm, inS='font:inherit;padding:4px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)';
+  const row=(l,ctl)=>`<label>${l}</label><div>${ctl}</div>`, inp=(k,v,ph,t)=>`<input data-scf="${k}" ${t?`type="${t}"`:''} value="${esc(v==null?'':v)}" placeholder="${ph||''}" style="${inS};width:100%;max-width:320px">`;
+  let h=`<div class="anbox" style="margin:8px 0 12px"><b>${F.kind==='card'?(F.id?'Edit card':'Add a card'):F.kind==='out'?'Check out a card':'Check in card '+esc(F.label)}</b><div class="inp" style="grid-template-columns:minmax(120px,200px) minmax(0,360px);margin-top:8px">`;
+  if(F.kind==='card') h+=row('Card ref',inp('ref',F.ref,'e.g. 50567-CARD 3'))+row('Last 4 digits',inp('last4',F.last4,'optional'))+row('Vehicle registration',inp('vehicle',F.vehicle,'e.g. BNT9789'))+row('Usual holder',inp('holder',F.holder,'Site supervisor'))
+    +row('Company',`<select data-scf="co" style="${inS}">${['79V','Arabina'].map(c=>`<option${F.co===c?' selected':''}>${c}</option>`).join('')}</select>`)+row('Monthly limit (RM)',inp('limit',F.limit,'optional','number'))+row('Notes',inp('notes',F.notes,''))
+    +(F.id?row('In use',`<select data-scf="active" style="${inS}"><option value="1"${F.active!==false?' selected':''}>Yes</option><option value=""${F.active===false?' selected':''}>No, cancelled or lost</option></select>`):'');
+  else if(F.kind==='out'){ const free=(scCards||[]).filter(c=>c.active!==false&&!scOpen(c));
+    h+=row('Card',`<select data-scf="card" style="${inS}"><option value="">Choose…</option>${free.map(c=>`<option value="${esc(c.id)}"${F.card===c.id?' selected':''}>${esc(scRef(c))}${c.vehicle?' · '+esc(c.vehicle):''}${c.holder?' · '+esc(c.holder):''}</option>`).join('')}</select>${free.length?'':' <span class="hint">Every card is out.</span>'}`)
+      +row('Taken by',inp('person',F.person,'Name of the supervisor'))+row('Vehicle registration',inp('vehicle',F.vehicle,'Defaults to the card’s vehicle'))
+      +row('Project site',inp('site',F.site,'e.g. Lavender Height'))+row('Purpose',inp('purpose',F.purpose,'optional'))+row('Out at',inp('outAt',F.outAt,'','datetime-local')); }
+  else h+=row('Returned at',inp('inAt',F.inAt,'','datetime-local'))+row('Receipts handed in',`<select data-scf="receipts" style="${inS}"><option value=""${F.receipts===''?' selected':''}>Choose…</option><option value="all"${F.receipts==='all'?' selected':''}>Yes, all receipts</option><option value="some"${F.receipts==='some'?' selected':''}>Some missing</option><option value="none"${F.receipts==='none'?' selected':''}>None</option><option value="na"${F.receipts==='na'?' selected':''}>Card not used</option></select>`)
+    +row('Amount spent (RM)',inp('amount',F.amount,'From the receipts, optional','number'))+row('Notes',inp('notes',F.notes,'e.g. receipt for 12 Oct missing'));
+  h+=`</div>${F.err?`<div class="msg err" style="margin:8px 0">${F.err}</div>`:''}<div class="controls" style="gap:8px;margin:10px 0 0"><button type="button" class="primary" id="scSave"${scBusy?' disabled':''}>${scBusy?'Saving…':F.kind==='out'?'Check out':F.kind==='in'?'Check in':'Save card'}</button><button type="button" id="scCancel">Cancel</button></div></div>`;
+  return h;
+}
+// Return rule (SOP): a card goes back within 24 hours of check-out; 24 to 48 hours is the grace period;
+// past 48 hours it is late; at 72 hours HR is alerted to issue a show cause letter. The same bands rate
+// a card still out (time so far) and a card already back (time it was out).
+const scDur=m=>((m.inAt?Date.parse(m.inAt):Date.now())-Date.parse(m.outAt))/36e5;
+const scLvl=h=>h<=24?'ok':h<=48?'grace':h<72?'late':'hr';
+const SC_LV={ok:{out:['● Out, within 24 h','zg'],in:['● On time','zg']},grace:{out:['▲ Grace period: back by 48 h','zw'],in:['▲ Returned in grace period','zw']},
+  late:{out:['■ Past 48 h: overdue','zb'],in:['■ Late (48–72 h)','zb']},hr:{out:['■ 72 h+: alert HR','zb'],in:['■ 72 h+: show cause','zb']}};
+const scChip=m=>{ const x=SC_LV[scLvl(scDur(m))][m.inAt?'in':'out']; return `<span class="${x[1]}" style="font-weight:700;white-space:nowrap">${x[0]}</span>`; };
+const scHt=h=>h<48?(Math.round(h*10)/10)+' h':Math.floor(h/24)+' d '+Math.round(h%24)+' h';
+// Every use that reached 72 hours and has not been reported to HR yet.
+const scHrDue=()=>(scMoves||[]).filter(m=>scLvl(scDur(m))==='hr'&&!m.hr);
+let scCardSel=store.get('consol.scCard')||'', scCfg=null;
+function scCfgInit(){ if(!scDbRef||scCfg) return; scCfg={hr:''}; scDbRef.doc('fuelcfg/alerts').onSnapshot(s=>{ scCfg=s.exists?{hr:'',...s.data()}:{hr:''}; if(state.view==='sc'&&!scForm) renderSC(); },()=>{}); }
+// Alert HR: emails the HR addresses from the viewer's own Gmail when they are set, and stamps the use
+// with who reported it and when, so it is reported once and the log shows it.
+async function scAlertHR(m){
+  if(!scDbRef||scBusy) return; scBusy=true; renderSC();
+  const to=($('scHrTo')?$('scHrTo').value:(scCfg&&scCfg.hr)||'').split(/[\s,;]+/).map(x=>x.trim()).filter(x=>/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(x));
+  if(to.join(', ')!==(scCfg&&scCfg.hr||'')){ try{ await scDbRef.doc('fuelcfg/alerts').set({hr:to.join(', ')}); }catch(e){} }
+  const u=await wrUserInit(), me=u?await u.id():null, h=scDur(m), hr={by:me,at:new Date().toISOString(),hours:Math.round(h*10)/10};
+  if(to.length&&mcp){
+    const html=`<p>Fuel card <b>${esc(scRef(m))}</b> was checked out to <b>${esc(m.person)}</b> on ${esc(dt(Date.parse(m.outAt)))} (vehicle ${esc(m.vehicle||'–')}, site ${esc(m.site||'–')}) and ${m.inAt?'was returned on '+esc(dt(Date.parse(m.inAt))):'<b>has not been returned</b>'}: ${esc(scHt(h))} out.</p>
+      <p>Under the fuel card SOP a card must be returned within 24 hours, with a grace period to 48 hours. At 72 hours the case goes to HR for a <b>show cause letter</b> for not complying with the SOP.</p>
+      <p>Details: P&amp;L 2026 – Consol artifact on claude.ai → Admin → Fuel Card Log.</p>`;
+    try{ await mcp.callTool('Gmail','send_message',{to,subject:'[Fuel Card] '+scRef(m)+' – '+m.person+': '+scHt(h)+' out, show cause letter',htmlBody:html,
+        body:'Fuel card '+scRef(m)+' checked out to '+m.person+' on '+dt(Date.parse(m.outAt))+' was out '+scHt(h)+'. Per the SOP (return within 24 h, grace to 48 h), at 72 h HR is to issue a show cause letter.'},{cache:false}); hr.mail=to.join(', '); }
+    catch(e){ hr.mailErr=(e&&e.code)||'error'; }
+  } else if(to.length) hr.mailErr='email is sent only from the claude.ai artifact';
+  try{ await scDbRef.collection(SC_MOVES).doc(m.id).update({hr}); scMsg=['ok','HR alert recorded for <b>'+esc(m.person)+'</b> ('+esc(scRef(m))+')'+(hr.mail?', email sent to '+esc(hr.mail):hr.mailErr?'; the email could not be sent ('+esc(hr.mailErr)+'), tell HR directly':'; no HR email set, tell HR directly')+'.']; }
+  catch(e){ scMsg=['err',scFail(e)]; }
+  scBusy=false; renderSC();
+}
+function scHrHTML(){
+  const L=scHrDue(); if(!L.length) return '';
+  return `<div class="msg err" style="margin:8px 0"><b>⚠ ${L.length} fuel card use(s) reached 72 hours: alert HR for a show cause letter (SOP not followed).</b>
+    <div style="overflow-x:auto;margin-top:6px"><table class="tc" style="min-width:640px"><tr class="sub"><td>Card</td><td>Taken by</td><td>Out</td><td>Time out</td><td></td></tr>
+    ${L.map(m=>`<tr><td>${esc(scRef(m))}</td><td><b>${esc(m.person)}</b></td><td style="white-space:nowrap">${dt(Date.parse(m.outAt))}</td><td>${scHt(scDur(m))}${m.inAt?'<span class="note">returned '+dt(Date.parse(m.inAt))+'</span>':'<span class="note">still out</span>'}</td>
+      <td><button type="button" data-schr="${esc(m.id)}"${scDbRef&&!scBusy?'':' disabled'}>Alert HR</button></td></tr>`).join('')}</table></div>
+    <label class="hint" style="display:inline-flex;gap:6px;align-items:center;margin-top:6px">HR email <input id="scHrTo" value="${esc(scCfg&&scCfg.hr||'')}" placeholder="hr@..." style="width:280px;font:inherit;padding:3px 6px;border:1px solid var(--rule);border-radius:4px;background:var(--card);color:var(--ink)"></label>
+    <span class="hint"> · sent from your own Gmail; without an address the alert is only recorded here.</span></div>`;
+}
+const SC_RULES=`<p class="sub2"><b>Return rule:</b> <span class="zg">within 24 h on time</span> · <span class="zw">24–48 h grace period</span> · <span class="zb">past 48 h late</span> · <span class="zb">72 h: alert HR for a show cause letter</span>.</p>`;
+const SC_RC={all:['All receipts','zg'],some:['Some missing','zw'],none:['None','zb'],na:['Not used','hint']};
+function renderSCNow(){
+  const cards=(scCards||[]).filter(c=>c.active!==false).sort((a,b)=>String(a.vehicle||'').localeCompare(String(b.vehicle||''))), out=cards.filter(scOpen);
+  const lv=c=>scLvl(scDur(scOpen(c))), grace=out.filter(c=>lv(c)==='grace'), over=out.filter(c=>lv(c)==='late'||lv(c)==='hr');
+  const miss=(scMoves||[]).filter(m=>m.inAt&&(m.receipts==='some'||m.receipts==='none'));
+  let h=`<div class="bekpi"><div><span>Cards</span><b>${cards.length}</b></div><div><span>In the office</span><b class="zg">${cards.length-out.length}</b></div><div><span>Out now</span><b>${out.length}</b></div>
+    <div><span>Out, in grace period (24–48 h)</span><b class="${grace.length?'zw':''}">${grace.length}</b></div><div><span>Out past 48 h</span><b class="${over.length?'zb':''}">${over.length}</b></div>
+    <div><span>HR alerts to send (72 h+)</span><b class="${scHrDue().length?'zb':''}">${scHrDue().length}</b></div><div><span>Returns with receipts missing</span><b class="${miss.length?'zw':''}">${miss.length}</b></div></div>`;
+  if(!cards.length) return h+'<p class="sub2">No cards in the register yet. Open <b>Cards</b> to add each Shell Fleet card with its vehicle.</p>';
+  h+=`<div style="overflow-x:auto"><table class="tc" style="min-width:900px"><tr class="sub"><td>Card</td><td>Vehicle</td><td>Status</td><td>With</td><td>Site</td><td>Since</td><td>Uses</td><td></td></tr>`;
+  cards.forEach(c=>{ const m=scOpen(c), n=(scMoves||[]).filter(x=>x.card===c.id).length;
+    h+=`<tr><td><b>${esc(scRef(c))}</b>${c.holder?`<span class="note">usually ${esc(c.holder)}</span>`:''}</td><td>${esc(m&&m.vehicle||c.vehicle||'–')}</td>
+      <td>${m?scChip(m):'<span class="zg" style="font-weight:700">● In office</span>'}</td>
+      <td>${m?esc(m.person):'–'}</td><td>${m?esc(m.site):'–'}</td><td style="white-space:nowrap">${m?dt(Date.parse(m.outAt))+`<span class="note">${scHt(scDur(m))} ago</span>`:'–'}</td>
+      <td>${n}</td><td style="white-space:nowrap">${m?`<button type="button" data-scin="${esc(m.id)}"${scDbRef?'':' disabled'}>Check in</button>`:`<button type="button" data-scout="${esc(c.id)}"${scDbRef?'':' disabled'}>Check out</button>`} <button type="button" data-schist="${esc(c.id)}">History</button></td></tr>`; });
+  return h+'</table></div>';
+}
+function renderSCLog(){
+  const C=new Map((scCards||[]).map(c=>[c.id,c])), sel=scCardSel&&C.has(scCardSel)?scCardSel:'';
+  const L=(scMoves||[]).filter(m=>!sel||m.card===sel).sort((a,b)=>a.outAt<b.outAt?1:-1);
+  const opts=(scCards||[]).slice().sort((a,b)=>String(a.ref||'').localeCompare(String(b.ref||''),undefined,{numeric:true}));
+  let h=`<div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><label>Card <select id="scCardSel"><option value="">All cards</option>${opts.map(c=>`<option value="${esc(c.id)}"${sel===c.id?' selected':''}>${esc(scRef(c))}${c.vehicle?' · '+esc(c.vehicle):''}</option>`).join('')}</select></label>
+    <span class="hint">${sel?'In and out history of this card, newest first.':'Every card, newest first. Pick a card to see its own history.'}</span></div>`;
+  const cnt=k=>L.filter(m=>scLvl(scDur(m))===k).length, done=L.filter(m=>m.inAt), hrs=done.map(scDur), amt=L.reduce((t,m)=>t+(+m.amount||0),0);
+  h+=`<div class="bekpi"><div><span>Times used</span><b>${L.length}</b><span>${L.length-done.length} still out</span></div><div><span>On time (≤24 h)</span><b class="zg">${cnt('ok')}</b></div>
+    <div><span>Grace period (24–48 h)</span><b class="${cnt('grace')?'zw':''}">${cnt('grace')}</b></div><div><span>Late (48–72 h)</span><b class="${cnt('late')?'zb':''}">${cnt('late')}</b></div>
+    <div><span>72 h+ (HR show cause)</span><b class="${cnt('hr')?'zb':''}">${cnt('hr')}</b></div><div><span>Average time out</span><b>${hrs.length?scHt(hrs.reduce((a,b)=>a+b,0)/hrs.length):'–'}</b><span>returned uses</span></div>
+    <div><span>Spent (from receipts)</span><b>RM${fmt(amt)}</b></div></div>`;
+  if(!L.length) return h+'<p class="sub2">Nothing logged yet'+(sel?' for this card':'')+'. Check-outs and check-ins appear here.</p>';
+  return h+`<div style="overflow-x:auto"><table class="tc" style="min-width:1100px"><tr class="sub"><td>Card</td><td>Taken by</td><td>Vehicle · site</td><td>Out</td><td>In</td><td>Time out</td><td>Return rule</td><td>Receipts</td><td class="r">Spent (RM)</td><td>HR</td></tr>
+    ${L.map(m=>{ const rc=SC_RC[m.receipts], lv=scLvl(scDur(m));
+      const hr=m.hr?`<span class="zb" style="font-weight:700">Alerted</span><span class="note">by ${scWho(m.hr.by)}, ${dt(Date.parse(m.hr.at))}${m.hr.mail?' · email '+esc(m.hr.mail):''}</span>`:lv==='hr'?`<button type="button" data-schr="${esc(m.id)}"${scDbRef&&!scBusy?'':' disabled'}>Alert HR</button>`:'–';
+      return `<tr><td>${esc(scRef(m))}${C.get(m.card)?'':'<span class="note">card removed</span>'}</td><td>${esc(m.person)}${m.purpose?`<span class="note">${esc(m.purpose)}</span>`:''}</td>
+      <td>${esc(m.vehicle||'–')}<span class="note">${esc(m.site||'')}</span></td><td style="white-space:nowrap">${dt(Date.parse(m.outAt))}<span class="note">logged by ${scWho(m.outBy)}</span></td>
+      <td style="white-space:nowrap">${m.inAt?dt(Date.parse(m.inAt))+`<span class="note">received by ${scWho(m.inBy)}</span>`:'<b class="zw">Still out</b>'}</td>
+      <td style="white-space:nowrap">${scHt(scDur(m))}${m.inAt?'':'<span class="note">so far</span>'}</td><td>${scChip(m)}</td>
+      <td class="${rc?rc[1]:''}" style="white-space:nowrap">${rc?rc[0]:'–'}${m.inNotes?`<span class="note">${esc(m.inNotes)}</span>`:''}</td><td class="r">${m.amount!=null?fmt(m.amount):'–'}</td><td style="white-space:nowrap">${hr}</td></tr>`; }).join('')}</table></div>`;
+}
+function renderSCCards(){
+  const L=(scCards||[]).slice().sort((a,b)=>(a.active===false)-(b.active===false)||String(a.ref||'').localeCompare(String(b.ref||''),undefined,{numeric:true}));
+  let h=`<div class="controls" style="margin:6px 0;gap:10px"><button type="button" class="primary" id="scAddCard"${scDbRef?'':' disabled'}>+ Add a card</button><span class="hint">Record the card reference and, if useful, the last 4 digits. Never record the full card number or the PIN here.</span></div>`;
+  if(!L.length) return h+'<p class="sub2">No cards yet.</p>';
+  return h+`<div style="overflow-x:auto"><table class="tc" style="min-width:720px"><tr class="sub"><td>Card</td><td>Vehicle</td><td>Usual holder</td><td>Company</td><td class="r">Monthly limit (RM)</td><td>Status</td><td></td></tr>
+    ${L.map(c=>`<tr><td><b>${esc(scRef(c))}</b>${c.last4&&c.ref?`<span class="note">ends ${esc(c.last4)}</span>`:''}${c.notes?`<span class="note">${esc(c.notes)}</span>`:''}</td><td>${esc(c.vehicle||'–')}</td><td>${esc(c.holder||'–')}</td><td>${esc(c.co||'')}</td><td class="r">${c.limit!=null?fmt(c.limit):'–'}</td>
+      <td class="${c.active===false?'hint':'zg'}">${c.active===false?'Not in use':'In use'}</td><td><button type="button" data-sced="${esc(c.id)}"${scDbRef?'':' disabled'}>Edit</button></td></tr>`).join('')}</table></div>`;
+}
+function renderSC(){
+  if(state.view!=='sc') return;
+  scDbInit(); scCfgInit();
+  const tabs=`<div class="seg" role="group" aria-label="Fuel Card Log" style="margin:14px 18px 0">${[['now','Cards now'],['log','In / out history'],['cards','Cards']].map(([k,l])=>`<button type="button" data-sct="${k}" aria-pressed="${scTab===k}">${l}</button>`).join('')}</div>`;
+  let h=`<div class="stmt"><h3>FUEL CARD LOG</h3><p class="sub2">Shell Fleet (Radius) cards: who took each card, for which company vehicle and site, when it came back, and whether the receipts were handed in. Per the internal memo of 5 October 2026, cards are for company vehicles on site work only.</p>`+SC_RULES;
+  if(scErr) h+=`<div class="msg" style="margin:8px 0;border-color:#b7791f">${scErr}</div>`;
+  if(scMsg) h+=`<div class="msg ${scMsg[0]}" style="margin:8px 0">${scMsg[1]}</div>`;
+  if(scForm) h+=scFormHTML();
+  if(scMoves) h+=scHrHTML();
+  h+=(scErr&&!scDbRef)?'':(scCards==null||scMoves==null)?'<p class="hint">Reading the log…</p>':scTab==='log'?renderSCLog():scTab==='cards'?renderSCCards():renderSCNow();
+  $('tablebox').innerHTML=tabs+h+'</div>';
+  const B=$('tablebox');
+  B.querySelectorAll('[data-sct]').forEach(b=>b.addEventListener('click',()=>{ scTab=b.dataset.sct; store.set('consol.scTab',scTab); scMsg=null; renderSC(); }));
+  B.querySelectorAll('[data-scout]').forEach(b=>b.addEventListener('click',()=>{ const c=(scCards||[]).find(x=>x.id===b.dataset.scout); scMsg=null;
+    scForm={kind:'out',card:c?c.id:'',person:c&&c.holder||'',vehicle:c&&c.vehicle||'',site:'',purpose:'',outAt:scNowLocal(),err:null}; renderSC(); }));
+  B.querySelectorAll('[data-scin]').forEach(b=>b.addEventListener('click',()=>{ const m=(scMoves||[]).find(x=>x.id===b.dataset.scin); if(!m) return; scMsg=null;
+    scForm={kind:'in',move:m.id,label:scRef(m),inAt:scNowLocal(),receipts:'',amount:'',notes:'',err:null}; renderSC(); }));
+  B.querySelectorAll('[data-schist]').forEach(b=>b.addEventListener('click',()=>{ scCardSel=b.dataset.schist; store.set('consol.scCard',scCardSel); scTab='log'; store.set('consol.scTab',scTab); scMsg=null; renderSC(); }));
+  B.querySelectorAll('[data-schr]').forEach(b=>b.addEventListener('click',()=>{ const m=(scMoves||[]).find(x=>x.id===b.dataset.schr); if(m) scAlertHR(m); }));
+  const cs=$('scCardSel'); if(cs) cs.addEventListener('change',()=>{ scCardSel=cs.value; store.set('consol.scCard',scCardSel); renderSC(); });
+  const ac=$('scAddCard'); if(ac) ac.addEventListener('click',()=>{ scMsg=null; scForm={kind:'card',id:null,ref:'',last4:'',vehicle:'',holder:'',co:'79V',limit:'',notes:'',err:null}; renderSC(); });
+  B.querySelectorAll('[data-sced]').forEach(b=>b.addEventListener('click',()=>{ const c=(scCards||[]).find(x=>x.id===b.dataset.sced); if(!c) return; scMsg=null;
+    scForm={kind:'card',id:c.id,ref:c.ref||'',last4:c.last4||'',vehicle:c.vehicle||'',holder:c.holder||'',co:c.co||'79V',limit:c.limit==null?'':String(c.limit),notes:c.notes||'',active:c.active!==false,err:null}; renderSC(); }));
+  if(scForm){
+    B.querySelectorAll('[data-scf]').forEach(el=>el.addEventListener('change',()=>{ const k=el.dataset.scf; scForm[k]=k==='active'?el.value==='1':el.value;
+      if(k==='card'){ const c=(scCards||[]).find(x=>x.id===el.value); if(c){ if(!scForm.vehicle) scForm.vehicle=c.vehicle||''; if(!scForm.person) scForm.person=c.holder||''; } renderSC(); } }));
+    $('scSave').addEventListener('click',()=>{ B.querySelectorAll('[data-scf]').forEach(el=>{ const k=el.dataset.scf; scForm[k]=k==='active'?el.value==='1':el.value; }); scSave(); });
+    $('scCancel').addEventListener('click',()=>{ scForm=null; renderSC(); });
+  }
 }
 
 // Side menu, built from the View list so the two always hold the same views.
@@ -5674,7 +6386,7 @@ function navSync(){ const m=navMod(state.view); document.body.classList.toggle('
   document.querySelectorAll('#snavMods [data-mod]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.mod===m)));
   document.querySelectorAll('#snavList [data-mod]').forEach(x=>{ x.hidden=x.dataset.mod!==m; });
   if(m==='bod') store.set('consol.lastbod',state.view);
-  document.querySelectorAll('#snavList .snav-i').forEach(x=>{ if(x.dataset.v===state.view) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current'); }); pcBadge(); }
+  document.querySelectorAll('#snavList .snav-i').forEach(x=>{ if(x.dataset.v===state.view) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current'); }); pcBadge(); adBadge(); }
 (()=>{ const L=$('snavList'); if(!L) return; let shut={}; try{ shut=JSON.parse(store.get('consol.navgrp')||'{}')||{}; }catch(e){}
   let h=''; $('viewSel').querySelectorAll('optgroup').forEach(g=>{ const k=g.label, open=!shut[k], md=g.dataset.mod||'bod';
     h+=`<div data-mod="${md}"><button type="button" class="snav-g" aria-expanded="${open}" data-g="${esc(k)}">${esc(k)}<i>&#9662;</i></button><div class="snav-gi"${open?'':' hidden'}>`;
@@ -5695,7 +6407,7 @@ function navSync(){ const m=navMod(state.view); document.body.classList.toggle('
     if(!v||!$('viewSel').querySelector('option[value="'+v+'"]')) v='home';
     $('viewSel').value=v; $('viewSel').dispatchEvent(new Event('change')); });
   if(store.get('consol.navshut')==='1') document.body.classList.add('navshut');
-  navSync(); if(state.view==='pc'||state.view==='am'||state.view==='fp') renderTable(); })();
+  navSync(); if(state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc') renderTable(); })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
 $('hideZero').addEventListener('change',renderTable);
@@ -5765,7 +6477,7 @@ async function exportAllViews(){
   if(!state.res){ setMsg('Load the data first.','err'); return; }
   const b=$('dlall'), label=b.textContent; b.disabled=true;
   const prevView=state.view, used=new Set(), wb=XLSX.utils.book_new();
-  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am','fp'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
+  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am','fp','ad','sc'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
   try{
     const info=[['79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd'],['Source workbook',(state.meta&&state.meta.title)||''],
       ['Period','Jan–'+MONTHS[state.to]+' 2026'],['Range shown',MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026'],
@@ -5822,6 +6534,8 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
   if(!C||!C.use){
     if(window.google&&google.script&&google.script.run){ MODE='gas'; mcp=gasShim(); downloads=null; $('csv').hidden=false; refresh(false); return; }
     MODE='local'; $('csv').hidden=false; $('openFile').hidden=false;
+    // The Financing Profile drew before the mode was known, as if on claude.ai; draw it again from the imported file.
+    if(state.view==='fp') renderTable();
     $('openFile').addEventListener('click',()=>$('fileIn').click());
     $('fileIn').addEventListener('change',()=>{ localFile=$('fileIn').files[0]||null; if(localFile){ MODE='local'; refresh(false); } });
     // Served by server.js? Then the workbook comes from Drive through /api/consol.xlsx.
@@ -5838,7 +6552,7 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
         if(me&&me.user){ $('who').innerHTML='Signed in as <b>'+esc(me.user)+'</b> · <a href="/logout">Sign out</a>'; $('who').hidden=false; } }catch(e){}
       // Every viewer gets their own empty browser storage, so on a page meant to be shared the
       // bank comparison has to load itself rather than wait for each person to press a button.
-      MODE='web'; $('dlx').hidden=false; autoSet(); refresh(false);
+      MODE='web'; $('dlx').hidden=false; autoSet(); refresh(false); adDbInit(); scDbInit();
       if(!bk.cfAt) setTimeout(()=>{ bkCfLoad().catch(()=>{}); },1500);
       return;
     }
@@ -5849,7 +6563,7 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
   mcp=m; downloads=d; if(state.res) $('csv').hidden=false;
   if(mcp&&state.view==='pc'&&!pcTried) pcLoad();
   if(mcp&&state.view==='am'&&!amTried) amLoad();
-  wrDbInit();
+  wrDbInit(); adDbInit(); scDbInit();
   if(mcp&&state.view==='fp'){ FP.err=null; renderTable(); }
   if(!mcp){ if(!state.res) $('tablebox').innerHTML='<div class="empty">Connectors are not available in this view. Open the artifact on claude.ai.</div>'; else addMsg('Connectors are not available in this view; showing last saved data.',''); return; }
   refresh(false);
@@ -5858,5 +6572,4 @@ try{ const last=JSON.parse(store.get('consol.last')||'null'); if(last&&(last.fid
   if(!bk.cfAt) setTimeout(()=>{ bkCfLoad().catch(()=>{}); },2500);
 })();
 </script>
-</body>
-</html>
+</body></html>
