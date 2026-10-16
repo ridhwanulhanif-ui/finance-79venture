@@ -104,13 +104,14 @@ function createQbo({ dataDir }) {
     let hit = cache.get(key);
     if (!hit || Date.now() - hit.at > 10 * 60_000) {
       const q = encodeURIComponent("select Id, Name, FullyQualifiedName from Account where Name like 'Petty Cash%' maxresults 1000");
-      const j = await api(co, "query?query=" + q);
-      hit = { at: Date.now(), v: (j.QueryResponse && j.QueryResponse.Account) || [] };
+      const d = encodeURIComponent("select Id, Name, FullyQualifiedName from Account where Name = 'Depreciation Expense'");
+      const [j, k] = await Promise.all([api(co, "query?query=" + q), api(co, "query?query=" + d)]);
+      hit = { at: Date.now(), v: [].concat((j.QueryResponse && j.QueryResponse.Account) || [], (k.QueryResponse && k.QueryResponse.Account) || []) };
       cache.set(key, hit);
     }
     return wanted.map((w) => { const a = hit.v.find((x) => x.Name === w || x.FullyQualifiedName === w); return a && a.Id; }).filter(Boolean);
   }
-  // Read-only, and only what the petty cash check asks for.
+  // Read-only, and only what the petty cash and asset checks ask for.
   async function report(co, input) {
     if (co !== "a" && co !== "v") throw fail("bad_request", "Unknown company.");
     let rel;
@@ -119,8 +120,9 @@ function createQbo({ dataDir }) {
       rel = `reports/TrialBalance?start_date=${d}&end_date=${d}`;
     } else if (input.report_type === "general_ledger") {
       const s = iso(input.start_date), e = iso(input.end_date); if (!s || !e) throw fail("bad_request", "start_date and end_date are required.");
-      const wanted = (Array.isArray(input.account) ? input.account : []).map((a) => String((a && a.name) || "")).filter((n) => /^Petty Cash\b/i.test(n)).slice(0, 60);
-      if (!wanted.length) throw fail("bad_request", "Only petty cash accounts can be read.");
+      // Petty cash accounts for the Petty Cash check; Depreciation Expense for the asset check.
+      const wanted = (Array.isArray(input.account) ? input.account : []).map((a) => String((a && a.name) || "")).filter((n) => /^Petty Cash\b/i.test(n) || n === "Depreciation Expense").slice(0, 60);
+      if (!wanted.length) throw fail("bad_request", "Only petty cash accounts and Depreciation Expense can be read.");
       const ids = await accountIds(co, wanted);
       if (!ids.length) return { raw_report: { metadata: null, rows: [] } };
       const cols = (Array.isArray(input.columns) ? input.columns : []).filter((c) => /^[a-z_]{2,40}$/.test(c)).join(",");
