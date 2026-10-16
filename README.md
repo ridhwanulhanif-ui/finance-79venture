@@ -81,6 +81,23 @@ One-time setup for QuickBooks:
 Tokens are stored in `DATA_DIR/qbo-tokens.json` and refreshed automatically; if Intuit revokes them (about 100
 days unused, or a password change), the section shows the reconnect links again.
 
+## Inventory Warehouse
+
+**Inventory Warehouse → Hardware Stock (Danial)** reads every line posted this year to the warehouse hardware stock
+accounts in QuickBooks, *Inventory Hardware - Danial* (Arabina) and *Inventory Hardware-Danial* (79V, until the stock
+moved to Arabina on 30 Sep 2026), and re-reads them every minute while it is open. For the chosen month it shows:
+
+- the same item group bought more than once (the group comes from the purchase memo, e.g. *STOCK ELECTRICAL* →
+  Electrical; a memo that names no item, such as *Stok* or *WH STOCK*, counts only under the supplier);
+- the same supplier and the same amount more than once, to check that one invoice was not paid twice;
+- the same supplier more than once, a month-by-month table, every purchase, and journals (stock taken to cost,
+  stock moved between companies) kept apart from purchases. A supplier credit note cancels the bill it reverses.
+
+**Download Excel** gives the purchases with their flags, the repeats and the monthly summary. On Railway the server
+reads QuickBooks through the same connection as Petty Cash (`/api/qbo/report`, now also allowed for these two
+accounts), and `/api/inventory.csv` gives the same lines as CSV for a signed-in user. The item groups are listed
+twice, `IW_CATS` in `public/index.html` and `CATS` in `inventory.js`; keep them the same.
+
 ## Admin and Fuel Card Log
 
 The **Admin** section holds the admin team's recurring tasks (payroll, statutory payments, tax, bank, filings) and the

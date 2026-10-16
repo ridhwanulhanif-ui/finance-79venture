@@ -4,6 +4,7 @@ const fs = require("node:fs");
 const path = require("node:path");
 const { createAuth, safeNext, loginPage } = require("./auth");
 const { createQbo } = require("./qbo");
+const { inventoryCsv } = require("./inventory");
 
 const PORT = process.env.PORT || 3000;
 const PUBLIC_DIR = path.join(__dirname, "public");
@@ -294,6 +295,20 @@ const server = http.createServer(async (req, res) => {
     catch (err) {
       console.error("QuickBooks report failed:", err.code || "", err.message);
       send(err.code === "bad_request" ? 400 : err.code === "not_connected" ? 409 : 502, { error: { code: err.code || "qbo_error", message: err.message } });
+    }
+    return;
+  }
+
+  // Inventory Warehouse: this year's warehouse hardware stock lines from QuickBooks, as CSV.
+  if (urlPath === "/api/inventory.csv") {
+    try {
+      const csv = await inventoryCsv(qbo);
+      res.writeHead(200, { "Content-Type": "text/csv; charset=utf-8", "Cache-Control": "no-store", "X-Robots-Tag": "noindex, nofollow", "Content-Disposition": 'attachment; filename="inventory-warehouse.csv"' });
+      res.end(csv);
+    } catch (err) {
+      console.error("inventory feed failed:", err.code || "", err.message);
+      res.writeHead(err.code === "not_connected" ? 409 : 502, { "Content-Type": "text/plain; charset=utf-8", "Cache-Control": "no-store" });
+      res.end("Inventory feed unavailable: " + (err.code || "error") + "\n");
     }
     return;
   }

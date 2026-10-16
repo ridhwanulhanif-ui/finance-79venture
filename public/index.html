@@ -307,7 +307,7 @@ table.cs td.num{min-width:70px}
 <!-- Side menu: every view, grouped as in the View list, under the BOD Review heading. -->
 <nav class="snav" id="snav" aria-label="Views">
   <div class="snav-top"><div><b>Finance</b><span>79 Ventures &amp; Arabina</span></div><button type="button" id="snavFold" title="Hide menu" aria-label="Hide menu">&laquo;</button></div>
-  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button><button type="button" role="tab" data-mod="fp">Financing Profile</button><button type="button" role="tab" data-mod="ad">Admin</button></div>
+  <div class="snav-mods" id="snavMods" role="tablist" aria-label="Sections"><button type="button" role="tab" data-mod="bod">BOD Review</button><button type="button" role="tab" data-mod="pc">Petty Cash</button><button type="button" role="tab" data-mod="am">Asset Management</button><button type="button" role="tab" data-mod="fp">Financing Profile</button><button type="button" role="tab" data-mod="ad">Admin</button><button type="button" role="tab" data-mod="iw">Inventory Warehouse</button></div>
   <div class="snav-q" id="snavQ"></div>
   <div class="snav-list" id="snavList"></div>
 </nav>
@@ -387,6 +387,9 @@ table.cs td.num{min-width:70px}
           <option value="ad">Admin Tasks</option>
           <option value="sc">Fuel Card Log</option>
         </optgroup>
+        <optgroup label="Inventory Warehouse" data-mod="iw">
+          <option value="iw">Hardware Stock (Danial)</option>
+        </optgroup>
       </select>
     </label>
     <div class="vsearch"><input type="search" id="viewQ" placeholder="Search views… e.g. tax, BS, zakat" autocomplete="off" aria-label="Search views" aria-controls="viewQl"><div id="viewQl" class="vsl" role="listbox" hidden></div></div>
@@ -398,6 +401,7 @@ table.cs td.num{min-width:70px}
       <button data-view="fp" aria-pressed="false">Financing Profile</button>
       <button data-view="ad" aria-pressed="false">Admin Tasks</button>
       <button data-view="sc" aria-pressed="false">Fuel Card Log</button>
+      <button data-view="iw" aria-pressed="false">Inventory Warehouse</button>
       <button data-view="ent" aria-pressed="false">Consol by entity</button>
       <button data-view="con" aria-pressed="false">Consol only</button>
       <button data-view="v" aria-pressed="false">P&amp;L 79V</button>
@@ -3123,7 +3127,7 @@ function renderEq(){
   // The summary stays on every view: the period's result and the position behind it are
   // context for whatever is being looked at, not a feature of the P&L views alone.
   // The board page answers its own questions; the dense bands would sit on top of them.
-  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc';
+  $('eqbox').hidden=!state.res||state.view==='bod'||state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc'||state.view==='iw';
   // The bands can be folded away on the detail views so the table starts at the top; the
   // homepage is the bands themselves, so they always show there.
   { let off=false; try{ off=store.get('consol.eqhide')==='1'; }catch(e){}
@@ -5421,6 +5425,8 @@ function renderTable(){
   if(state.view==='fp'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderFP(); }
   if(state.view==='ad'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderAD(); }
   if(state.view==='sc'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none'; return renderSC(); }
+  if(state.view==='iw'){ if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
+    if(!iwTried&&pcConn()) setTimeout(iwLoad,0); return renderIW(); }
   const SECT={pc:['PETTY CASH','Petty cash automation'],am:['ASSET MANAGEMENT','Fixed asset register and depreciation']};
   if(SECT[state.view]){ const [t,d]=SECT[state.view]; if($('homekpi')) $('homekpi').hidden=true; $('rangeCtl').style.display='none'; $('legend').hidden=true; $('csv').hidden=true; $('tablebox').style.maxHeight='none';
     $('tablebox').innerHTML=`<div class="stmt"><h3>${t}</h3><p class="sub2">This section is being set up. ${d} will live here, separate from the BOD Review views.</p></div>`; return; }
@@ -5571,8 +5577,8 @@ document.querySelectorAll('.seg button[data-view]').forEach(b=>b.addEventListene
   state.view=b.dataset.view; store.set('consol.view',state.view); $('viewSel').value=state.view; navSync();
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));
   // Petty Cash does not need the P&L workbook, so it still opens while that is loading or has failed.
-  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc') renderTable(); }));
-(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc','am','fp','ad','sc'].includes(sv)){ state.view=sv;
+  try{ renderEq(); }catch(e){} if(state.res||state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc'||state.view==='iw') renderTable(); }));
+(()=>{ const sv=store.get('consol.view'); if(['home','bod','ent','con','v','a','be','mg','tax','zk','sum','aud','bse','bsc','bsv','bsa','ic','adj','cip','nic','fc','fcq','bank','bud','bm','fin','pc','am','fp','ad','sc','iw'].includes(sv)){ state.view=sv;
   document.querySelectorAll('.seg button[data-view]').forEach(x=>x.setAttribute('aria-pressed',String(x.dataset.view===sv))); } $('viewSel').value=state.view; })();
 // ===== Financing Profile: read live from QuickBooks through the viewer's own connector =====
 // What a bank asks for first: two years of results, the position, existing facilities and what
@@ -6576,16 +6582,168 @@ function renderSC(){
   }
 }
 
+// ===== INVENTORY WAREHOUSE: hardware stock bought for the warehouse (Danial) =====
+// QuickBooks keeps the warehouse hardware stock in "Inventory Hardware - Danial" (Arabina) and
+// "Inventory Hardware-Danial" (79V, until the stock moved to Arabina on 30 Sep 2026). Every line posted
+// there this year is read live from the general ledger, put in an item group from its memo, and checked
+// for the same item, the same supplier, or the same supplier and amount bought more than once in a month.
+// On claude.ai it reads QuickBooks through the viewer's connector; on Railway the server reads it
+// (/api/qbo/report), as for the Petty Cash check. Keep IW_CATS in step with CATS in inventory.js.
+const IW_ACC={a:['Inventory Hardware - Danial'],v:['Inventory Hardware-Danial']};
+const IW_CATS=[
+  ['Bifold door',/bi ?fold/],
+  ['Toilet & sanitary',/toilet|tandas|p ?-?trap|wall ?hung|water closet|sanitary|faucet|\btap\b|bidet|sink|basin|bathroom/],
+  ['Welding',/welding/],
+  ['Electrical',/electric|\belec\b|soket|socket|switch|\bmcb\b|exhaust fan|lampu|\blamp|\bled\b|down ?light|wiring|cable|\bwire|nut box|casing|lid cover|vivace|\b\dg\dw\b/],
+  ['Tiles',/\btiles?\b|jubin/],
+  ['Screws & bolts',/skru|screw|bolt|wafer head|\bsds\b|rivet/],
+  ['Aluminium',/alumin/],
+  ['Cement board & wood plank',/cement ?board|wood ?plank|plywood/],
+  ['Metal deck & roofing',/metal ?deck|longrun|roofing|\broof|batten|\bsection\b|hip capping/],
+  ['Tools',/measuring tape|tape measure|cutter|tangga|ladder|shovel|\btools?\b/],
+  ['Steel, channel & pipe',/c channel|\b[sr]hs\b|hollow|besi|steel|pipe|stair plate|chequered plate|flat bar|angle|channel/],
+  ['Paint, coating & sealant',/\bcat\b|paint|primer|latex|thinner|coat|spray|silicone|sealant/],
+  ['Artificial grass',/artificial grass|rumput/],
+  ['Windows',/tingkap|window/],
+  ['Slab formwork',/acuan|formwork/],
+  ['Cabinet',/cabinet/]];
+const IW_OTHER='Other hardware (memo names no item)';
+const iwCat=memo=>{ const s=String(memo||'').toLowerCase(), c=IW_CATS.find(([,re])=>re.test(s)); return c?c[0]:IW_OTHER; };
+const iwVend=s=>String(s||'').toUpperCase().replace(/\(.*?\)/g,' ').replace(/\b(SDN|BHD|ENTERPRISE|TRADING)\b\.?/g,' ').replace(/[^A-Z0-9]+/g,' ').trim();
+const IW_CO={v:'79V',a:'Arabina'}, IW_EVERY=60000;
+let iwLive=null, iwBusy=false, iwErr=null, iwErrCode=null, iwTried=false, iwMon=null, iwCo='all';
+// A supplier credit note cancels the purchase it reverses, so a bill raised again after a credit note
+// is not counted as bought twice: the earlier purchase from that supplier with the most lines of the
+// same amounts (the latest one on a tie) loses the lines the credit note matches.
+function iwCredits(out,vk){
+  const cr=new Map(); out.filter(r=>r.amt<0&&/credit|refund/i.test(r.typ)).forEach(c=>{ if(!cr.has(c.tx)) cr.set(c.tx,[]); cr.get(c.tx).push(c); });
+  cr.forEach(C=>{ const k=vk(C[0]), d=C[0].d, by=new Map();
+    out.filter(r=>r.buy&&vk(r)===k&&r.d<=d).forEach(r=>{ if(!by.has(r.tx)) by.set(r.tx,[]); by.get(r.tx).push(r); });
+    const match=L=>{ const left=L.slice(), got=[]; C.forEach(c=>{ const i=left.findIndex(r=>Math.abs(r.amt+c.amt)<0.005); if(i>=0) got.push(left.splice(i,1)[0]); }); return got; };
+    const best=[...by.values()].map(L=>({L,got:match(L)})).filter(x=>x.got.length).sort((a,b)=>b.got.length-a.got.length||(a.L[0].d<b.L[0].d?1:-1))[0];
+    if(best) best.got.forEach(p=>{ p.buy=false; p.typ+=' (cancelled by credit note '+(C[0].num||'')+')'; }); });
+}
+function iwRows(G,co){
+  const keys=((G.meta&&G.meta.Columns&&G.meta.Columns.Column)||[]).map(c=>((c.MetaData||[]).find(m=>m.Name==='ColKey')||{}).Value);
+  const v=(cd,k)=>{ const i=keys.indexOf(k); return i>=0&&cd[i]&&cd[i].value!=null?String(cd[i].value):''; }, ti=keys.indexOf('txn_type');
+  const out=[];
+  G.rows.forEach(x=>{ const cd=x.row&&x.row.ColData; if(!cd) return; const d=v(cd,'tx_date'); if(!/^\d{4}-\d{2}-\d{2}$/.test(d)) return;
+    const typ=v(cd,'txn_type'), amt=pcR2(pcNum(v(cd,'subt_nat_amount'))), memo=v(cd,'memo').replace(/\s+/g,' ').trim();
+    out.push({co,d,m:d.slice(0,7),typ,tx:co+':'+((cd[ti]&&cd[ti].id)||v(cd,'doc_num')||d+amt),num:v(cd,'doc_num'),name:v(cd,'name'),memo,split:v(cd,'split_acc'),amt,
+      buy:!/journal|transfer|adjust/i.test(typ)&&amt>0,cat:iwCat(memo)}); });
+  iwCredits(out,r=>iwVend(r.name));
+  return out;
+}
+async function iwLoad(quiet){
+  if(iwBusy) return; iwBusy=true; iwErr=null; iwErrCode=null; iwTried=true; if(state.view==='iw'&&!quiet) renderIW();
+  try{
+    const C=pcConn(); if(!C) throw {code:'not_granted',message:'Connectors are not available in this view. Open the artifact on claude.ai.'};
+    const ids=mcp?await qdCompanies():{a:'a',v:'v'}, end=new Date(), from=end.getFullYear()+'-01-01', to=pcIso(end);
+    const one=async co=>iwRows(await pcRun(ids[co],{report_type:'general_ledger',account:IW_ACC[co].map(n=>({name:n})),start_date:from,end_date:to,
+      columns:['tx_date','txn_type','doc_num','name','memo','split_acc','subt_nat_amount'],response_mode:'raw',row_page_size:500}),co);
+    const [V,A]=await Promise.all([one('v'),one('a')]);
+    iwLive={at:new Date().toISOString(),from,to,rows:V.concat(A).sort((x,y)=>x.d<y.d?-1:x.d>y.d?1:0),src:mcp?'connector':'server'};
+  }catch(e){ iwErrCode=e&&e.code||'error'; iwErr=mcp?qdErr(e):pcWebErr(e); }
+  iwBusy=false; iwBadge(); if(state.view==='iw') renderIW();
+}
+setInterval(()=>{ if(state.view==='iw'&&iwTried&&!iwBusy&&iwErrCode!=='not_connected'&&document.visibilityState==='visible'&&pcConn()) iwLoad(true); },IW_EVERY);
+document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='visible'&&state.view==='iw'&&iwTried&&!iwBusy&&pcConn()&&(!iwLive||Date.now()-Date.parse(iwLive.at)>IW_EVERY)) iwLoad(true); });
+// Groups of one month's purchases bought more than once: one transaction counts once, even with several lines.
+function iwGroups(L,keyOf){
+  const g=new Map(); L.forEach(r=>{ const k=keyOf(r); if(k==null) return; if(!g.has(k)) g.set(k,[]); g.get(k).push(r); });
+  return [...g.entries()].map(([k,l])=>({k,l,n:new Set(l.map(r=>r.tx)).size,amt:pcR2(l.reduce((t,r)=>t+r.amt,0))})).filter(x=>x.n>1).sort((a,b)=>b.n-a.n||b.amt-a.amt);
+}
+function iwMonth(rows,m){
+  const L=rows.filter(r=>r.buy&&r.m===m);
+  return {m,L,n:new Set(L.map(r=>r.tx)).size,amt:pcR2(L.reduce((t,r)=>t+r.amt,0)),
+    item:iwGroups(L,r=>r.cat===IW_OTHER?null:r.cat),
+    vend:iwGroups(L,r=>iwVend(r.name)||null),
+    dup:iwGroups(L,r=>iwVend(r.name)?iwVend(r.name)+'|'+r.amt.toFixed(2):null)};
+}
+function iwView(){ const D=iwLive; if(!D) return null;
+  const rows=D.rows.filter(r=>iwCo==='all'||r.co===iwCo), months=[...new Set(rows.filter(r=>r.buy).map(r=>r.m))].sort();
+  return {D,rows,months,per:months.map(m=>iwMonth(rows,m))}; }
+const iwMName=m=>{ const [y,mo]=m.split('-'); return MONTHS[+mo-1]+' '+y; };
+// The side menu button carries the number of repeated item groups this month.
+function iwBadge(){
+  const b=document.querySelector('#snavMods [data-mod="iw"]'); if(!b) return;
+  const V=iwView(), cur=pcIso(new Date()).slice(0,7), P=V&&V.per.find(p=>p.m===cur), n=P?P.item.length+P.dup.length:0;
+  b.innerHTML='Inventory Warehouse'+(n?` <span title="${n} item group(s) bought more than once this month" style="display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:#b7791f;color:#fff;font-size:11px;line-height:18px">${n}</span>`:'');
+}
+function iwLines(l){
+  const dd=s=>s.split('-').reverse().join('/');
+  return `<table class="tc" style="margin:6px 0;min-width:760px"><tr class="sub"><td>Date</td><td>Co.</td><td>Supplier</td><td>No.</td><td>Memo</td><td class="r">RM</td></tr>${l.map(r=>`<tr><td>${dd(r.d)}</td><td>${IW_CO[r.co]}</td><td>${esc(r.name||'–')}</td><td>${esc(r.num||'–')}</td><td>${esc(r.memo||'–')}</td><td class="r">${fmt(r.amt)}</td></tr>`).join('')}</table>`;
+}
+function renderIW(){
+  const B=$('tablebox'), V=iwView();
+  let h=`<div class="stmt"><h3>INVENTORY WAREHOUSE: HARDWARE STOCK (DANIAL)</h3>`;
+  if(!V){ h+=`<p class="sub2">Purchases posted to <i>Inventory Hardware - Danial</i> (Arabina) and <i>Inventory Hardware-Danial</i> (79V) in QuickBooks, checked for items bought more than once in the same month.</p>`
+      +(iwErr?`<p class="hint" style="color:var(--bad)">${iwErr}</p><p><button type="button" id="iwRe">Try again</button></p>`:`<p class="hint">${iwBusy||!iwTried?'Reading QuickBooks…':'Loading…'}</p>`);
+    B.innerHTML=h+'</div>'; const r=$('iwRe'); if(r) r.addEventListener('click',()=>iwLoad()); if(!iwBusy&&!iwErr&&!iwTried&&pcConn()) setTimeout(iwLoad,0); return; }
+  const {D,rows,months,per}=V, when=new Date(D.at).toLocaleString('en-GB',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit',second:'2-digit'});
+  if(!iwMon||!months.includes(iwMon)) iwMon=months[months.length-1]||null;
+  const P=per.find(p=>p.m===iwMon), moves=rows.filter(r=>!r.buy&&r.m===iwMon);
+  const sel=`<select id="iwMon" style="font:inherit">${months.slice().reverse().map(m=>`<option value="${m}"${m===iwMon?' selected':''}>${iwMName(m)}</option>`).join('')}</select>`;
+  const co=`<select id="iwCo" style="font:inherit">${[['all','79V + Arabina'],['v','79V'],['a','Arabina']].map(([k,l])=>`<option value="${k}"${k===iwCo?' selected':''}>${l}</option>`).join('')}</select>`;
+  h+=`<p class="sub2">Every purchase posted to <i>Inventory Hardware - Danial</i> (Arabina) and <i>Inventory Hardware-Danial</i> (79V) from ${D.from.split('-').reverse().join('/')}, ${D.src==='server'?'read live from QuickBooks by the server':'read live from QuickBooks through your connector'} at <b>${when}</b>, again every minute while this page is open. <span style="display:inline-block;padding:0 7px;border-radius:9px;background:var(--ok);color:#fff;font-size:11px;font-weight:700;line-height:18px">● LIVE</span>${iwBusy?' <span class="hint">refreshing…</span>':''}</p>
+   ${iwErr?`<p class="hint" style="color:var(--bad)">${iwErr} Showing the last successful read.</p>`:''}
+   <div class="noprint" style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:10px 0 4px"><label class="hint">Month ${sel}</label><label class="hint">Company ${co}</label>
+   <button type="button" id="iwRe"${iwBusy?' disabled':''}>Refresh now</button><button type="button" id="iwXl">Download Excel</button>${MODE==='web'?'<a class="hint" href="/api/inventory.csv">CSV for Google Sheets</a>':''}</div>`;
+  if(!P){ B.innerHTML=h+'<p class="hint">No purchases posted in this period.</p></div>'; iwWire(); return; }
+  const kpi=(l,v,n,c)=>`<div style="flex:1 1 160px;padding:10px 12px;border:1px solid var(--rule);border-radius:8px"><div class="hint">${l}</div><div style="font-size:20px;font-weight:700${c?';color:'+c:''}">${v}</div><div class="hint">${n}</div></div>`;
+  const other=P.L.filter(r=>r.cat===IW_OTHER);
+  h+=`<div style="display:flex;gap:10px;flex-wrap:wrap;margin:12px 0">${kpi('Bought in '+iwMName(iwMon),'RM'+fmt(P.amt),P.n+' purchase(s)')}
+    ${kpi('Items bought more than once',P.item.length,P.item.length?P.item.reduce((t,g)=>t+g.n,0)+' purchase(s), RM'+fmt(P.item.reduce((t,g)=>t+g.amt,0)):'none this month',P.item.length?'#b7791f':'')}
+    ${kpi('Suppliers used more than once',P.vend.length,P.vend.map(g=>g.l[0].name).slice(0,2).map(esc).join(', ')+(P.vend.length>2?'…':''))}
+    ${kpi('Same supplier, same amount',P.dup.length,P.dup.length?'check it was not paid twice':'none this month',P.dup.length?'var(--bad)':'')}</div>`;
+  const grpTable=(G,label,empty)=>G.length?`<div style="overflow-x:auto"><table class="tc" style="min-width:640px"><tr class="sub"><td>${label}</td><td class="r">Times</td><td class="r">RM</td></tr>${G.map(g=>`<tr><td><details><summary style="cursor:pointer"><b>${esc(label==='Supplier'?g.l[0].name:label==='Supplier and amount'?g.l[0].name+' · RM'+fmt(g.l[0].amt):g.k)}</b> <span class="hint">· ${[...new Set(g.l.map(r=>r.d.slice(8)+'/'+r.d.slice(5,7)))].join(', ')}</span></summary>${iwLines(g.l)}</details></td><td class="r">${g.n}×</td><td class="r">${fmt(g.amt)}</td></tr>`).join('')}</table></div>`:`<p class="hint">${empty}</p>`;
+  h+=`<h4>Same item bought more than once in ${iwMName(iwMon)}</h4><p class="hint">Item group read from the memo of each purchase. Open a line to see each purchase.</p>${grpTable(P.item,'Item group','No item group was bought more than once this month.')}`;
+  if(P.dup.length) h+=`<h4 style="color:var(--bad)">Same supplier and same amount in ${iwMName(iwMon)}</h4><p class="hint">Check against the invoices that these are two separate deliveries and not one invoice paid twice.</p>${grpTable(P.dup,'Supplier and amount','')}`;
+  h+=`<h4>Same supplier more than once in ${iwMName(iwMon)}</h4>${grpTable(P.vend,'Supplier','No supplier was used more than once this month.')}`;
+  if(other.length) h+=`<p class="hint">${other.length} purchase line(s) this month have a memo that names no item (e.g. <i>${esc(other[0].memo||'blank')}</i>), so they count only under the supplier. Writing the item in the QuickBooks memo makes them count here too.</p>`;
+  h+=`<h4>Month by month</h4><div style="overflow-x:auto"><table class="tc" style="min-width:720px"><tr class="sub"><td>Month</td><td class="r">Purchases</td><td class="r">RM</td><td>Items bought more than once</td><td class="r">Same supplier &amp; amount</td></tr>${per.slice().reverse().map(p=>`<tr class="pick" data-iwm="${p.m}" style="cursor:pointer${p.m===iwMon?';background:var(--band)':''}"><td><b>${iwMName(p.m)}</b></td><td class="r">${p.n}</td><td class="r">${fmt(p.amt)}</td><td>${p.item.length?p.item.map(g=>esc(g.k)+' ×'+g.n).join(', '):'<span class="hint">–</span>'}</td><td class="r">${p.dup.length||'–'}</td></tr>`).join('')}
+   <tr class="sub"><td>Total</td><td class="r">${per.reduce((t,p)=>t+p.n,0)}</td><td class="r">${fmt(per.reduce((t,p)=>t+p.amt,0))}</td><td></td><td></td></tr></table></div>`;
+  h+=`<h4>All purchases in ${iwMName(iwMon)}</h4><div style="overflow-x:auto">${iwLines(P.L)}</div>`;
+  if(moves.length) h+=`<h4>Stock movements in ${iwMName(iwMon)}</h4><p class="hint">Journals (stock moved between companies, stock taken to cost), not purchases, so they are left out of the checks above.</p><div style="overflow-x:auto">${iwLines(moves)}</div>`;
+  B.innerHTML=h+'</div>'; iwWire();
+}
+function iwWire(){
+  const m=$('iwMon'); if(m) m.addEventListener('change',()=>{ iwMon=m.value; renderIW(); });
+  const c=$('iwCo'); if(c) c.addEventListener('change',()=>{ iwCo=c.value; iwMon=null; renderIW(); iwBadge(); });
+  const r=$('iwRe'); if(r) r.addEventListener('click',()=>iwLoad());
+  const x=$('iwXl'); if(x) x.addEventListener('click',iwExcel);
+  $('tablebox').querySelectorAll('[data-iwm]').forEach(t=>t.addEventListener('click',()=>{ iwMon=t.dataset.iwm; renderIW(); window.scrollTo({top:0}); }));
+}
+async function iwExcel(){
+  const V=iwView(); if(!V) return; const wb=XLSX.utils.book_new(), R=[];
+  V.per.forEach(p=>{ const nI=new Map(), add=(G,kind)=>G.forEach(g=>g.l.forEach(r=>nI.set(r,(nI.get(r)||[]).concat([kind+' ×'+g.n]))));
+    add(p.item,'Repeat item'); add(p.vend,'Repeat supplier'); add(p.dup,'Same supplier & amount');
+    p.L.forEach(r=>R.push([IW_CO[r.co],r.d,iwMName(r.m),r.typ,r.num,r.name,r.memo,r.cat,r.amt,(nI.get(r)||[]).join('; ')])); });
+  V.rows.filter(r=>!r.buy).forEach(r=>R.push([IW_CO[r.co],r.d,iwMName(r.m),r.typ,r.num,r.name,r.memo,'(stock movement)',r.amt,'']));
+  R.sort((a,b)=>a[1]<b[1]?-1:a[1]>b[1]?1:0);
+  const s1=XLSX.utils.aoa_to_sheet([['Company','Date','Month','Type','No.','Supplier','Memo','Item group','Amount (RM)','Flag'],...R]);
+  s1['!cols']=[{wch:9},{wch:11},{wch:9},{wch:12},{wch:15},{wch:36},{wch:50},{wch:26},{wch:12},{wch:40}];
+  XLSX.utils.book_append_sheet(wb,s1,'Purchases');
+  const rep=[['Month','Check','Item group / supplier','Times','Amount (RM)','Dates']];
+  V.per.forEach(p=>[['Same item more than once',p.item,g=>g.k],['Same supplier and amount',p.dup,g=>g.l[0].name+' · RM'+fmt(g.l[0].amt)],['Same supplier more than once',p.vend,g=>g.l[0].name]].forEach(([k,G,nm])=>G.forEach(g=>rep.push([iwMName(p.m),k,nm(g),g.n,g.amt,g.l.map(r=>r.d).join(', ')]))));
+  const s2=XLSX.utils.aoa_to_sheet(rep); s2['!cols']=[{wch:10},{wch:28},{wch:44},{wch:7},{wch:12},{wch:50}]; XLSX.utils.book_append_sheet(wb,s2,'Repeats by month');
+  const s3=XLSX.utils.aoa_to_sheet([['Month','Purchases','Amount (RM)','Items bought more than once','Same supplier & amount'],...V.per.map(p=>[iwMName(p.m),p.n,p.amt,p.item.map(g=>g.k+' ×'+g.n).join(', '),p.dup.length])]);
+  s3['!cols']=[{wch:10},{wch:10},{wch:12},{wch:60},{wch:10}]; XLSX.utils.book_append_sheet(wb,s3,'Monthly summary');
+  const name='Inventory Warehouse '+pcIso(new Date())+'.xlsx', blob=new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  if(downloads){ try{ await downloads.save({filename:name,data:blob}); }catch(e){} return; }
+  const url=URL.createObjectURL(blob), a=document.createElement('a'); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),2000);
+}
+
 // Side menu, built from the View list so the two always hold the same views.
 const navMod=v=>{ const o=$('viewSel').querySelector('option[value="'+v+'"]'); return (o&&o.parentNode.dataset&&o.parentNode.dataset.mod)||'bod'; };
 // Page title follows the module: the P&L/BS title belongs to BOD Review only.
-const PG_TITLE={bod:'P&L & Balance Sheet 2026: Consolidated & individual',pc:'Petty Cash: Claims & Top-ups',am:'Asset Management: Fixed Asset Register',fp:'Financing Profile: Financiers, Use of Funds & Financing Capacity',ad:'Admin: Recurring Tasks & Fuel Card Log'};
+const PG_TITLE={iw:'Inventory Warehouse: Hardware Stock Purchases (Danial)',bod:'P&L & Balance Sheet 2026: Consolidated & individual',pc:'Petty Cash: Claims & Top-ups',am:'Asset Management: Fixed Asset Register',fp:'Financing Profile: Financiers, Use of Funds & Financing Capacity',ad:'Admin: Recurring Tasks & Fuel Card Log'};
 function navSync(){ const m=navMod(state.view); document.body.classList.toggle('mod-x',m!=='bod');
   { const t=$('pgTitleT'), b=document.querySelector('#snavMods [data-mod="'+m+'"]'); if(t) t.textContent=PG_TITLE[m]||(b?b.textContent.trim():PG_TITLE.bod); }
   document.querySelectorAll('#snavMods [data-mod]').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.mod===m)));
   document.querySelectorAll('#snavList [data-mod]').forEach(x=>{ x.hidden=x.dataset.mod!==m; });
   if(m==='bod') store.set('consol.lastbod',state.view);
-  document.querySelectorAll('#snavList .snav-i').forEach(x=>{ if(x.dataset.v===state.view) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current'); }); pcBadge(); adBadge(); }
+  document.querySelectorAll('#snavList .snav-i').forEach(x=>{ if(x.dataset.v===state.view) x.setAttribute('aria-current','page'); else x.removeAttribute('aria-current'); }); pcBadge(); adBadge(); iwBadge(); }
 (()=>{ const L=$('snavList'); if(!L) return; let shut={}; try{ shut=JSON.parse(store.get('consol.navgrp')||'{}')||{}; }catch(e){}
   let h=''; $('viewSel').querySelectorAll('optgroup').forEach(g=>{ const k=g.label, open=!shut[k], md=g.dataset.mod||'bod';
     h+=`<div data-mod="${md}"><button type="button" class="snav-g" aria-expanded="${open}" data-g="${esc(k)}">${esc(k)}<i>&#9662;</i></button><div class="snav-gi"${open?'':' hidden'}>`;
@@ -6606,7 +6764,7 @@ function navSync(){ const m=navMod(state.view); document.body.classList.toggle('
     if(!v||!$('viewSel').querySelector('option[value="'+v+'"]')) v='home';
     $('viewSel').value=v; $('viewSel').dispatchEvent(new Event('change')); });
   if(store.get('consol.navshut')==='1') document.body.classList.add('navshut');
-  navSync(); if(state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc') renderTable(); })();
+  navSync(); if(state.view==='pc'||state.view==='am'||state.view==='fp'||state.view==='ad'||state.view==='sc'||state.view==='iw') renderTable(); })();
 function rangeChange(){ let f=+$('from').value,t=+$('to').value; if(t<f){t=f;$('to').value=t;} state.from=f;state.to=t; store.set('consol.range',JSON.stringify({f,t})); renderEq(); renderTable(); }
 $('from').addEventListener('change',rangeChange); $('to').addEventListener('change',rangeChange);
 $('hideZero').addEventListener('change',renderTable);
@@ -6676,7 +6834,7 @@ async function exportAllViews(){
   if(!state.res){ setMsg('Load the data first.','err'); return; }
   const b=$('dlall'), label=b.textContent; b.disabled=true;
   const prevView=state.view, used=new Set(), wb=XLSX.utils.book_new();
-  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am','fp','ad','sc'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
+  const views=Array.from($('viewSel').querySelectorAll('option')).filter(o=>!['pc','am','fp','ad','sc','iw'].includes(o.value)).map(o=>({v:o.value,t:o.textContent.trim()}));
   try{
     const info=[['79 Ventures Sdn Bhd + Arabina Eco Tiny Homes Sdn Bhd'],['Source workbook',(state.meta&&state.meta.title)||''],
       ['Period','Jan–'+MONTHS[state.to]+' 2026'],['Range shown',MONTHS[state.from]+'–'+MONTHS[state.to]+' 2026'],
