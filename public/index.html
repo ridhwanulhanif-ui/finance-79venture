@@ -6235,7 +6235,7 @@ async function scSave(){
   else if(F.kind==='out'){ const c=(scCards||[]).find(x=>x.id===F.card);
     bad=!c?'Choose a card.':scOpen(c)?'That card is already out. Check it in first.':!F.person.trim()?'Enter who takes the card.':!F.site.trim()?'Enter the project site.':!F.outAt?'Enter the date and time.':'';
     if(!bad){ scBusy=true; renderSC();
-      try{ await scDbRef.collection(SC_MOVES).doc(scNewId('m')).set({card:c.id,ref:scRef(c),last4:c.last4||'',person:F.person.trim(),vehicle:(F.vehicle.trim()||c.vehicle||'').toUpperCase(),site:F.site.trim(),purpose:F.purpose.trim(),
+      try{ await scDbRef.collection(SC_MOVES).doc(scNewId('m')).set({card:c.id,ref:scRef(c),last4:c.last4||'',person:F.person.trim(),dept:F.dept||'',vehicle:(F.vehicle.trim()||c.vehicle||'').toUpperCase(),site:F.site.trim(),purpose:F.purpose.trim(),
           outAt:new Date(F.outAt).toISOString(),outBy:me,inAt:null,inBy:null,receipts:null,amount:null,inNotes:''});
         scMsg=['ok','Card '+esc(scRef(c))+' checked out to <b>'+esc(F.person.trim())+'</b>.']; scForm=null; }catch(e){ F.err=scFail(e); } } }
   else if(F.kind==='in'){ const m=(scMoves||[]).find(x=>x.id===F.move);
@@ -6254,7 +6254,7 @@ function scFormHTML(){
     +(F.id?row('In use',`<select data-scf="active" style="${inS}"><option value="1"${F.active!==false?' selected':''}>Yes</option><option value=""${F.active===false?' selected':''}>No, cancelled or lost</option></select>`):'');
   else if(F.kind==='out'){ const free=(scCards||[]).filter(c=>c.active!==false&&!scOpen(c));
     h+=row('Card',`<select data-scf="card" style="${inS}"><option value="">Choose…</option>${free.map(c=>`<option value="${esc(c.id)}"${F.card===c.id?' selected':''}>${esc(scRef(c))}${c.vehicle?' · '+esc(c.vehicle):''}${c.holder?' · '+esc(c.holder):''}</option>`).join('')}</select>${free.length?'':' <span class="hint">Every card is out.</span>'}`)
-      +row('Taken by',inp('person',F.person,'Name of the supervisor'))+row('Vehicle registration',inp('vehicle',F.vehicle,'Defaults to the card’s vehicle'))
+      +row('Taken by',inp('person',F.person,'Name of the supervisor'))+row('Department',`<select data-scf="dept" style="${inS}"><option value=""></option>${AM_DEPTS.map(d=>`<option${F.dept===d?' selected':''}>${d}</option>`).join('')}</select>`)+row('Vehicle registration',inp('vehicle',F.vehicle,'Defaults to the card’s vehicle'))
       +row('Project site',inp('site',F.site,'e.g. Lavender Height'))+row('Purpose',inp('purpose',F.purpose,'optional'))+row('Out at',inp('outAt',F.outAt,'','datetime-local')); }
   else h+=row('Returned at',inp('inAt',F.inAt,'','datetime-local'))+row('Receipts handed in',`<select data-scf="receipts" style="${inS}"><option value=""${F.receipts===''?' selected':''}>Choose…</option><option value="all"${F.receipts==='all'?' selected':''}>Yes, all receipts</option><option value="some"${F.receipts==='some'?' selected':''}>Some missing</option><option value="none"${F.receipts==='none'?' selected':''}>None</option><option value="na"${F.receipts==='na'?' selected':''}>Card not used</option></select>`)
     +row('Amount spent (RM)',inp('amount',F.amount,'From the receipts, optional','number'))+row('Notes',inp('notes',F.notes,'e.g. receipt for 12 Oct missing'));
@@ -6321,11 +6321,12 @@ function renderSCNow(){
   return h+'</table></div>';
 }
 function renderSCLog(){
-  const C=new Map((scCards||[]).map(c=>[c.id,c])), sel=scCardSel&&C.has(scCardSel)?scCardSel:'';
-  const L=(scMoves||[]).filter(m=>!sel||m.card===sel).sort((a,b)=>a.outAt<b.outAt?1:-1);
+  const {sel,C,L}=scLogList();
   const opts=(scCards||[]).slice().sort((a,b)=>String(a.ref||'').localeCompare(String(b.ref||''),undefined,{numeric:true}));
   let h=`<div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><label>Card <select id="scCardSel"><option value="">All cards</option>${opts.map(c=>`<option value="${esc(c.id)}"${sel===c.id?' selected':''}>${esc(scRef(c))}${c.vehicle?' · '+esc(c.vehicle):''}</option>`).join('')}</select></label>
-    <span class="hint">${sel?'In and out history of this card, newest first.':'Every card, newest first. Pick a card to see its own history.'}</span></div>`;
+    <label>Taken out from <input type="date" id="scFrom" value="${esc(scFrom)}"></label><label>to <input type="date" id="scTo" value="${esc(scTo)}"></label>
+    <button type="button" id="scXl">Download Excel</button><button type="button" id="scPdf">Download PDF</button>
+    <span class="hint">${sel?'In and out history of this card, newest first.':'Every card, newest first. Pick a card to see its own history.'} The download follows the card and dates picked.</span></div>`;
   const cnt=k=>L.filter(m=>scLvl(scDur(m))===k).length, done=L.filter(m=>m.inAt), hrs=done.map(scDur), amt=L.reduce((t,m)=>t+(+m.amount||0),0);
   h+=`<div class="bekpi"><div><span>Times used</span><b>${L.length}</b><span>${L.length-done.length} still out</span></div><div><span>On time (≤24 h)</span><b class="zg">${cnt('ok')}</b></div>
     <div><span>Grace period (24–48 h)</span><b class="${cnt('grace')?'zw':''}">${cnt('grace')}</b></div><div><span>Late (48–72 h)</span><b class="${cnt('late')?'zb':''}">${cnt('late')}</b></div>
@@ -6377,11 +6378,11 @@ function scFormBuild(){
     if(skip.has(r.no)||skip.has('r'+r.row)||/^test/i.test(r.purp)) return;
     const c=byKey.get(scCardKey(r.card)); if(!c){ scFormOdd.push(r); return; }
     const o=open.get(c.id), mk=()=>({id:id(r),card:c.id,ref:scRef(c),last4:c.last4||'',person:r.name,vehicle:'',site:r.purp,
-      purpose:[r.dept,r.auth?'authorised by '+r.auth:'','form '+(r.no||'row '+r.row)].filter(Boolean).join(' · '),outAt:r.ts,outBy:null,inAt:null,inBy:null,receipts:null,amount:null,inNotes:'',src:'form'});
+      purpose:[r.dept,r.auth?'authorised by '+r.auth:'','form '+(r.no||'row '+r.row)].filter(Boolean).join(' · '),dept:r.dept,auth:r.auth,outAt:r.ts,outBy:null,inAt:null,inBy:null,receipts:null,amount:null,inNotes:'',src:'form'});
     if(r.ret){
-      if(o&&scSame(o.person,r.name)){ o.inAt=r.ret.slice(0,10)===r.ts.slice(0,10)||r.ret<r.ts?r.ts:r.ret; o.inNotes='Returned'+(r.back?', received back by '+r.back:'')+' (form '+(r.no||'row '+r.row)+').'; open.delete(c.id); return; }
+      if(o&&scSame(o.person,r.name)){ o.inAt=r.ret.slice(0,10)===r.ts.slice(0,10)||r.ret<r.ts?r.ts:r.ret; o.back=r.back; o.inNotes='Returned'+(r.back?', received back by '+r.back:'')+' (form '+(r.no||'row '+r.row)+').'; open.delete(c.id); return; }
       if(o){ o.inAt=r.ts; o.inNotes='No return recorded in the form; the card was next taken out '+dd(r.ts)+', so it was back by then.'; }
-      const m=mk(); m.inAt=r.ret<r.ts?r.ts:r.ret; m.inNotes='Returned'+(r.back?', received back by '+r.back:'')+'. Return time not recorded in the form.'; scFormMoves.push(m); open.delete(c.id); return; }
+      const m=mk(); m.back=r.back; m.inAt=r.ret<r.ts?r.ts:r.ret; m.inNotes='Returned'+(r.back?', received back by '+r.back:'')+'. Return time not recorded in the form.'; scFormMoves.push(m); open.delete(c.id); return; }
     if(o&&scSame(o.person,r.name)) return;   // the same person sending the form again
     if(o){ o.inAt=r.ts; o.inNotes='No return recorded in the form; the card was next taken out '+dd(r.ts)+', so it was back by then.'; }
     const m=mk(); scFormMoves.push(m); open.set(c.id,m);
@@ -6420,6 +6421,63 @@ function scFormHTMLBar(){
 }
 async function scSkipAdd(k){ if(!scDbRef) return; const L=[...new Set([...(scSkip||[]),k])];
   try{ await scDbRef.doc('fuelcfg/form').set({skip:L}); }catch(e){ scMsg=['err',scFail(e)]; renderSC(); } }
+// ----- Fuel card report: the in/out history as Excel or PDF, for the card and period picked -----
+let scFrom=store.get('consol.scFrom')||'', scTo=store.get('consol.scTo')||'';
+// The uses shown in In / out history: the card picked and check-outs within the dates picked, newest first.
+function scLogList(){
+  const C=new Map((scCards||[]).map(c=>[c.id,c])), sel=scCardSel&&C.has(scCardSel)?scCardSel:'';
+  const f=scFrom?Date.parse(scFrom+'T00:00:00+08:00'):-Infinity, t=scTo?Date.parse(scTo+'T23:59:59+08:00'):Infinity;
+  return {sel,C,L:(scMoves||[]).filter(m=>(!sel||m.card===sel)&&Date.parse(m.outAt)>=f&&Date.parse(m.outAt)<=t).sort((a,b)=>a.outAt<b.outAt?1:-1)};
+}
+const scD=s=>s?new Date(s).toLocaleString('en-GB',{timeZone:'Asia/Kuala_Lumpur',day:'2-digit',month:'2-digit',year:'numeric',hour:'2-digit',minute:'2-digit'}):'';
+function scRepRows(L){
+  return L.slice().reverse().map((m,i)=>{ const h=scDur(m), lv=scLvl(h);
+    return {no:i+1,card:scRef(m),person:m.person||'',dept:m.dept||'',purpose:m.site||'',auth:m.auth||'',out:scD(m.outAt),
+      in:m.inAt?scD(m.inAt):'Not returned yet',back:m.back||(m.inBy?(scNames[m.inBy]||''):''),hrs:Math.round(h*10)/10,
+      rule:SC_LV[lv][m.inAt?'in':'out'][0].replace(/^[●▲■]\s*/,''),receipts:m.receipts&&SC_RC[m.receipts]?SC_RC[m.receipts][0]:'',amt:m.amount!=null?+m.amount:null,
+      hr:m.hr?'Alerted '+scD(m.hr.at)+(m.hr.mail?' ('+m.hr.mail+')':''):lv==='hr'?'Due':'',notes:m.inNotes||''}; });
+}
+function scRepHead(){
+  const {sel,C,L}=scLogList(), c=sel?C.get(sel):null;
+  const per=scFrom||scTo?(scFrom?scD(scFrom+'T00:00:00+08:00').slice(0,10):'start')+' to '+(scTo?scD(scTo+'T12:00:00+08:00').slice(0,10):'today'):'All dates';
+  const cnt=k=>L.filter(m=>scLvl(scDur(m))===k).length;
+  return {L,title:'Fuel Card In / Out Report',card:c?scRef(c)+(c.vehicle?' · '+c.vehicle:''):'All cards',per,
+    sum:[['Times used',L.length],['Still out',L.filter(m=>!m.inAt).length],['On time (within 24 h)',cnt('ok')],['Grace period (24–48 h)',cnt('grace')],['Late (48–72 h)',cnt('late')],['72 h+ (HR show cause)',cnt('hr')]],
+    rule:'Return rule: within 24 h on time; 24–48 h grace period; past 48 h late; at 72 h HR is alerted for a show cause letter.'};
+}
+const SC_REP_COLS=[['No.','no',5],['Card','card',14],['Taken by','person',22],['Department','dept',16],['Purpose / site','purpose',28],['Authorised by','auth',13],
+  ['Taken out','out',16],['Returned to Finance','in',16],['Received back by','back',14],['Hours out','hrs',8],['Return rule','rule',20],['Receipts','receipts',12],['Spent (RM)','amt',10],['HR alert','hr',18],['Notes','notes',36]];
+async function scRepXlsx(){
+  const R=scRepHead(), rows=scRepRows(R.L), wb=XLSX.utils.book_new();
+  const aoa=[[R.title],['79 Ventures Sdn Bhd / Arabina Eco Tiny Homes Sdn Bhd'],['Card',R.card],['Period (taken out)',R.per],['Generated',scD(new Date().toISOString())],[R.rule],[],
+    ...R.sum,[],SC_REP_COLS.map(c=>c[0]),...rows.map(r=>SC_REP_COLS.map(c=>r[c[1]]==null?'':r[c[1]]))];
+  const ws=XLSX.utils.aoa_to_sheet(aoa); ws['!cols']=SC_REP_COLS.map(c=>({wch:c[2]}));
+  XLSX.utils.book_append_sheet(wb,ws,'Fuel card log');
+  await wefSave('Fuel Card Report '+(R.card==='All cards'?'All cards':R.card.split(' · ')[0])+' '+amIso(new Date())+'.xlsx',new Blob([XLSX.write(wb,{bookType:'xlsx',type:'array'})],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'}));
+}
+async function scRepPdf(){
+  const J=window.jspdf&&window.jspdf.jsPDF; if(!J) throw new Error('The PDF library could not be loaded. Reload the page and try again.');
+  const R=scRepHead(), rows=scRepRows(R.L), doc=new J({orientation:'landscape',unit:'mm',format:'a4'}), X=10, W=277;
+  const cols=[['No.','no',7],['Card','card',20],['Taken by','person',28],['Department','dept',22],['Purpose / site','purpose',38],['Taken out','out',23],['Returned to Finance','in',23],
+    ['Received by','back',20],['Hours','hrs',11],['Return rule','rule',27],['Receipts','receipts',17],['HR alert','hr',41]];
+  let y=14;
+  doc.setFont('helvetica','bold'); doc.setFontSize(13); doc.text(R.title,X,y); y+=6;
+  doc.setFont('helvetica','normal'); doc.setFontSize(9); doc.text('79 Ventures Sdn Bhd / Arabina Eco Tiny Homes Sdn Bhd',X,y); y+=5;
+  doc.text('Card: '+R.card+'     Period (taken out): '+R.per+'     Generated: '+scD(new Date().toISOString()),X,y); y+=5;
+  doc.text(R.sum.map(s=>s[0]+': '+s[1]).join('     '),X,y); y+=5; doc.setFontSize(8); doc.text(R.rule,X,y); y+=6;
+  const head=()=>{ doc.setFont('helvetica','bold'); doc.setFontSize(7.5); doc.setFillColor(230,236,231); doc.rect(X,y-4,W,9,'F'); let x=X; cols.forEach(c=>{ doc.text(doc.splitTextToSize(c[0],c[2]-2),x+1,y); x+=c[2]; }); y+=7; doc.setFont('helvetica','normal'); };
+  head();
+  rows.forEach(r=>{ const cells=cols.map(c=>doc.splitTextToSize(String(r[c[1]]==null?'':r[c[1]]),c[2]-2)), h=Math.max(...cells.map(x=>x.length))*3.2+2;
+    if(y+h>200){ doc.addPage(); y=14; head(); }
+    let x=X; cells.forEach((t,i)=>{ if(i>=9){ const v=String(r[cols[i][1]]||''); if(/72 h|late|Due|Alerted|None|missing/i.test(v)) doc.setTextColor(179,38,30); else if(/grace/i.test(v)) doc.setTextColor(140,90,16); } doc.text(t,x+1,y); doc.setTextColor(0,0,0); x+=cols[i][2]; });
+    y+=h; doc.setDrawColor(215,219,213); doc.line(X,y-1.5,X+W,y-1.5); });
+  if(!rows.length){ doc.text('No card uses in this period.',X,y+2); y+=8; }
+  if(y>180){ doc.addPage(); y=20; } y+=12; doc.setFontSize(9);
+  doc.text('Prepared by,',X,y); doc.text('Checked by (Finance),',X+95,y); doc.text('Acknowledged by (HR),',X+190,y); y+=14;
+  ['.........................................','.........................................','.........................................'].forEach((s,i)=>doc.text(s,X+i*95,y)); y+=5;
+  ['Name :','Name :','Name :'].forEach((s,i)=>doc.text(s,X+i*95,y)); y+=5; ['Date :','Date :','Date :'].forEach((s,i)=>doc.text(s,X+i*95,y));
+  await wefSave('Fuel Card Report '+(R.card==='All cards'?'All cards':R.card.split(' · ')[0])+' '+amIso(new Date())+'.pdf',doc.output('blob'));
+}
 function renderSCCards(){
   const L=(scCards||[]).slice().sort((a,b)=>(a.active===false)-(b.active===false)||String(a.ref||'').localeCompare(String(b.ref||''),undefined,{numeric:true}));
   let h=`<div class="controls" style="margin:6px 0;gap:10px"><button type="button" class="primary" id="scAddCard"${scDbRef?'':' disabled'}>+ Add a card</button><span class="hint">Record the card reference and, if useful, the last 4 digits. Never record the full card number or the PIN here.</span></div>`;
@@ -6443,13 +6501,16 @@ function renderSC(){
   const B=$('tablebox');
   B.querySelectorAll('[data-sct]').forEach(b=>b.addEventListener('click',()=>{ scTab=b.dataset.sct; store.set('consol.scTab',scTab); scMsg=null; renderSC(); }));
   B.querySelectorAll('[data-scout]').forEach(b=>b.addEventListener('click',()=>{ const c=(scCards||[]).find(x=>x.id===b.dataset.scout); scMsg=null;
-    scForm={kind:'out',card:c?c.id:'',person:c&&c.holder||'',vehicle:c&&c.vehicle||'',site:'',purpose:'',outAt:scNowLocal(),err:null}; renderSC(); }));
+    scForm={kind:'out',card:c?c.id:'',person:c&&c.holder||'',dept:'',vehicle:c&&c.vehicle||'',site:'',purpose:'',outAt:scNowLocal(),err:null}; renderSC(); }));
   B.querySelectorAll('[data-scin]').forEach(b=>b.addEventListener('click',()=>{ const m=(scMoves||[]).find(x=>x.id===b.dataset.scin); if(!m) return; scMsg=null;
     scForm={kind:'in',move:m.id,label:scRef(m),inAt:scNowLocal(),receipts:'',amount:'',notes:'',err:null}; renderSC(); }));
   B.querySelectorAll('[data-schist]').forEach(b=>b.addEventListener('click',()=>{ scCardSel=b.dataset.schist; store.set('consol.scCard',scCardSel); scTab='log'; store.set('consol.scTab',scTab); scMsg=null; renderSC(); }));
   B.querySelectorAll('[data-schr]').forEach(b=>b.addEventListener('click',()=>{ const m=(scMoves||[]).find(x=>x.id===b.dataset.schr); if(m) scAlertHR(m); }));
   const fg=$('scFormGo'); if(fg) fg.addEventListener('click',()=>scFormLoad());
   B.querySelectorAll('[data-scskip]').forEach(b=>b.addEventListener('click',()=>scSkipAdd(b.dataset.scskip)));
+  const sf=$('scFrom'), st=$('scTo'); [[sf,'scFrom'],[st,'scTo']].forEach(([el,k])=>{ if(el) el.addEventListener('change',()=>{ if(k==='scFrom') scFrom=el.value; else scTo=el.value; store.set('consol.'+k,el.value); renderSC(); }); });
+  const sx=$('scXl'); if(sx) sx.addEventListener('click',()=>scRepXlsx().catch(e=>{ scMsg=['err',esc((e&&e.message)||String(e))]; renderSC(); }));
+  const sp=$('scPdf'); if(sp) sp.addEventListener('click',()=>scRepPdf().catch(e=>{ scMsg=['err',esc((e&&e.message)||String(e))]; renderSC(); }));
   const cs=$('scCardSel'); if(cs) cs.addEventListener('change',()=>{ scCardSel=cs.value; store.set('consol.scCard',scCardSel); renderSC(); });
   const ac=$('scAddCard'); if(ac) ac.addEventListener('click',()=>{ scMsg=null; scForm={kind:'card',id:null,ref:'',last4:'',vehicle:'',holder:'',co:'79V',limit:'',notes:'',err:null}; renderSC(); });
   B.querySelectorAll('[data-sced]').forEach(b=>b.addEventListener('click',()=>{ const c=(scCards||[]).find(x=>x.id===b.dataset.sced); if(!c) return; scMsg=null;
