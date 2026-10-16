@@ -6212,9 +6212,9 @@ async function scDbInit(){
   try{ scDbRef=await useDb(); }catch(e){ scDbRef=null; }
   if(!scDbRef){ scErr='The fuel card log needs the artifact on claude.ai, or a signed-in account on the Railway site, where it is shared with everyone who opens it.'; if(state.view==='sc') renderSC(); return; }
   const redraw=()=>{ adBadge(); if(state.view==='sc'&&!scForm) renderSC(); };
-  scSub=scDbRef.collection(SC_CARDS).onSnapshot(s=>{ scCards=s.docs.map(d=>({...d.data(),id:d.id})); redraw(); },
+  scSub=scDbRef.collection(SC_CARDS).onSnapshot(s=>{ scCards=s.docs.map(d=>({...d.data(),id:d.id})); scMerge(); redraw(); },
     e=>{ scErr='Could not read the fuel cards ('+esc(e&&e.code||'error')+').'; redraw(); });
-  scDbRef.collection(SC_MOVES).onSnapshot(s=>{ scMoves=s.docs.map(d=>({...d.data(),id:d.id})); scResolve(); redraw(); },
+  scDbRef.collection(SC_MOVES).onSnapshot(s=>{ scDbMoves=s.docs.map(d=>({...d.data(),id:d.id})); scMerge(); scResolve(); redraw(); },
     e=>{ scErr='Could not read the log ('+esc(e&&e.code||'error')+').'; redraw(); });
 }
 async function scResolve(){
@@ -6273,7 +6273,7 @@ const scHt=h=>h<48?(Math.round(h*10)/10)+' h':Math.floor(h/24)+' d '+Math.round(
 // Every use that reached 72 hours and has not been reported to HR yet.
 const scHrDue=()=>(scMoves||[]).filter(m=>scLvl(scDur(m))==='hr'&&!m.hr);
 let scCardSel=store.get('consol.scCard')||'', scCfg=null;
-function scCfgInit(){ if(!scDbRef||scCfg) return; scCfg={hr:''}; scDbRef.doc('fuelcfg/alerts').onSnapshot(s=>{ scCfg=s.exists?{hr:'',...s.data()}:{hr:''}; if(state.view==='sc'&&!scForm) renderSC(); },()=>{}); }
+function scCfgInit(){ if(!scDbRef||scCfg) return; scCfg={hr:''}; scDbRef.doc('fuelcfg/form').onSnapshot(s=>{ scSkip=s.exists?(s.data().skip||[]):[]; scMerge(); adBadge(); if(state.view==='sc'&&!scForm) renderSC(); },()=>{}); scDbRef.doc('fuelcfg/alerts').onSnapshot(s=>{ scCfg=s.exists?{hr:'',...s.data()}:{hr:''}; if(state.view==='sc'&&!scForm) renderSC(); },()=>{}); }
 // Alert HR: emails the HR addresses from the viewer's own Gmail when they are set, and stamps the use
 // with who reported it and when, so it is reported once and the log shows it.
 async function scAlertHR(m){
@@ -6289,7 +6289,7 @@ async function scAlertHR(m){
         body:'Fuel card '+scRef(m)+' checked out to '+m.person+' on '+dt(Date.parse(m.outAt))+' was out '+scHt(h)+'. Per the SOP (return within 24 h, grace to 48 h), at 72 h HR is to issue a show cause letter.'},{cache:false}); hr.mail=to.join(', '); }
     catch(e){ hr.mailErr=(e&&e.code)||'error'; }
   } else if(to.length) hr.mailErr='email is sent only from the claude.ai artifact';
-  try{ await scDbRef.collection(SC_MOVES).doc(m.id).update({hr}); scMsg=['ok','HR alert recorded for <b>'+esc(m.person)+'</b> ('+esc(scRef(m))+')'+(hr.mail?', email sent to '+esc(hr.mail):hr.mailErr?'; the email could not be sent ('+esc(hr.mailErr)+'), tell HR directly':'; no HR email set, tell HR directly')+'.']; }
+  try{ const {id:_id,...rest}=m; await scDbRef.collection(SC_MOVES).doc(m.id).set({...rest,hr}); scMsg=['ok','HR alert recorded for <b>'+esc(m.person)+'</b> ('+esc(scRef(m))+')'+(hr.mail?', email sent to '+esc(hr.mail):hr.mailErr?'; the email could not be sent ('+esc(hr.mailErr)+'), tell HR directly':'; no HR email set, tell HR directly')+'.']; }
   catch(e){ scMsg=['err',scFail(e)]; }
   scBusy=false; renderSC();
 }
@@ -6341,6 +6341,85 @@ function renderSCLog(){
       <td style="white-space:nowrap">${scHt(scDur(m))}${m.inAt?'':'<span class="note">so far</span>'}</td><td>${scChip(m)}</td>
       <td class="${rc?rc[1]:''}" style="white-space:nowrap">${rc?rc[0]:'–'}${m.inNotes?`<span class="note">${esc(m.inNotes)}</span>`:''}</td><td class="r">${m.amount!=null?fmt(m.amount):'–'}</td><td style="white-space:nowrap">${hr}</td></tr>`; }).join('')}</table></div>`;
 }
+// ----- Shell card holder Google Form: its responses become the log, read live each time -----
+// Staff fill the form when they take a card and again (or the same row) when it comes back. Each
+// response is turned into a check-out; a response with a return date closes that person's open use of
+// the card, or is a use returned that day. A response with no return date while someone else still has
+// the card means the first one came back unrecorded: it is closed at the next check-out, and says so.
+// Moves saved in this artifact (check-ins, HR alerts) override the one from the form with the same id.
+const SC_FORM='1c257rqN7p5cCS_G-r3s5_1ekheFlzIN_dyMfZT1AO6Q';
+let scDbMoves=null, scFormRows=null, scFormMoves=[], scFormOdd=[], scFormErr=null, scFormBusy=false, scFormTried=false, scFormAt=null, scSkip=null;
+const scCardKey=s=>{ const m=String(s||'').match(/(card|diesel)\s*-?\s*0*(\d+)/i); return m?m[1].toLowerCase()+m[2]:''; };
+const scWho1=s=>String(s||'').toLowerCase().replace(/[^a-z ]/g,' ').split(/\s+/).filter(w=>w.length>2&&!['bin','binti','bt','mohd','mohamad','muhammad','nur','siti'].includes(w));
+const scSame=(a,b)=>{ const A=scWho1(a), B=scWho1(b); return A.some(x=>B.includes(x)); };
+function scMyt(y,mo,d,h,mi,s){ return new Date(Date.UTC(y,mo-1,d,h||0,mi||0,s||0)-8*36e5).toISOString(); }
+function scFormDate(v,end){
+  if(v==null||v==='') return null;
+  if(typeof v==='number'){ const x=XLSX.SSF.parse_date_code(v); if(!x) return null; return end&&!(x.H||x.M)?scMyt(x.y,x.m,x.d,23,59,0):scMyt(x.y,x.m,x.d,x.H,x.M,Math.floor(x.S||0)); }
+  const m=String(v).trim().match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/); if(!m) return null;
+  return m[4]==null&&end?scMyt(+m[3],+m[2],+m[1],23,59,0):scMyt(+m[3],+m[2],+m[1],+(m[4]||0),+(m[5]||0),+(m[6]||0));
+}
+function scFormParse(wb){
+  const sh=wb.SheetNames.find(n=>/responses/i.test(n))||wb.SheetNames[0], A=XLSX.utils.sheet_to_json(wb.Sheets[sh],{header:1,raw:true,defval:''});
+  const hi=A.findIndex(r=>r.some(c=>/^timestamp$/i.test(String(c).trim()))); if(hi<0) throw {code:'tool_error',message:'The form responses tab has no Timestamp column.'};
+  const H=A[hi].map(c=>String(c).trim()), col=re=>H.findIndex(h=>re.test(h));
+  const c={no:col(/^form$/i),ts:col(/^timestamp$/i),name:col(/name|pic/i),dept:col(/department/i),purp:col(/purpose|site/i),card:col(/card number|shell card/i),auth:col(/^au(t)?horizor$/i),back:col(/received back/i),ret:col(/date return/i)};
+  return A.slice(hi+1).map((r,i)=>({row:hi+2+i,no:String(r[c.no]||'').trim(),ts:scFormDate(r[c.ts]),name:String(r[c.name]||'').trim(),dept:String(r[c.dept]||'').trim(),
+    purp:String(r[c.purp]||'').trim(),card:String(r[c.card]||'').trim(),auth:String(r[c.auth]||'').trim(),back:c.back>=0?String(r[c.back]||'').trim():'',ret:c.ret>=0?scFormDate(r[c.ret],true):null}))
+    .filter(r=>r.ts&&r.name);
+}
+function scFormBuild(){
+  scFormMoves=[]; scFormOdd=[]; if(!scFormRows||!scCards) return;
+  const byKey=new Map(); (scCards||[]).forEach(c=>{ const k=scCardKey(c.ref); if(k) byKey.set(k,c); });
+  const skip=new Set((scSkip||[]).map(String)), open=new Map();
+  const id=r=>'form-'+(r.no||('r'+r.row)), dd=s=>dt(Date.parse(s));
+  scFormRows.slice().sort((a,b)=>a.ts<b.ts?-1:1).forEach(r=>{
+    if(skip.has(r.no)||skip.has('r'+r.row)||/^test/i.test(r.purp)) return;
+    const c=byKey.get(scCardKey(r.card)); if(!c){ scFormOdd.push(r); return; }
+    const o=open.get(c.id), mk=()=>({id:id(r),card:c.id,ref:scRef(c),last4:c.last4||'',person:r.name,vehicle:'',site:r.purp,
+      purpose:[r.dept,r.auth?'authorised by '+r.auth:'','form '+(r.no||'row '+r.row)].filter(Boolean).join(' · '),outAt:r.ts,outBy:null,inAt:null,inBy:null,receipts:null,amount:null,inNotes:'',src:'form'});
+    if(r.ret){
+      if(o&&scSame(o.person,r.name)){ o.inAt=r.ret.slice(0,10)===r.ts.slice(0,10)||r.ret<r.ts?r.ts:r.ret; o.inNotes='Returned'+(r.back?', received back by '+r.back:'')+' (form '+(r.no||'row '+r.row)+').'; open.delete(c.id); return; }
+      if(o){ o.inAt=r.ts; o.inNotes='No return recorded in the form; the card was next taken out '+dd(r.ts)+', so it was back by then.'; }
+      const m=mk(); m.inAt=r.ret<r.ts?r.ts:r.ret; m.inNotes='Returned'+(r.back?', received back by '+r.back:'')+'. Return time not recorded in the form.'; scFormMoves.push(m); open.delete(c.id); return; }
+    if(o&&scSame(o.person,r.name)) return;   // the same person sending the form again
+    if(o){ o.inAt=r.ts; o.inNotes='No return recorded in the form; the card was next taken out '+dd(r.ts)+', so it was back by then.'; }
+    const m=mk(); scFormMoves.push(m); open.set(c.id,m);
+  });
+}
+function scMerge(){
+  scFormBuild();
+  if(scDbMoves==null) return;
+  const D=new Map(scDbMoves.map(m=>[m.id,m]));
+  scMoves=scFormMoves.map(m=>D.has(m.id)?{...m,...D.get(m.id)}:m).concat(scDbMoves.filter(m=>!scFormMoves.some(x=>x.id===m.id)));
+}
+async function scFormLoad(){
+  if(scFormBusy) return; scFormBusy=true; scFormTried=true; scFormErr=null; if(state.view==='sc'&&!scForm) renderSC();
+  try{
+    let u8;
+    if(mcp){ const r=await mcp.callTool(SERVER,'download_file_content',{fileId:SC_FORM,exportMimeType:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'},{cache:false});
+      const p=payloadOf(r)||{}, b64=p.content||p.data; if(!b64) throw {code:'tool_error',message:'The form responses sheet came back empty from Google Drive.'};
+      const bin=atob(b64); u8=new Uint8Array(bin.length); for(let i=0;i<bin.length;i++) u8[i]=bin.charCodeAt(i); }
+    else if(MODE==='web'){ const r=await fetch('/api/fuel-form.xlsx',{cache:'no-store'});
+      if(!r.ok){ let j=null; try{ j=await r.json(); }catch(e){} throw {code:'tool_error',message:j&&j.error==='not_shared'?'The Shell card holder form sheet is not shared "anyone with the link", so this server cannot read it.':'The server could not read the form sheet (HTTP '+r.status+').'}; }
+      u8=new Uint8Array(await r.arrayBuffer()); }
+    else throw {code:'not_granted',message:'Reading the form needs the artifact on claude.ai.'};
+    scFormRows=scFormParse(XLSX.read(u8,{type:'array',cellFormula:false,cellStyles:false})); scFormAt=Date.now();
+  }catch(e){ scFormErr=e&&e.code==='not_granted'?esc(e.message):qdErr(e); }
+  scFormBusy=false; scMerge(); adBadge(); if(state.view==='sc'&&!scForm) renderSC();
+}
+function scFormHTMLBar(){
+  const n=scFormRows?scFormRows.length:0;
+  let h=`<div class="controls" style="margin:6px 0;gap:10px;flex-wrap:wrap;align-items:center"><button type="button" id="scFormGo"${scFormBusy?' disabled':''}>${scFormBusy?'Reading the form…':'Reload form responses'}</button>
+    <span class="hint">From the Google Form <a href="https://docs.google.com/spreadsheets/d/${SC_FORM}/edit" target="_blank" rel="noopener"><i>Responsed on Shell Card Holder</i></a>${scFormAt?`: ${n} response(s), read ${dt(scFormAt)}`:''}. New responses appear here on their own.</span></div>`;
+  if(scFormErr) h+=`<div class="msg err" style="margin:6px 0">${scFormErr}</div>`;
+  if(scFormOdd.length) h+=`<div class="msg" style="margin:6px 0;border-color:#b7791f"><b>▲ ${scFormOdd.length} form response(s) name a card that is not in the register</b>, so they are not in the log. Add the card under <b>Cards</b> (the number after CARD or DIESEL must match), or ignore the response.
+    <table class="tc" style="margin-top:6px;max-width:900px"><tr class="sub"><td>Form</td><td>Date</td><td>Name</td><td>Card written</td><td>Purpose</td><td></td></tr>
+    ${scFormOdd.map(r=>`<tr><td>${esc(r.no||'row '+r.row)}</td><td>${dt(Date.parse(r.ts))}</td><td>${esc(r.name)}</td><td><b>${esc(r.card||'–')}</b></td><td>${esc(r.purp)}</td><td><button type="button" data-scskip="${esc(r.no||'r'+r.row)}"${scDbRef?'':' disabled'}>Ignore</button></td></tr>`).join('')}</table></div>`;
+  return h;
+}
+async function scSkipAdd(k){ if(!scDbRef) return; const L=[...new Set([...(scSkip||[]),k])];
+  try{ await scDbRef.doc('fuelcfg/form').set({skip:L}); }catch(e){ scMsg=['err',scFail(e)]; renderSC(); } }
 function renderSCCards(){
   const L=(scCards||[]).slice().sort((a,b)=>(a.active===false)-(b.active===false)||String(a.ref||'').localeCompare(String(b.ref||''),undefined,{numeric:true}));
   let h=`<div class="controls" style="margin:6px 0;gap:10px"><button type="button" class="primary" id="scAddCard"${scDbRef?'':' disabled'}>+ Add a card</button><span class="hint">Record the card reference and, if useful, the last 4 digits. Never record the full card number or the PIN here.</span></div>`;
@@ -6351,12 +6430,13 @@ function renderSCCards(){
 }
 function renderSC(){
   if(state.view!=='sc') return;
-  scDbInit(); scCfgInit();
+  scDbInit(); scCfgInit(); if(!scFormTried&&(mcp||MODE==='web')) setTimeout(scFormLoad,0);
   const tabs=`<div class="seg" role="group" aria-label="Fuel Card Log" style="margin:14px 18px 0">${[['now','Cards now'],['log','In / out history'],['cards','Cards']].map(([k,l])=>`<button type="button" data-sct="${k}" aria-pressed="${scTab===k}">${l}</button>`).join('')}</div>`;
   let h=`<div class="stmt"><h3>FUEL CARD LOG</h3><p class="sub2">Shell Fleet (Radius) cards: who took each card, for which company vehicle and site, when it came back, and whether the receipts were handed in. Per the internal memo of 5 October 2026, cards are for company vehicles on site work only.</p>`+SC_RULES;
   if(scErr) h+=`<div class="msg" style="margin:8px 0;border-color:#b7791f">${scErr}</div>`;
   if(scMsg) h+=`<div class="msg ${scMsg[0]}" style="margin:8px 0">${scMsg[1]}</div>`;
   if(scForm) h+=scFormHTML();
+  h+=scFormHTMLBar();
   if(scMoves) h+=scHrHTML();
   h+=(scErr&&!scDbRef)?'':(scCards==null||scMoves==null)?'<p class="hint">Reading the log…</p>':scTab==='log'?renderSCLog():scTab==='cards'?renderSCCards():renderSCNow();
   $('tablebox').innerHTML=tabs+h+'</div>';
@@ -6368,6 +6448,8 @@ function renderSC(){
     scForm={kind:'in',move:m.id,label:scRef(m),inAt:scNowLocal(),receipts:'',amount:'',notes:'',err:null}; renderSC(); }));
   B.querySelectorAll('[data-schist]').forEach(b=>b.addEventListener('click',()=>{ scCardSel=b.dataset.schist; store.set('consol.scCard',scCardSel); scTab='log'; store.set('consol.scTab',scTab); scMsg=null; renderSC(); }));
   B.querySelectorAll('[data-schr]').forEach(b=>b.addEventListener('click',()=>{ const m=(scMoves||[]).find(x=>x.id===b.dataset.schr); if(m) scAlertHR(m); }));
+  const fg=$('scFormGo'); if(fg) fg.addEventListener('click',()=>scFormLoad());
+  B.querySelectorAll('[data-scskip]').forEach(b=>b.addEventListener('click',()=>scSkipAdd(b.dataset.scskip)));
   const cs=$('scCardSel'); if(cs) cs.addEventListener('change',()=>{ scCardSel=cs.value; store.set('consol.scCard',scCardSel); renderSC(); });
   const ac=$('scAddCard'); if(ac) ac.addEventListener('click',()=>{ scMsg=null; scForm={kind:'card',id:null,ref:'',last4:'',vehicle:'',holder:'',co:'79V',limit:'',notes:'',err:null}; renderSC(); });
   B.querySelectorAll('[data-sced]').forEach(b=>b.addEventListener('click',()=>{ const c=(scCards||[]).find(x=>x.id===b.dataset.sced); if(!c) return; scMsg=null;

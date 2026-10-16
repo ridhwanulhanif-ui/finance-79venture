@@ -29,6 +29,8 @@ const FC_ID = process.env.FORECAST_FILE_ID || "1dGsuzK1g5KOAVNdWNm6yf5BI3ETMQEpD
 const WEF_ID = process.env.WEF_FILE_ID || "1X5wNONJuO2zK0hijpqpXqMpL7QOhVeRT72hWstN1spE";
 // The asset master data workbook (Asset Register and Category Rates tabs) for Asset Management.
 const ASSETS_ID = process.env.ASSETS_FILE_ID || "1L3S_2owmKweiF0ctIf9zgW8fW1KERoi3";
+// Responses of the Shell card holder Google Form, read by the Fuel Card Log.
+const FUEL_FORM_ID = process.env.FUEL_FORM_FILE_ID || "1c257rqN7p5cCS_G-r3s5_1ekheFlzIN_dyMfZT1AO6Q";
 const CACHE_MS = 60_000;
 const caches = new Map();
 
@@ -67,7 +69,7 @@ async function fetchWorkbook(id) {
 // key picks the id from the table above, never from the request, so a caller cannot steer the
 // fetch at some other Drive file.
 async function serveWorkbook(res, key) {
-  const id = key === "consol" ? FILE_ID : key === "fc" ? FC_ID : key === "wef" ? WEF_ID : key === "am" ? ASSETS_ID : CF_IDS[key];
+  const id = key === "consol" ? FILE_ID : key === "fc" ? FC_ID : key === "wef" ? WEF_ID : key === "am" ? ASSETS_ID : key === "fuel" ? FUEL_FORM_ID : CF_IDS[key];
   if (!id) {
     res.writeHead(404, { "Content-Type": "application/json; charset=utf-8" });
     res.end(JSON.stringify({ error: "unknown_workbook" }));
@@ -273,6 +275,7 @@ const server = http.createServer(async (req, res) => {
     "/api/forecast.xlsx": "fc",
     "/api/explanation-forms.xlsx": "wef",
     "/api/assets.xlsx": "am",
+    "/api/fuel-form.xlsx": "fuel",
   };
   if (WORKBOOK_ROUTES[urlPath]) {
     serveWorkbook(res, WORKBOOK_ROUTES[urlPath]);
