@@ -58,6 +58,20 @@ finance checks them and saves. Saved assets, edits and disposals live in the art
 workbook rows (same Asset ID = edit of that row). **Download master data (Excel)** gives the combined register in the
 workbook's layout. On Railway the section is read-only.
 
+## Admin and Fuel Card Log
+
+The **Admin** section holds the admin team's recurring tasks (payroll, statutory payments, tax, bank, filings) and the
+**Fuel Card Log**: who took each Shell Fleet card, when it came back and whether the receipts were handed in. A card
+returned within 24 hours is on time, 24–48 hours is the grace period, past 48 hours it is late, and at 72 hours HR is
+alerted for a show cause letter.
+
+- On claude.ai both live in the artifact's database.
+- On Railway they live in `store.json` under `DATA_DIR` (default `./data`, git-ignored), through `/api/store/…`.
+  **Attach a Railway volume and set `DATA_DIR` to its mount path** (e.g. `/data`), or every deploy starts the list
+  empty. The store answers only when sign-in is on (`AUTH_USERS` set), and records who made each change.
+- The two are separate: ticks and card moves made on claude.ai do not appear on Railway, and the other way round.
+- The HR alert emails from the viewer's Gmail only on claude.ai; on Railway it is recorded in the log only.
+
 ## Deploy the Apps Script web app
 
 Deploy from a **`@79ventures.biz` account** — a personal gmail account has no Workspace domain, so the domain restriction
